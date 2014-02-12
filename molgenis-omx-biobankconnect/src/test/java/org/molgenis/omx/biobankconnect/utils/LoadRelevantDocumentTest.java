@@ -75,9 +75,9 @@ public class LoadRelevantDocumentTest
 		listOfHits_3.add(new Hit("8", "type-1", "link8", map8));
 
 		StoreRelevantDocuments storeRelevantDocument_1 = new StoreRelevantDocuments();
-		storeRelevantDocument_1.addRecord("Prevend", listOfHits_1);
-		storeRelevantDocument_1.addRecord("NCDS", listOfHits_2);
-		storeRelevantDocument_1.addRecord("HUNT", listOfHits_3);
+		storeRelevantDocument_1.addAllRecords("Prevend", listOfHits_1);
+		storeRelevantDocument_1.addAllRecords("NCDS", listOfHits_2);
+		storeRelevantDocument_1.addAllRecords("HUNT", listOfHits_3);
 
 		List<Object> listOfHits_4 = new ArrayList<Object>();
 
@@ -90,7 +90,7 @@ public class LoadRelevantDocumentTest
 		listOfHits_4.add(new Hit("10", "type-1", "link10", map10));
 
 		StoreRelevantDocuments storeRelevantDocument_2 = new StoreRelevantDocuments();
-		storeRelevantDocument_2.addRecord("Prevend", listOfHits_4);
+		storeRelevantDocument_2.addAllRecords("Prevend", listOfHits_4);
 
 		retrievedDocuments.put("LAB_TRIG", storeRelevantDocument_1);
 		retrievedDocuments.put("PARENTAL_DIABETES", storeRelevantDocument_2);

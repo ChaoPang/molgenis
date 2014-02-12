@@ -1,5 +1,6 @@
 package org.molgenis.omx.biobankconnect.utils;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -17,7 +18,19 @@ public class StoreRelevantDocuments
 		biobankRelevantDocuments = new HashMap<String, List<Object>>();
 	}
 
-	public void addRecord(String biobankName, List<Object> relevantDocuments)
+	public void addSingleRecord(String biobankName, Object relevantDocument)
+	{
+		if (!biobankRelevantDocuments.containsKey(biobankName))
+		{
+			biobankRelevantDocuments.put(biobankName, new ArrayList<Object>());
+		}
+		if (!biobankRelevantDocuments.get(biobankName).contains(relevantDocument))
+		{
+			biobankRelevantDocuments.get(biobankName).add(relevantDocument);
+		}
+	}
+
+	public void addAllRecords(String biobankName, List<Object> relevantDocuments)
 	{
 		biobankRelevantDocuments.put(biobankName, relevantDocuments);
 	}

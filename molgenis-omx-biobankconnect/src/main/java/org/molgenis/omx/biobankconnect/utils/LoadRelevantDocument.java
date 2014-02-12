@@ -21,13 +21,6 @@ public class LoadRelevantDocument
 
 	private final Map<String, StoreRelevantDocuments> map = new HashMap<String, StoreRelevantDocuments>();
 
-	public static void main(String args[]) throws FileNotFoundException, IOException
-	{
-		String folderPath = "/Users/chaopang/Desktop/Variables_result/Relevant-Documents/test/Archive.zip";
-		File folder = new File(folderPath);
-		new LoadRelevantDocument(folder);
-	}
-
 	public Map<String, StoreRelevantDocuments> getMapForRelevantDocuments()
 	{
 		return map;
@@ -40,8 +33,20 @@ public class LoadRelevantDocument
 			for (File file : ZipFileUtil.unzip(folder))
 			{
 				if (file.isDirectory() || file.getName().matches("^\\._.+")) continue;
-				ExcelReader excelReader = new ExcelReader(file);
-				processEachExcelFile(removeExcelSuffix(file.getName()), excelReader);
+				ExcelReader excelReader = null;
+				try
+				{
+					excelReader = new ExcelReader(file);
+					processEachExcelFile(removeExcelSuffix(file.getName()), excelReader);
+				}
+				catch (Exception e)
+				{
+					e.printStackTrace();
+				}
+				finally
+				{
+					if (excelReader != null) excelReader.close();
+				}
 			}
 		}
 	}
@@ -75,7 +80,8 @@ public class LoadRelevantDocument
 				if (row.isNull(FIELD_NAME)) continue;
 				relevantDocuments.add(row.get(FIELD_NAME).toString());
 			}
-			storeRelevantDocuments.addRecord(tableName, relevantDocuments);
+			storeRelevantDocuments.addAllRecords(tableName, relevantDocuments);
+			excelSheetReader.close();
 		}
 		map.put(variableName, storeRelevantDocuments);
 	}
