@@ -1,13 +1,21 @@
 package org.molgenis.omx.biobankconnect.utils;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.molgenis.io.excel.ExcelReader;
 import org.molgenis.io.excel.ExcelSheetReader;
+import org.molgenis.io.excel.ExcelSheetWriter;
+import org.molgenis.io.excel.ExcelWriter;
+import org.molgenis.io.excel.ExcelWriter.FileFormat;
+import org.molgenis.util.tuple.KeyValueTuple;
 import org.molgenis.util.tuple.Tuple;
 
 public class LoadRetrievedDocument
@@ -103,8 +111,34 @@ public class LoadRetrievedDocument
 		return retrievedDocuments;
 	}
 
-	public void setRetrievedDocuments(Map<String, StoreRelevantDocuments> retrievedDocuments)
+	public static void main(String args[]) throws FileNotFoundException, IOException
 	{
-		this.retrievedDocuments = retrievedDocuments;
+		String featureFilePath = "/Users/chaopang/Desktop/Variables_result/Evaluation/Retrieved-Documents/observableFeature.xlsx";
+		String retrievedDocumentsPath = "/Users/chaopang/Desktop/Variables_result/Evaluation/Retrieved-Documents/RetrievedMappings.xlsx";
+		LoadRetrievedDocument loadRetrievedDocument = new LoadRetrievedDocument(new File(featureFilePath), new File(
+				retrievedDocumentsPath));
+		String outputDirecotry = "/Users/chaopang/Desktop/Variables_result/Evaluation/output/";
+		for (Entry<String, StoreRelevantDocuments> entry : loadRetrievedDocument.getRetrievedDocuments().entrySet())
+		{
+			String featureName = entry.getKey();
+			StoreRelevantDocuments storeRelevantDocuments = entry.getValue();
+			ExcelWriter excelWriter = new ExcelWriter(new File(outputDirecotry + featureName + ".xlsx"),
+					FileFormat.XLSX);
+
+			for (Entry<String, List<Object>> mappings : storeRelevantDocuments.getAllRelevantDocuments())
+			{
+				String biobankName = mappings.getKey();
+				ExcelSheetWriter excelSheetWriter = (ExcelSheetWriter) excelWriter.createTupleWriter(biobankName);
+				excelSheetWriter.writeColNames(Arrays.asList("Name"));
+				for (Object eachMapping : mappings.getValue())
+				{
+					KeyValueTuple tuple = new KeyValueTuple();
+					tuple.set("Name", eachMapping.toString());
+					excelSheetWriter.write(tuple);
+				}
+				excelSheetWriter.close();
+			}
+			excelWriter.close();
+		}
 	}
 }

@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -88,16 +89,22 @@ public class CalculateIRMetrics
 
 	public static void main(String args[]) throws FileNotFoundException, IOException
 	{
-		String relevantDocumentZipFile = "/Users/chaopang/Desktop/Variables_result/Relevant-Documents/test/Archive.zip";
-		String featureFilePath = "/Users/chaopang/Desktop/Variables_result/Relevant-Documents/observableFeature.xlsx";
-		String retrievedDocumentsPath = "/Users/chaopang/Desktop/Variables_result/Relevant-Documents/RetrievedMappings.xlsx";
+		String relevantDocumentZipFile = "/Users/chaopang/Desktop/Variables_result/Evaluation/test/Archive.zip";
+		String featureFilePath = "/Users/chaopang/Desktop/Variables_result/Evaluation/Retrieved-Documents/observableFeature.xlsx";
+		String retrievedDocumentsPath = "/Users/chaopang/Desktop/Variables_result/Evaluation/Retrieved-Documents/RetrievedMappings.xlsx";
 		LoadRelevantDocument loadRelevantDocument = new LoadRelevantDocument(new File(relevantDocumentZipFile));
 		LoadRetrievedDocument loadRetrievedDocument = new LoadRetrievedDocument(new File(featureFilePath), new File(
 				retrievedDocumentsPath));
 		CalculateIRMetrics calculateIRMetrics = new CalculateIRMetrics();
-		calculateIRMetrics.processRetrievedData(loadRetrievedDocument.getRetrievedDocuments(),
-				loadRelevantDocument.getMapForRelevantDocuments(), 5);
-		System.out.println("The precision is : " + calculateIRMetrics.calculatePrecision());
-		System.out.println("The recall is : " + calculateIRMetrics.calculateRecall());
+		DecimalFormat df = new DecimalFormat("#.##");
+		System.out.println("Threshold\tPrecision\tRecall");
+		for (int i = 1; i < 11; i++)
+		{
+			calculateIRMetrics.processRetrievedData(loadRetrievedDocument.getRetrievedDocuments(),
+					loadRelevantDocument.getMapForRelevantDocuments(), i);
+			System.out.print(i + "\t");
+			System.out.print(df.format(calculateIRMetrics.calculatePrecision()) + "\t");
+			System.out.print(df.format(calculateIRMetrics.calculateRecall()) + "\n");
+		}
 	}
 }
