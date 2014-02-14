@@ -22,8 +22,9 @@ public class LoadRetrievedDocument
 {
 	private Map<String, String> featureMapping;
 	private Map<String, StoreRelevantDocuments> retrievedDocuments;
+	private final List<Integer> excludedFeatures = Arrays.asList(86, 102, 104, 112, 115, 116, 117, 118, 124);
 
-	public LoadRetrievedDocument(File featureFile, File mappingFile) throws IOException
+	public LoadRetrievedDocument(File featureFile, File mappingFile, List<String> biobankNames) throws IOException
 	{
 		featureMapping = new HashMap<String, String>();
 		retrievedDocuments = new HashMap<String, StoreRelevantDocuments>();
@@ -31,7 +32,7 @@ public class LoadRetrievedDocument
 		if (mappingFile.exists() && featureFile.exists())
 		{
 			processFeature(featureFile);
-			processRetrievedDocument(mappingFile);
+			processRetrievedDocument(mappingFile, biobankNames);
 		}
 	}
 
@@ -60,7 +61,7 @@ public class LoadRetrievedDocument
 		}
 	}
 
-	private void processRetrievedDocument(File file) throws IOException
+	private void processRetrievedDocument(File file, List<String> biobankNames) throws IOException
 	{
 		ExcelReader excelReader = null;
 
@@ -70,6 +71,7 @@ public class LoadRetrievedDocument
 
 			for (String tableName : excelReader.getTableNames())
 			{
+				if (biobankNames != null && !biobankNames.contains(tableName)) continue;
 				ExcelSheetReader excelSheetReader = excelReader.getSheet(tableName);
 				proceessEachExcelSheet(tableName, excelSheetReader);
 				excelSheetReader.close();
@@ -91,6 +93,7 @@ public class LoadRetrievedDocument
 		while (iterator.hasNext())
 		{
 			Tuple row = iterator.next();
+			if (excludedFeatures.contains(row.getInt("Features"))) continue;
 			String featureName = featureMapping.get(row.getString("Features"));
 			String mappedFeatureName = featureMapping.get(row.getString("Mapped features"));
 			if (featureName == null || mappedFeatureName == null)
@@ -116,7 +119,7 @@ public class LoadRetrievedDocument
 		String featureFilePath = "/Users/chaopang/Desktop/Variables_result/Evaluation/Retrieved-Documents/observableFeature.xlsx";
 		String retrievedDocumentsPath = "/Users/chaopang/Desktop/Variables_result/Evaluation/Retrieved-Documents/RetrievedMappings.xlsx";
 		LoadRetrievedDocument loadRetrievedDocument = new LoadRetrievedDocument(new File(featureFilePath), new File(
-				retrievedDocumentsPath));
+				retrievedDocumentsPath), null);
 		String outputDirecotry = "/Users/chaopang/Desktop/Variables_result/Evaluation/output/";
 		for (Entry<String, StoreRelevantDocuments> entry : loadRetrievedDocument.getRetrievedDocuments().entrySet())
 		{

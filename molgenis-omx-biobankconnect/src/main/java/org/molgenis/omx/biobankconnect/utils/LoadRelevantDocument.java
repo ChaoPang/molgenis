@@ -15,9 +15,12 @@ import org.molgenis.io.excel.ExcelReader;
 import org.molgenis.io.excel.ExcelSheetReader;
 import org.molgenis.util.tuple.Tuple;
 
+import com.google.common.collect.Lists;
+
 public class LoadRelevantDocument
 {
 	public final static String FIELD_NAME = "Name";
+	public final static String FIELD_IDENTIFIER = "Identifier";
 
 	private final Map<String, StoreRelevantDocuments> map = new HashMap<String, StoreRelevantDocuments>();
 
@@ -66,24 +69,46 @@ public class LoadRelevantDocument
 		}
 	}
 
-	private void processEachExcelFile(String variableName, ExcelReader excelReader) throws IOException
+	public List<String> getAllInvolvedBiobankNames()
 	{
-		StoreRelevantDocuments storeRelevantDocuments = new StoreRelevantDocuments();
-		for (String tableName : excelReader.getTableNames())
+		List<String> biobankNames = new ArrayList<String>();
+		for (StoreRelevantDocuments document : map.values())
 		{
-			ExcelSheetReader excelSheetReader = excelReader.getSheet(tableName);
-			Iterator<Tuple> iterator = excelSheetReader.iterator();
-			List<Object> relevantDocuments = new ArrayList<Object>();
-			while (iterator.hasNext())
-			{
-				Tuple row = iterator.next();
-				if (row.isNull(FIELD_NAME)) continue;
-				relevantDocuments.add(row.get(FIELD_NAME).toString());
-			}
-			storeRelevantDocuments.addAllRecords(tableName, relevantDocuments);
-			excelSheetReader.close();
+			biobankNames.addAll(document.getAllBiobankNames());
+			break;
 		}
-		map.put(variableName, storeRelevantDocuments);
+		return biobankNames;
+	}
+
+	private void processEachExcelFile(String biobankName, ExcelReader excelReader) throws IOException
+	{
+		ExcelSheetReader excelSheetReader = excelReader.getSheet(0);
+		List<String> columnHeaders = Lists.newArrayList(excelSheetReader.colNamesIterator());
+		Iterator<Tuple> iterator = excelSheetReader.iterator();
+		while (iterator.hasNext())
+		{
+			Tuple row = iterator.next();
+			if (row.isNull(FIELD_NAME)) continue;
+			for (String eachHeader : columnHeaders)
+			{
+				if (eachHeader.equalsIgnoreCase(FIELD_NAME) || eachHeader.equalsIgnoreCase(FIELD_IDENTIFIER)) continue;
+				Integer isRevelant = row.getInt(eachHeader);
+				if (isRevelant == 1)
+				{
+					String desiredDataElement = extractVariableName(eachHeader);
+					String relevantDataElement = extractVariableName(row.getString(FIELD_NAME));
+
+					if (!map.containsKey(desiredDataElement)) map.put(desiredDataElement, new StoreRelevantDocuments());
+					map.get(desiredDataElement).addSingleRecord(biobankName, relevantDataElement);
+				}
+			}
+		}
+		excelSheetReader.close();
+	}
+
+	private String extractVariableName(String variableNameDescription)
+	{
+		return variableNameDescription.split(":")[0].trim();
 	}
 
 	private String removeExcelSuffix(String variableName)

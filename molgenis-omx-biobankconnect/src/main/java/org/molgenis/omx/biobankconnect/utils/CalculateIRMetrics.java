@@ -28,11 +28,29 @@ public class CalculateIRMetrics
 		return new BigDecimal(retrievedRelevantDocuments.doubleValue() / totalRelevantDocuments.doubleValue());
 	}
 
-	public void processRetrievedData(Map<String, StoreRelevantDocuments> retrievedDocuments,
+	public void processData(Map<String, StoreRelevantDocuments> retrievedDocuments,
 			Map<String, StoreRelevantDocuments> relevantDocuments, int threshold)
 	{
+		totalRelevantDocuments.set(0);
+		totalRetrievedDocuments.set(0);
+		retrievedRelevantDocuments.set(0);
 		totalRelevantDocuments.addAndGet(countDocuments(relevantDocuments, null));
 		totalRetrievedDocuments.addAndGet(countDocuments(retrievedDocuments, threshold));
+
+		// Map<String, List<String>> uniqueVariableNames = new HashMap<String,
+		// List<String>>();
+		// for (Entry<String, StoreRelevantDocuments> entry :
+		// relevantDocuments.entrySet())
+		// {
+		// String variableName = entry.getKey();
+		// uniqueVariableNames.put(variableName, new ArrayList<String>());
+		//
+		// for (Object candidateVariable :
+		// entry.getValue().getRelevantDocuments("FinRisk"))
+		// {
+		// uniqueVariableNames.get(variableName).add(candidateVariable.toString());
+		// }
+		// }
 
 		for (Entry<String, StoreRelevantDocuments> retrievedDocument : retrievedDocuments.entrySet())
 		{
@@ -46,28 +64,35 @@ public class CalculateIRMetrics
 				{
 					if (isRetrieved(candidateMappings.get(i), relevantDocuments.get(standardVariableName)
 							.getRelevantDocuments(biobankName))) retrievedRelevantDocuments.incrementAndGet();
+					// uniqueVariableNames.get(standardVariableName).remove(candidateMappings.get(i).toString());
 				}
 			}
 		}
+		//
+		// for (Entry<String, List<String>> left :
+		// uniqueVariableNames.entrySet())
+		// {
+		// System.out.println(left.getKey() + " : " + left.getValue());
+		// }
 	}
 
-	private boolean isRetrieved(Object object, List<Object> relevantDocuments)
+	private boolean isRetrieved(Object retrievedDocument, List<Object> relevantDocuments)
 	{
 		if (relevantDocuments == null) return false;
-		if (object instanceof Hit)
+		if (retrievedDocument instanceof Hit)
 		{
-			Hit hit = (Hit) object;
-			String mappedFeatureName = hit.getColumnValueMap().get(LoadRelevantDocument.FIELD_NAME).toString();
+			Hit hit = (Hit) retrievedDocument;
+			String mappedFeatureName = hit.getColumnValueMap().get(LoadRelevantDocument.FIELD_IDENTIFIER).toString();
 			for (Object relevantDocument : relevantDocuments)
 			{
 				if (mappedFeatureName.equalsIgnoreCase(relevantDocument.toString())) return true;
 			}
 		}
-		else if (object instanceof String)
+		else if (retrievedDocument instanceof String)
 		{
 			for (Object relevantDocument : relevantDocuments)
 			{
-				if (object.toString().equalsIgnoreCase(relevantDocument.toString())) return true;
+				if (retrievedDocument.toString().equalsIgnoreCase(relevantDocument.toString())) return true;
 			}
 		}
 		return false;
@@ -94,13 +119,13 @@ public class CalculateIRMetrics
 		String retrievedDocumentsPath = "/Users/chaopang/Desktop/Variables_result/Evaluation/Retrieved-Documents/RetrievedMappings.xlsx";
 		LoadRelevantDocument loadRelevantDocument = new LoadRelevantDocument(new File(relevantDocumentZipFile));
 		LoadRetrievedDocument loadRetrievedDocument = new LoadRetrievedDocument(new File(featureFilePath), new File(
-				retrievedDocumentsPath));
+				retrievedDocumentsPath), loadRelevantDocument.getAllInvolvedBiobankNames());
 		CalculateIRMetrics calculateIRMetrics = new CalculateIRMetrics();
 		DecimalFormat df = new DecimalFormat("#.##");
 		System.out.println("Threshold\tPrecision\tRecall");
 		for (int i = 1; i < 11; i++)
 		{
-			calculateIRMetrics.processRetrievedData(loadRetrievedDocument.getRetrievedDocuments(),
+			calculateIRMetrics.processData(loadRetrievedDocument.getRetrievedDocuments(),
 					loadRelevantDocument.getMapForRelevantDocuments(), i);
 			System.out.print(i + "\t");
 			System.out.print(df.format(calculateIRMetrics.calculatePrecision()) + "\t");
