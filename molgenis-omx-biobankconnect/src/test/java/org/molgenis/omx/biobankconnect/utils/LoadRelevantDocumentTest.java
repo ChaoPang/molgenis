@@ -2,11 +2,11 @@ package org.molgenis.omx.biobankconnect.utils;
 
 import static org.testng.Assert.assertEquals;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,17 +20,16 @@ public class LoadRelevantDocumentTest
 
 	private Map<String, StoreRelevantDocuments> retrievedDocuments;
 
-	private LoadRelevantDocument loadRelevantDocument;
+	private Map<String, StoreRelevantDocuments> relevantDocuments;
 
 	private CalculateIRMetrics calculateIRMetrics;
 
 	@BeforeTest
 	public void init() throws FileNotFoundException, IOException
 	{
-		String folderPath = "/Users/chaopang/Desktop/Variables_result/Relevant-Documents/test/Archive.zip";
-		loadRelevantDocument = new LoadRelevantDocument(new File(folderPath));
-		calculateIRMetrics = new CalculateIRMetrics();
+		relevantDocuments = new HashMap<String, StoreRelevantDocuments>();
 		retrievedDocuments = new HashMap<String, StoreRelevantDocuments>();
+		calculateIRMetrics = new CalculateIRMetrics();
 
 		List<Object> listOfHits_1 = new ArrayList<Object>();
 
@@ -95,19 +94,30 @@ public class LoadRelevantDocumentTest
 		retrievedDocuments.put("LAB_TRIG", storeRelevantDocument_1);
 		retrievedDocuments.put("PARENTAL_DIABETES", storeRelevantDocument_2);
 
-		calculateIRMetrics.processData(retrievedDocuments, loadRelevantDocument.getMapForRelevantDocuments(),
-				5);
+		List<Object> documents = new ArrayList<Object>();
+		documents.addAll(Arrays.asList("V57A_1", "V57B_1"));
+		StoreRelevantDocuments storeRelevantDocument_3 = new StoreRelevantDocuments();
+		storeRelevantDocument_3.addAllRecords("Prevend", documents);
+		relevantDocuments.put("PARENTAL_DIABETES", storeRelevantDocument_3);
+
+		List<Object> documents_1 = new ArrayList<Object>();
+		documents_1.addAll(Arrays.asList("TGL_1", "LV_TR_3", "LV_TR_4", "LV_TR_5"));
+		StoreRelevantDocuments storeRelevantDocument_4 = new StoreRelevantDocuments();
+		storeRelevantDocument_4.addAllRecords("Prevend", documents_1);
+		relevantDocuments.put("LAB_TRIG", storeRelevantDocument_4);
+
+		calculateIRMetrics.processData(retrievedDocuments, relevantDocuments, 5);
 	}
 
 	@Test
 	public void calculatePrecision()
 	{
-		assertEquals(new BigDecimal(new Double(8) / new Double(11)), calculateIRMetrics.calculatePrecision());
+		assertEquals(new BigDecimal(new Double(4) / new Double(11)), calculateIRMetrics.calculatePrecision());
 	}
 
 	@Test
 	public void calculateRecall()
 	{
-		assertEquals(new BigDecimal(new Double(8) / new Double(19)), calculateIRMetrics.calculateRecall());
+		assertEquals(new BigDecimal(new Double(4) / new Double(6)), calculateIRMetrics.calculateRecall());
 	}
 }

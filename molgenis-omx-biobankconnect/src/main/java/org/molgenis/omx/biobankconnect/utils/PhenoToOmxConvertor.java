@@ -53,7 +53,7 @@ public class PhenoToOmxConvertor extends AbstractOmxConvertor
 			String featureName = tuple.getString("name");
 			String description = tuple.getString("description");
 			String dataType = "string";
-			if (!tuple.getString("categories_name").isEmpty())
+			if (tuple.getString("categories_name") != null && !tuple.getString("categories_name").isEmpty())
 			{
 				dataType = "categorical";
 

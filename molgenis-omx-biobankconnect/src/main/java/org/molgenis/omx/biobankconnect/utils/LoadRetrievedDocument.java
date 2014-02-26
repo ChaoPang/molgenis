@@ -24,7 +24,8 @@ public class LoadRetrievedDocument
 	private Map<String, StoreRelevantDocuments> retrievedDocuments;
 	private final List<Integer> excludedFeatures = Arrays.asList(86, 102, 104, 112, 115, 116, 117, 118, 124);
 
-	public LoadRetrievedDocument(File featureFile, File mappingFile, List<String> biobankNames) throws IOException
+	public LoadRetrievedDocument(File featureFile, File mappingFile, LoadRelevantDocument loadRelevantDocument)
+			throws IOException
 	{
 		featureMapping = new HashMap<String, String>();
 		retrievedDocuments = new HashMap<String, StoreRelevantDocuments>();
@@ -32,7 +33,7 @@ public class LoadRetrievedDocument
 		if (mappingFile.exists() && featureFile.exists())
 		{
 			processFeature(featureFile);
-			processRetrievedDocument(mappingFile, biobankNames);
+			processRetrievedDocument(mappingFile, loadRelevantDocument);
 		}
 	}
 
@@ -61,10 +62,11 @@ public class LoadRetrievedDocument
 		}
 	}
 
-	private void processRetrievedDocument(File file, List<String> biobankNames) throws IOException
+	private void processRetrievedDocument(File file, LoadRelevantDocument loadRelevantDocument) throws IOException
 	{
 		ExcelReader excelReader = null;
-
+		List<String> biobankNames = loadRelevantDocument.getAllInvolvedBiobankNames();
+		List<String> dataItems = loadRelevantDocument.getInvolvedDataItems();
 		try
 		{
 			excelReader = new ExcelReader(file);
@@ -73,7 +75,7 @@ public class LoadRetrievedDocument
 			{
 				if (biobankNames != null && !biobankNames.contains(tableName)) continue;
 				ExcelSheetReader excelSheetReader = excelReader.getSheet(tableName);
-				proceessEachExcelSheet(tableName, excelSheetReader);
+				proceessEachExcelSheet(tableName, dataItems, excelSheetReader);
 				excelSheetReader.close();
 			}
 		}
@@ -87,7 +89,8 @@ public class LoadRetrievedDocument
 		}
 	}
 
-	private void proceessEachExcelSheet(String biobankName, ExcelSheetReader excelSheetReader)
+	private void proceessEachExcelSheet(String biobankName, List<String> involvedDataItems,
+			ExcelSheetReader excelSheetReader)
 	{
 		Iterator<Tuple> iterator = excelSheetReader.iterator();
 		while (iterator.hasNext())
@@ -96,6 +99,11 @@ public class LoadRetrievedDocument
 			if (excludedFeatures.contains(row.getInt("Features"))) continue;
 			String featureName = featureMapping.get(row.getString("Features"));
 			String mappedFeatureName = featureMapping.get(row.getString("Mapped features"));
+			if (!involvedDataItems.contains(featureName))
+			{
+				System.out.println("WARNING: " + featureName + " is excluded!");
+				continue;
+			}
 			if (featureName == null || mappedFeatureName == null)
 			{
 				System.out.println("Feature name is : " + featureName + "; The mapped feature name is : "
@@ -107,6 +115,13 @@ public class LoadRetrievedDocument
 			}
 			retrievedDocuments.get(featureName).addSingleRecord(biobankName, mappedFeatureName);
 		}
+		// System.out.println("Biobank : " + biobankName);
+		// for (Entry<String, StoreRelevantDocuments> entry :
+		// retrievedDocuments.entrySet())
+		// {
+		// System.out.println(entry.getKey() + " : " +
+		// entry.getValue().getRelevantDocuments(biobankName).size());
+		// }
 	}
 
 	public Map<String, StoreRelevantDocuments> getRetrievedDocuments()

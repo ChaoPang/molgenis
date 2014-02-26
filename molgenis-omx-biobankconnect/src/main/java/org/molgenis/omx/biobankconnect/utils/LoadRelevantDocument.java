@@ -23,34 +23,31 @@ public class LoadRelevantDocument
 	public final static String FIELD_IDENTIFIER = "Identifier";
 
 	private final Map<String, StoreRelevantDocuments> map = new HashMap<String, StoreRelevantDocuments>();
+	private final List<String> involvedDataItems = new ArrayList<String>();
 
 	public Map<String, StoreRelevantDocuments> getMapForRelevantDocuments()
 	{
 		return map;
 	}
 
-	public LoadRelevantDocument(File folder) throws FileNotFoundException, IOException
+	public LoadRelevantDocument(List<File> files) throws FileNotFoundException, IOException
 	{
-		if (folder.exists())
+		ExcelReader excelReader = null;
+		try
 		{
-			for (File file : ZipFileUtil.unzip(folder))
+			for (File file : files)
 			{
-				if (file.isDirectory() || file.getName().matches("^\\._.+")) continue;
-				ExcelReader excelReader = null;
-				try
-				{
-					excelReader = new ExcelReader(file);
-					processEachExcelFile(removeExcelSuffix(file.getName()), excelReader);
-				}
-				catch (Exception e)
-				{
-					e.printStackTrace();
-				}
-				finally
-				{
-					if (excelReader != null) excelReader.close();
-				}
+				excelReader = new ExcelReader(file);
+				processEachExcelFile(removeExcelSuffix(file.getName()), excelReader);
 			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+		finally
+		{
+			if (excelReader != null) excelReader.close();
 		}
 	}
 
@@ -69,17 +66,6 @@ public class LoadRelevantDocument
 		}
 	}
 
-	public List<String> getAllInvolvedBiobankNames()
-	{
-		List<String> biobankNames = new ArrayList<String>();
-		for (StoreRelevantDocuments document : map.values())
-		{
-			biobankNames.addAll(document.getAllBiobankNames());
-			break;
-		}
-		return biobankNames;
-	}
-
 	private void processEachExcelFile(String biobankName, ExcelReader excelReader) throws IOException
 	{
 		ExcelSheetReader excelSheetReader = excelReader.getSheet(0);
@@ -93,14 +79,15 @@ public class LoadRelevantDocument
 			{
 				if (eachHeader.equalsIgnoreCase(FIELD_NAME) || eachHeader.equalsIgnoreCase(FIELD_IDENTIFIER)) continue;
 				Integer isRevelant = row.getInt(eachHeader);
+				String desiredDataElement = extractVariableName(eachHeader);
 				if (isRevelant == 1)
 				{
-					String desiredDataElement = extractVariableName(eachHeader);
 					String relevantDataElement = extractVariableName(row.getString(FIELD_NAME));
 
 					if (!map.containsKey(desiredDataElement)) map.put(desiredDataElement, new StoreRelevantDocuments());
 					map.get(desiredDataElement).addSingleRecord(biobankName, relevantDataElement);
 				}
+				if (!involvedDataItems.contains(desiredDataElement)) involvedDataItems.add(desiredDataElement);
 			}
 		}
 		excelSheetReader.close();
@@ -113,6 +100,23 @@ public class LoadRelevantDocument
 
 	private String removeExcelSuffix(String variableName)
 	{
-		return variableName.split("\\.")[0];
+		String biobankNameWithSuffix = variableName.split("\\.")[0];
+		return biobankNameWithSuffix.split("_")[0];
+	}
+
+	public List<String> getAllInvolvedBiobankNames()
+	{
+		List<String> biobankNames = new ArrayList<String>();
+		for (StoreRelevantDocuments document : map.values())
+		{
+			biobankNames.addAll(document.getAllBiobankNames());
+			break;
+		}
+		return biobankNames;
+	}
+
+	public List<String> getInvolvedDataItems()
+	{
+		return involvedDataItems;
 	}
 }

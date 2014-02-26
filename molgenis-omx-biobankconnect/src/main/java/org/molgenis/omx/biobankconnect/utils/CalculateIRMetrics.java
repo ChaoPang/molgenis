@@ -5,12 +5,18 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.molgenis.io.excel.ExcelSheetWriter;
+import org.molgenis.io.excel.ExcelWriter;
+import org.molgenis.io.excel.ExcelWriter.FileFormat;
 import org.molgenis.search.Hit;
+import org.molgenis.util.tuple.KeyValueTuple;
 
 public class CalculateIRMetrics
 {
@@ -28,6 +34,14 @@ public class CalculateIRMetrics
 		return new BigDecimal(retrievedRelevantDocuments.doubleValue() / totalRelevantDocuments.doubleValue());
 	}
 
+	private BigDecimal calculateFMeasure()
+	{
+		BigDecimal precision = calculatePrecision();
+		BigDecimal recall = calculateRecall();
+		return new BigDecimal((2 * recall.doubleValue() * precision.doubleValue())
+				/ (recall.doubleValue() + precision.doubleValue()));
+	}
+
 	public void processData(Map<String, StoreRelevantDocuments> retrievedDocuments,
 			Map<String, StoreRelevantDocuments> relevantDocuments, int threshold)
 	{
@@ -37,21 +51,6 @@ public class CalculateIRMetrics
 		totalRelevantDocuments.addAndGet(countDocuments(relevantDocuments, null));
 		totalRetrievedDocuments.addAndGet(countDocuments(retrievedDocuments, threshold));
 
-		// Map<String, List<String>> uniqueVariableNames = new HashMap<String,
-		// List<String>>();
-		// for (Entry<String, StoreRelevantDocuments> entry :
-		// relevantDocuments.entrySet())
-		// {
-		// String variableName = entry.getKey();
-		// uniqueVariableNames.put(variableName, new ArrayList<String>());
-		//
-		// for (Object candidateVariable :
-		// entry.getValue().getRelevantDocuments("FinRisk"))
-		// {
-		// uniqueVariableNames.get(variableName).add(candidateVariable.toString());
-		// }
-		// }
-
 		for (Entry<String, StoreRelevantDocuments> retrievedDocument : retrievedDocuments.entrySet())
 		{
 			String standardVariableName = retrievedDocument.getKey();
@@ -60,20 +59,17 @@ public class CalculateIRMetrics
 			{
 				String biobankName = entry.getKey();
 				List<Object> candidateMappings = entry.getValue();
+
 				for (int i = 0; i < (threshold < candidateMappings.size() ? threshold : candidateMappings.size()); i++)
 				{
 					if (isRetrieved(candidateMappings.get(i), relevantDocuments.get(standardVariableName)
-							.getRelevantDocuments(biobankName))) retrievedRelevantDocuments.incrementAndGet();
-					// uniqueVariableNames.get(standardVariableName).remove(candidateMappings.get(i).toString());
+							.getRelevantDocuments(biobankName)))
+					{
+						retrievedRelevantDocuments.incrementAndGet();
+					}
 				}
 			}
 		}
-		//
-		// for (Entry<String, List<String>> left :
-		// uniqueVariableNames.entrySet())
-		// {
-		// System.out.println(left.getKey() + " : " + left.getValue());
-		// }
 	}
 
 	private boolean isRetrieved(Object retrievedDocument, List<Object> relevantDocuments)
@@ -112,24 +108,82 @@ public class CalculateIRMetrics
 		return count;
 	}
 
-	public static void main(String args[]) throws FileNotFoundException, IOException
+	private static void writeTupleToSheet(String sheetName, List<KeyValueTuple> tuples, ExcelWriter excelWriter)
+			throws IOException
 	{
-		String relevantDocumentZipFile = "/Users/chaopang/Desktop/Variables_result/Evaluation/test/Archive.zip";
-		String featureFilePath = "/Users/chaopang/Desktop/Variables_result/Evaluation/Retrieved-Documents/observableFeature.xlsx";
-		String retrievedDocumentsPath = "/Users/chaopang/Desktop/Variables_result/Evaluation/Retrieved-Documents/RetrievedMappings.xlsx";
-		LoadRelevantDocument loadRelevantDocument = new LoadRelevantDocument(new File(relevantDocumentZipFile));
-		LoadRetrievedDocument loadRetrievedDocument = new LoadRetrievedDocument(new File(featureFilePath), new File(
-				retrievedDocumentsPath), loadRelevantDocument.getAllInvolvedBiobankNames());
+		ExcelSheetWriter excelSheetWriter = (ExcelSheetWriter) excelWriter.createTupleWriter(sheetName.split("\\.")[0]);
+		excelSheetWriter.writeColNames(Arrays.asList("Precision", "Recall", "F-measure"));
+		for (KeyValueTuple tuple : tuples)
+		{
+			excelSheetWriter.write(tuple);
+		}
+		excelSheetWriter.close();
+	}
+
+	private static List<KeyValueTuple> calculateMetrics(List<File> relevantDocumentFiles, File featureInfoFile,
+			File retrievedDocumentFile) throws IOException
+	{
+		List<KeyValueTuple> tuples = new ArrayList<KeyValueTuple>();
+		LoadRelevantDocument loadRelevantDocument = new LoadRelevantDocument(relevantDocumentFiles);
+		LoadRetrievedDocument loadRetrievedDocument = new LoadRetrievedDocument(featureInfoFile, retrievedDocumentFile,
+				loadRelevantDocument);
 		CalculateIRMetrics calculateIRMetrics = new CalculateIRMetrics();
-		DecimalFormat df = new DecimalFormat("#.##");
-		System.out.println("Threshold\tPrecision\tRecall");
-		for (int i = 1; i < 11; i++)
+		DecimalFormat df = new DecimalFormat("#.####");
+		System.out.print("Biobank : ");
+		for (File file : relevantDocumentFiles)
+		{
+			System.out.print(file.getName() + "\t");
+		}
+		System.out.println();
+		System.out
+				.println("Threshold\tPrecision\tRecall\tRelevant_Documents\tRetrieved_Documents\tTrue_Positive\tF-measure");
+		for (int i = 1; i < 21; i++)
 		{
 			calculateIRMetrics.processData(loadRetrievedDocument.getRetrievedDocuments(),
 					loadRelevantDocument.getMapForRelevantDocuments(), i);
 			System.out.print(i + "\t");
 			System.out.print(df.format(calculateIRMetrics.calculatePrecision()) + "\t");
-			System.out.print(df.format(calculateIRMetrics.calculateRecall()) + "\n");
+			System.out.print(df.format(calculateIRMetrics.calculateRecall()) + "\t");
+			System.out.print(df.format(calculateIRMetrics.totalRelevantDocuments) + "\t");
+			System.out.print(df.format(calculateIRMetrics.totalRetrievedDocuments) + "\t");
+			System.out.print(df.format(calculateIRMetrics.retrievedRelevantDocuments) + "\t");
+			System.out.print(df.format(calculateIRMetrics.calculateFMeasure()) + "\n");
+
+			KeyValueTuple tuple = new KeyValueTuple();
+			tuple.set("Precision", df.format(calculateIRMetrics.calculatePrecision()));
+			tuple.set("Recall", df.format(calculateIRMetrics.calculateRecall()));
+			tuple.set("F-measure", df.format(calculateIRMetrics.calculateFMeasure()));
+			tuples.add(tuple);
+		}
+		System.out.println("\n");
+		return tuples;
+	}
+
+	public static void main(String args[]) throws FileNotFoundException, IOException
+	{
+		if (args.length == 4)
+		{
+			File relevantDocumentFolder = new File(args[0]);
+			File featureInfoFile = new File(args[1]);
+			File retrievedDocumentFile = new File(args[2]);
+
+			if (relevantDocumentFolder.exists() && featureInfoFile.exists() && retrievedDocumentFile.exists())
+			{
+				File outputFile = new File(args[3]);
+				ExcelWriter excelWriter = new ExcelWriter(outputFile, FileFormat.XLSX);
+				List<File> validFiles = new ArrayList<File>();
+				for (File file : relevantDocumentFolder.listFiles())
+				{
+					if (file.isDirectory() || file.getName().matches("^\\..+") || file.getName().matches("^\\W.+")) continue;
+					List<KeyValueTuple> tuples = calculateMetrics(Arrays.asList(file), featureInfoFile,
+							retrievedDocumentFile);
+					writeTupleToSheet(file.getName(), tuples, excelWriter);
+					validFiles.add(file);
+				}
+				List<KeyValueTuple> tuples = calculateMetrics(validFiles, featureInfoFile, retrievedDocumentFile);
+				writeTupleToSheet("total", tuples, excelWriter);
+				excelWriter.close();
+			}
 		}
 	}
 }
