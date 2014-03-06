@@ -28,10 +28,10 @@ label <- c("FinRisk", "HUNT", "HUNT-knock-out", "KORA", "MICROS", "MICROS-knock-
 
 output <- c("/Users/chaopang/Desktop/Variables_result/Evaluation/R-input/output.pdf") 
 pdf(output)
-ggplot() + xlab("Precision") + ylab("Recall") + ggtitle("Recall-Precision") + 
+ggplot() + ylab("Precision") + xlab("Recall") + ggtitle("Recall-Precision") + 
 		theme(plot.title = element_text(lineheight=.8, face="bold")) + xlim(0, 1) + ylim(0, 1) + 
-			geom_path(data=biobankData, aes(x = Precision, y=Recall, group=group, linetype=as.factor(group), colour=as.factor(group)), size = 0.5) + 
-			geom_point(data=biobankData, aes(x = Precision, y=Recall, colour=as.factor(group), shape=as.factor(group))) + 
+			geom_path(data=biobankData, aes(y = Precision, x=Recall, group=group, linetype=as.factor(group), colour=as.factor(group)), size = 0.5) + 
+			geom_point(data=biobankData, aes(y = Precision, x=Recall, colour=as.factor(group), shape=as.factor(group))) + 
 			scale_colour_manual("legend", values=legend, labels=label) + 
 			scale_linetype_manual("legend", values=linestyle, labels=label) +
 			scale_shape_manual("legend", values=c(1,1,2,1,1,2,1,2), labels=label) + 
