@@ -51,6 +51,16 @@ public class CalculateIRMetrics
 		totalRelevantDocuments.addAndGet(countDocuments(relevantDocuments, null));
 		totalRetrievedDocuments.addAndGet(countDocuments(retrievedDocuments, threshold));
 
+		// List<String> relevantVariableNames = new ArrayList<String>();
+		//
+		// for (StoreRelevantDocuments document : relevantDocuments.values())
+		// {
+		// for (Object name : document.getRelevantDocuments("HUNT"))
+		// {
+		// relevantVariableNames.add(name.toString());
+		// }
+		// }
+
 		for (Entry<String, StoreRelevantDocuments> retrievedDocument : retrievedDocuments.entrySet())
 		{
 			String standardVariableName = retrievedDocument.getKey();
@@ -66,10 +76,12 @@ public class CalculateIRMetrics
 							.getRelevantDocuments(biobankName)))
 					{
 						retrievedRelevantDocuments.incrementAndGet();
+						// relevantVariableNames.remove(candidateMappings.get(i).toString());
 					}
 				}
 			}
 		}
+		// System.out.println(relevantVariableNames);
 	}
 
 	private boolean isRetrieved(Object retrievedDocument, List<Object> relevantDocuments)
@@ -128,7 +140,7 @@ public class CalculateIRMetrics
 		LoadRetrievedDocument loadRetrievedDocument = new LoadRetrievedDocument(featureInfoFile, retrievedDocumentFile,
 				loadRelevantDocument);
 		CalculateIRMetrics calculateIRMetrics = new CalculateIRMetrics();
-		DecimalFormat df = new DecimalFormat("#.####");
+		DecimalFormat df = new DecimalFormat("#.##");
 		System.out.print("Biobank : ");
 		for (File file : relevantDocumentFiles)
 		{

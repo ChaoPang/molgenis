@@ -3,6 +3,7 @@ package org.molgenis.omx.biobankconnect.utils;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -21,13 +22,15 @@ import org.molgenis.util.tuple.Tuple;
 public class LoadRetrievedDocument
 {
 	private Map<String, String> featureMapping;
+	private Map<String, FeatureEntity> detailedFeatureInfo;
 	private Map<String, StoreRelevantDocuments> retrievedDocuments;
-	private final List<Integer> excludedFeatures = Arrays.asList(86, 102, 104, 112, 115, 116, 117, 118, 124);
+	private final List<Integer> excludedFeatures = Arrays.asList(86, 102, 104, 112, 115, 116, 117, 124);
 
 	public LoadRetrievedDocument(File featureFile, File mappingFile, LoadRelevantDocument loadRelevantDocument)
 			throws IOException
 	{
 		featureMapping = new HashMap<String, String>();
+		detailedFeatureInfo = new HashMap<String, FeatureEntity>();
 		retrievedDocuments = new HashMap<String, StoreRelevantDocuments>();
 
 		if (mappingFile.exists() && featureFile.exists())
@@ -49,6 +52,11 @@ public class LoadRetrievedDocument
 			{
 				Tuple row = iterator.next();
 				featureMapping.put(row.getString("id"), row.getString("Name"));
+				FeatureEntity feature = new FeatureEntity();
+				feature.setId(Integer.parseInt(row.getString("id")));
+				feature.setName(row.getString("Name"));
+				feature.setDescription(row.getString("description"));
+				detailedFeatureInfo.put(row.getString("id"), feature);
 			}
 			excelSheetReader.close();
 		}
@@ -65,17 +73,21 @@ public class LoadRetrievedDocument
 	private void processRetrievedDocument(File file, LoadRelevantDocument loadRelevantDocument) throws IOException
 	{
 		ExcelReader excelReader = null;
-		List<String> biobankNames = loadRelevantDocument.getAllInvolvedBiobankNames();
-		List<String> dataItems = loadRelevantDocument.getInvolvedDataItems();
+		ExcelWriter writer = null;
+		List<String> biobankNames = loadRelevantDocument == null ? null : loadRelevantDocument
+				.getAllInvolvedBiobankNames();
+		List<String> dataItems = loadRelevantDocument == null ? null : loadRelevantDocument.getInvolvedDataItems();
 		try
 		{
 			excelReader = new ExcelReader(file);
+			writer = new ExcelWriter(new File(file.getAbsolutePath() + "_featureDetail.xlsx"), FileFormat.XLSX);
 
 			for (String tableName : excelReader.getTableNames())
 			{
 				if (biobankNames != null && !biobankNames.contains(tableName)) continue;
 				ExcelSheetReader excelSheetReader = excelReader.getSheet(tableName);
-				proceessEachExcelSheet(tableName, dataItems, excelSheetReader);
+				writeOutFeatureDetails(proceessEachExcelSheet(tableName, dataItems, excelSheetReader),
+						(ExcelSheetWriter) writer.createTupleWriter(tableName));
 				excelSheetReader.close();
 			}
 		}
@@ -86,12 +98,38 @@ public class LoadRetrievedDocument
 		finally
 		{
 			if (excelReader != null) excelReader.close();
+			if (writer != null) writer.close();
 		}
 	}
 
-	private void proceessEachExcelSheet(String biobankName, List<String> involvedDataItems,
-			ExcelSheetReader excelSheetReader)
+	private void writeOutFeatureDetails(Map<FeatureEntity, List<FeatureEntity>> mappingCollections,
+			ExcelSheetWriter outputSheet) throws IOException
 	{
+		outputSheet.writeColNames(Arrays.asList("Desired_Element", "Desired_Element_Description", "Data_Element",
+				"Data_Element_Description", "Rank"));
+		for (Entry<FeatureEntity, List<FeatureEntity>> entry : mappingCollections.entrySet())
+		{
+			FeatureEntity feature = entry.getKey();
+			if (feature == null) continue;
+			int count = 1;
+			for (FeatureEntity mappedFeature : entry.getValue())
+			{
+				KeyValueTuple tuple = new KeyValueTuple();
+				tuple.set("Desired_Element", feature.getName());
+				tuple.set("Desired_Element_Description", feature.getDescription());
+				tuple.set("Data_Element", mappedFeature.getName());
+				tuple.set("Data_Element_Description", mappedFeature.getDescription());
+				tuple.set("Rank", count++);
+				outputSheet.write(tuple);
+			}
+		}
+		outputSheet.close();
+	}
+
+	private Map<FeatureEntity, List<FeatureEntity>> proceessEachExcelSheet(String biobankName,
+			List<String> involvedDataItems, ExcelSheetReader excelSheetReader)
+	{
+		Map<FeatureEntity, List<FeatureEntity>> mappingCollections = new HashMap<FeatureEntity, List<FeatureEntity>>();
 		Iterator<Tuple> iterator = excelSheetReader.iterator();
 		while (iterator.hasNext())
 		{
@@ -99,7 +137,7 @@ public class LoadRetrievedDocument
 			if (excludedFeatures.contains(row.getInt("Features"))) continue;
 			String featureName = featureMapping.get(row.getString("Features"));
 			String mappedFeatureName = featureMapping.get(row.getString("Mapped features"));
-			if (!involvedDataItems.contains(featureName))
+			if (involvedDataItems != null && !involvedDataItems.contains(featureName))
 			{
 				System.out.println("WARNING: " + featureName + " is excluded!");
 				continue;
@@ -114,14 +152,17 @@ public class LoadRetrievedDocument
 				retrievedDocuments.put(featureName, new StoreRelevantDocuments());
 			}
 			retrievedDocuments.get(featureName).addSingleRecord(biobankName, mappedFeatureName);
+
+			if (!mappingCollections.containsKey(detailedFeatureInfo.get(row.getString("Features"))))
+			{
+				mappingCollections.put(detailedFeatureInfo.get(row.getString("Features")),
+						new ArrayList<FeatureEntity>());
+			}
+			mappingCollections.get(detailedFeatureInfo.get(row.getString("Features"))).add(
+					detailedFeatureInfo.get(row.getString("Mapped features")));
 		}
-		// System.out.println("Biobank : " + biobankName);
-		// for (Entry<String, StoreRelevantDocuments> entry :
-		// retrievedDocuments.entrySet())
-		// {
-		// System.out.println(entry.getKey() + " : " +
-		// entry.getValue().getRelevantDocuments(biobankName).size());
-		// }
+
+		return mappingCollections;
 	}
 
 	public Map<String, StoreRelevantDocuments> getRetrievedDocuments()
@@ -131,32 +172,72 @@ public class LoadRetrievedDocument
 
 	public static void main(String args[]) throws FileNotFoundException, IOException
 	{
-		String featureFilePath = "/Users/chaopang/Desktop/Variables_result/Evaluation/Retrieved-Documents/observableFeature.xlsx";
-		String retrievedDocumentsPath = "/Users/chaopang/Desktop/Variables_result/Evaluation/Retrieved-Documents/RetrievedMappings.xlsx";
-		LoadRetrievedDocument loadRetrievedDocument = new LoadRetrievedDocument(new File(featureFilePath), new File(
-				retrievedDocumentsPath), null);
-		String outputDirecotry = "/Users/chaopang/Desktop/Variables_result/Evaluation/output/";
-		for (Entry<String, StoreRelevantDocuments> entry : loadRetrievedDocument.getRetrievedDocuments().entrySet())
+		if (args.length == 2)
 		{
-			String featureName = entry.getKey();
-			StoreRelevantDocuments storeRelevantDocuments = entry.getValue();
-			ExcelWriter excelWriter = new ExcelWriter(new File(outputDirecotry + featureName + ".xlsx"),
-					FileFormat.XLSX);
-
-			for (Entry<String, List<Object>> mappings : storeRelevantDocuments.getAllRelevantDocuments())
+			new LoadRetrievedDocument(new File(args[0]), new File(args[1]), null);
+		}
+		else if (args.length == 3)
+		{
+			LoadRetrievedDocument loadRetrievedDocument = new LoadRetrievedDocument(new File(args[0]),
+					new File(args[1]), null);
+			for (Entry<String, StoreRelevantDocuments> entry : loadRetrievedDocument.getRetrievedDocuments().entrySet())
 			{
-				String biobankName = mappings.getKey();
-				ExcelSheetWriter excelSheetWriter = (ExcelSheetWriter) excelWriter.createTupleWriter(biobankName);
-				excelSheetWriter.writeColNames(Arrays.asList("Name"));
-				for (Object eachMapping : mappings.getValue())
+				String featureName = entry.getKey();
+				StoreRelevantDocuments storeRelevantDocuments = entry.getValue();
+				ExcelWriter excelWriter = new ExcelWriter(new File(args[2] + featureName + ".xlsx"), FileFormat.XLSX);
+
+				for (Entry<String, List<Object>> mappings : storeRelevantDocuments.getAllRelevantDocuments())
 				{
-					KeyValueTuple tuple = new KeyValueTuple();
-					tuple.set("Name", eachMapping.toString());
-					excelSheetWriter.write(tuple);
+					String biobankName = mappings.getKey();
+					ExcelSheetWriter excelSheetWriter = (ExcelSheetWriter) excelWriter.createTupleWriter(biobankName);
+					excelSheetWriter.writeColNames(Arrays.asList("Name"));
+					for (Object eachMapping : mappings.getValue())
+					{
+						KeyValueTuple tuple = new KeyValueTuple();
+						tuple.set("Name", eachMapping.toString());
+						excelSheetWriter.write(tuple);
+					}
+					excelSheetWriter.close();
 				}
-				excelSheetWriter.close();
+				excelWriter.close();
 			}
-			excelWriter.close();
+		}
+	}
+
+	class FeatureEntity
+	{
+		private Integer id;
+		private String name;
+		private String description;
+
+		public Integer getId()
+		{
+			return id;
+		}
+
+		public void setId(Integer id)
+		{
+			this.id = id;
+		}
+
+		public String getName()
+		{
+			return name;
+		}
+
+		public void setName(String name)
+		{
+			this.name = name;
+		}
+
+		public String getDescription()
+		{
+			return description;
+		}
+
+		public void setDescription(String description)
+		{
+			this.description = description;
 		}
 	}
 }
