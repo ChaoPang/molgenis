@@ -15,7 +15,7 @@ public class MappingManagerPage extends AbstractWizardPage
 	@Override
 	public String getTitle()
 	{
-		return "Review candidate mappings";
+		return "View and edit matches";
 	}
 
 	@Override

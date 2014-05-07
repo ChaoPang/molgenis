@@ -23,7 +23,7 @@ public class OntologyMatcherPage extends AbstractWizardPage
 	@Override
 	public String getTitle()
 	{
-		return "Select catalogues";
+		return "Choose source schema";
 	}
 
 	@Override

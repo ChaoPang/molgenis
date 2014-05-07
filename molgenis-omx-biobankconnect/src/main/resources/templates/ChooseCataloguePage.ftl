@@ -5,7 +5,7 @@
 				<div id="div-info" class="span12 well">	
 					<div class="row-fluid">
 						<div class="span9"><legend class="legend">
-							Browse catalogue : 
+							Browse target schema : 
 							<select id="selectedDataSetId" name="selectedDataSetId">
 								<#if wizard.selectedDataSet??>
 									<#list wizard.dataSets as dataset>

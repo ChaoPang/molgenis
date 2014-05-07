@@ -30,7 +30,7 @@ public class ChooseCataloguePage extends AbstractWizardPage
 	@Override
 	public String getTitle()
 	{
-		return "Choose desired items";
+		return "Choose target schema";
 	}
 
 	@Override

@@ -296,8 +296,8 @@
 					$('<th class="text-align-center">' + involedDataSets[i] + '</th>').css('width', columnWidth + '%').appendTo(dataSetRow);
 				}
 			}
-			$('<th class="text-align-center">Desired cataogue</th>').width('width', '40%').appendTo(headerRow);
-			$('<th class="text-align-center" colspan="' + involedDataSets.length + '">Match cataogues</th>').width('width', '60%').appendTo(headerRow);
+			$('<th class="text-align-center">Target schema</th>').width('width', '40%').appendTo(headerRow);
+			$('<th class="text-align-center" colspan="' + involedDataSets.length + '">Source shema</th>').width('width', '60%').appendTo(headerRow);
 			
 			if(firstColumn !== null){
 				$(firstColumn).find('.ui-icon').click(function() {

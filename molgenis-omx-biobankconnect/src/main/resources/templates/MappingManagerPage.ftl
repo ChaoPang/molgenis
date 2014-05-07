@@ -1,5 +1,5 @@
 <form id="wizardForm" name="wizardForm" method="post" class="form-horizontal" action="">
-	<legend>Curate mappings for : <strong>${wizard.selectedDataSet.name}</strong></legend>
+	<legend>View and edit matches for : <strong>${wizard.selectedDataSet.name}</strong></legend>
 	<div class="row-fluid">
 		<div  id="div-search" class="span12">
 			<div><strong>Search data items :</strong></div>

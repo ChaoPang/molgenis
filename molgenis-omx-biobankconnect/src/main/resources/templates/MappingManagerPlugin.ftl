@@ -8,7 +8,7 @@
 		<div class="span12 well">
 			<div class="row-fluid">
 				<div class="span12"><legend class="legend-mapping-manager">
-					Curate mappings for :
+					View and edit matches for :
 					<select id="selectedDataSet" name="selectedDataSet">
 						<#if selectedDataSet??>
 							<#list dataSets as dataset>

@@ -15,7 +15,7 @@ public class OntologyAnnotatorPage extends AbstractWizardPage
 	@Override
 	public String getTitle()
 	{
-		return "Annotate items";
+		return "Ontology annotation";
 	}
 
 	@Override

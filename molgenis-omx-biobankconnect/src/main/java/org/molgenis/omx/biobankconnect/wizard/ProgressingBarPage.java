@@ -15,7 +15,7 @@ public class ProgressingBarPage extends AbstractWizardPage
 	@Override
 	public String getTitle()
 	{
-		return "Process mapping";
+		return "Generate matches";
 	}
 
 	@Override
