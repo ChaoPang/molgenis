@@ -6,7 +6,7 @@
 	</div>
 	<div id="delete-mapping" class="row-fluid progress-bar-hidden">
 		<div class="offset2 span10">
-			Deleting existing mappings
+			Deleting existing matches
 		</div>
 		<div class="progress progress-striped progress-warning active offset2 span8">
 			<div class="bar text-align-center"></div>
@@ -14,7 +14,7 @@
 	</div>
 	<div id="create-mapping" class="row-fluid progress-bar-hidden">
 		<div class="offset2 span10">
-			Create mappings
+			Create matches
 		</div>
 		<div class="progress progress-striped active offset2 span8">
 			<div class="bar text-align-center"></div>
@@ -22,7 +22,7 @@
 	</div>
 	<div id="store-mapping" class="row-fluid progress-bar-hidden">
 		<div class="offset2 span10">
-			Store mappings
+			Store matches
 		</div>
 		<div class="progress progress-striped progress-success active offset2 span8">
 			<div class="bar text-align-center"></div>
