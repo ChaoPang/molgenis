@@ -16,7 +16,7 @@
 								<dd>
 									<div class="btn-group">
 										<button id="annotate-all-dataitems" class="btn btn-primary">Re-annotate</button>
-										<button id="remove-annotations" class="btn">Remove annotates</button>
+										<button id="remove-annotations" class="btn">Remove annotations</button>
 									</div>
 								</dd>
 							</dl>
@@ -27,9 +27,9 @@
 			<div class="row-fluid">
 				<div id="div-info" class="span12 well">	
 					<div class="row-fluid">
-						<div class="span9"><legend class="legend">Annotate target schema : <strong><span>${wizard.selectedDataSet.name}</span></strong></legend></div>
+						<div class="span9"><legend class="legend">Annotate target data elements : <strong><span>${wizard.selectedDataSet.name}</span></strong></legend></div>
 						<div  id="div-search" class="span3">
-							<div><strong>Search data items :</strong></div>
+							<div><strong>Search data elements :</strong></div>
 							<div class="input-append">
 								<input id="search-dataitem" type="text" title="Enter your search term" />
 								<button class="btn" type="button" id="search-button"><i class="icon-large icon-search"></i></button>

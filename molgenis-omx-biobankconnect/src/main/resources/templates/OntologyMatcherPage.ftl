@@ -6,7 +6,7 @@
 					<div class="row-fluid">
 						<div class="span12">
 							<legend class="ontology-matcher-legend">
-								Select matching source schema for : <strong>${wizard.selectedDataSet.name}</strong>
+								Select data sources to match with : <strong>${wizard.selectedDataSet.name}</strong>
 							</legend>
 							<div class="row-fluid">
 								<div class="span4">

@@ -110,7 +110,7 @@
 			$('#dataitem-table').empty();
 			$('#table-papger').empty();
 			var dataSetEntity = restApi.get('/api/v1/dataset/' + ns.MappingManager.prototype.getSelectedDataSet());
-			showMessage('alert alert-info', 'There are not mappings for <strong>' + dataSetEntity.name + '</strong> catalogue');
+			showMessage('alert alert-info', 'There are not matches for <strong>' + dataSetEntity.name + '</strong> catalogue');
 		}
 		
 		function getDataSetsForMapping(){
@@ -297,7 +297,7 @@
 				}
 			}
 			$('<th class="text-align-center">Target schema</th>').width('width', '40%').appendTo(headerRow);
-			$('<th class="text-align-center" colspan="' + involedDataSets.length + '">Source shema</th>').width('width', '60%').appendTo(headerRow);
+			$('<th class="text-align-center" colspan="' + involedDataSets.length + '">Source schema(s)</th>').width('width', '60%').appendTo(headerRow);
 			
 			if(firstColumn !== null){
 				$(firstColumn).find('.ui-icon').click(function() {
@@ -397,7 +397,7 @@
 								ns.MappingManager.prototype.createMatrixForDataItems();
 							});
 							var table = row.parents('table:eq(0)');
-							modal.find('div.modal-body:eq(0)').append('<p style="font-size:16px"><strong>Are you sure that you want to remove candidate mappings?</strong></p>');
+							modal.find('div.modal-body:eq(0)').append('<p style="font-size:16px"><strong>Are you sure that you want to remove candidate matches?</strong></p>');
 							modal.find('div.modal-footer:eq(0)').prepend(confirmButton);
 							modal.css({
 								'width' : 600,
@@ -414,7 +414,7 @@
 						position : 'relative',
 						'float' : 'right'
 					}).click(function(){
-						standardModal.createModalCallback('Candidate mappings', function(modal){
+						standardModal.createModalCallback('Candidate matches', function(modal){
 							createMappingTable(feature, mappedFeatures, restApi.get('/api/v1/dataset/' + mappedDataSetId), modal, editIcon);
 							var table = row.parents('table:eq(0)');
 							modal.find('div.modal-body:eq(0)').css('max-height' , 300);
@@ -438,8 +438,8 @@
 		
 		function createAnnotationModal(feature){
 			var featureId = ns.hrefToId(feature.href);
-			var title = 'Rematch research variable : ';
-			standardModal.createModalCallback('Rematch research variable : ' + feature.name, function(modal){
+			var title = 'Rematch target data element : ';
+			standardModal.createModalCallback('Rematch target data element : ' + feature.name, function(modal){
 				restApi.getAsync(feature.href, ["unit", "definitions"], null, function(restApiFeature){
 					var body = modal.find('div.modal-body:eq(0)').addClass('overflow-y-visible');
 					ns.getOntologyAnnotator().createFeatureTable(body, title, restApiFeature, createAnnotationModal);
@@ -462,7 +462,7 @@
 		}
 		
 		function createRematchingModal(feature){
-			standardModal.createModalCallback('Rematch research variable : ' + feature.name, function(modal){
+			standardModal.createModalCallback('Rematch target data element : ' + feature.name, function(modal){
 				var body = modal.find('div.modal-body:eq(0)');
 				var divControlPanel = $('<div />').addClass('row-fluid').appendTo(body);
 				var selectTag = $('<select />');
@@ -481,7 +481,7 @@
 				
 				var infoContainer = $('<div />').addClass('row-fluid').appendTo(body);
 				var dataSetsContainer = $('<div />').addClass('offset1 span10 well').appendTo(infoContainer);
-				$('<div />').addClass('span12').append('<legend class="legend-small">Selected catalogues : </legend>').appendTo(dataSetsContainer);
+				$('<div />').addClass('span12').append('<legend class="legend-small">Selected source schemas : </legend>').appendTo(dataSetsContainer);
 				
 				var selectedOptions = [];
 				$(selectTag).find('option').each(function(){
@@ -648,7 +648,7 @@
 			$.each(mappings, function(index, eachMapping){
 				observationSetIds.push(eachMapping.observationSet);
 			});
-			showMessage('alert alert-info', observationSetIds.length + ' candidate mappings are being deleted!');
+			showMessage('alert alert-info', observationSetIds.length + ' candidate matches are being deleted!');
 			var observedValues = restApi.get('/api/v1/observedvalue', null, {
 				q : [{
 					field : 'observationSet',
@@ -757,7 +757,7 @@
 			$('<div />').append('<h4>' + dataSet.name + '</h4>').appendTo(infoDiv);
 			$('<div />').append('<span class="info"><strong>Data item : </strong></span>').append('<span>' + feature.name + '</span>').appendTo(infoDiv);
 			$('<div />').append('<span class="info"><strong>Description : </strong></span>').append('<span>' + i18nDescription(feature).en + '</span>').appendTo(infoDiv);
-			var selectedMappings = $('<div />').append('<span class="info"><strong>Selected mappings : </strong></span>').append('<span>' + selectedFeatures.join(' , ') + '</span>').appendTo(infoDiv);
+			var selectedMappings = $('<div />').append('<span class="info"><strong>Selected matches : </strong></span>').append('<span>' + selectedFeatures.join(' , ') + '</span>').appendTo(infoDiv);
 			infoDiv.append('<br /><br />');
 			var header = modal.find('.modal-header:eq(0)');
 			header.append(infoDiv);
@@ -860,7 +860,7 @@
 						contentType : 'application/json'
 					});
 					
-					showMessage('alert alert-info', 'the mapping(s) has been updated for <strong>' + feature.name + '</strong> in <strong>' + mappedDataSet.name + '</strong> Biobank!');
+					showMessage('alert alert-info', 'the matches have been updated for <strong>' + feature.name + '</strong> in <strong>' + mappedDataSet.name + '</strong> Biobank!');
 				}
 				
 				if(displayedFeatures.length > 0){
@@ -927,9 +927,9 @@
 	
 	ns.MappingManager.prototype.createHelpModal = function(){
 		var container = $('<div />');
-		$('<div />').append('<i class="icon-ok"></i><span class="float-right text-success">Mappings have been selected</span>').appendTo(container);
-		$('<div />').append('<i class="icon-pencil"></i><span class="float-right text-info">Select the mappings</span>').appendTo(container);
-		$('<div />').append('<i class="icon-trash"></i><span class="float-right text-warning">Delete all mappings</span>').appendTo(container);
+		$('<div />').append('<i class="icon-ok"></i><span class="float-right text-success">Matches have been selected</span>').appendTo(container);
+		$('<div />').append('<i class="icon-pencil"></i><span class="float-right text-info">Select the matches</span>').appendTo(container);
+		$('<div />').append('<i class="icon-trash"></i><span class="float-right text-warning">Delete all matches</span>').appendTo(container);
 		$('<div />').append('<i class="icon-ban-circle"></i><span class="float-right text-error">No candidate available</span>').appendTo(container);
 		standardModal.createModalCallback('Icon meanings', function(modal){
 			modal.find('.modal-body:eq(0)').append(container);

@@ -5,7 +5,7 @@
 				<div id="div-info" class="span12 well">	
 					<div class="row-fluid">
 						<div class="span9"><legend class="legend">
-							Browse target schema : 
+							Select data elements to match : 
 							<select id="selectedDataSetId" name="selectedDataSetId">
 								<#if wizard.selectedDataSet??>
 									<#list wizard.dataSets as dataset>
@@ -17,10 +17,10 @@
 									</#list>
 								</#if>
 							</select>
-							<button id="import-data-button" class="btn btn-primary" type="btn">Import data</button>
+							<button id="import-data-button" class="btn btn-primary" type="btn">Import new schema</button>
 						</div>
 						<div  id="div-search" class="span3">
-							<div><strong>Search data items :</strong></div>
+							<div><strong>Search data elements :</strong></div>
 							<div class="input-append">
 								<input id="search-dataitem" type="text" title="Enter your search term" />
 								<button class="btn" type="button" id="search-button"><i class="icon-large icon-search"></i></button>
@@ -29,7 +29,7 @@
 					</div>
 					<div class="row-fluid">
 						<div class="span4">
-							Number of data items : <span id="dataitem-number"></span>
+							Number of data elements : <span id="dataitem-number"></span>
 						</div>
 					</div>
 					<div class="row-fluid">
@@ -51,12 +51,12 @@
 		<div id="import-features-modal" class="modal hide">
 			<div class="modal-header">
 				<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-				<h3>Import features</h3>
+				<h3>Import data elements</h3>
 			</div>
 			<div class="modal-body">
-				<div><strong>Please input dataSet name</strong></div>
+				<div><strong>Schema name</strong></div>
 				<div><input type="text" id="dataSetName" name="dataSetName"/><span class="float-right">E.g. LifeLines</span></div><br>
-				<div><strong>Please upload features</strong></div>
+				<div><strong>Data elements (CSV)</strong></div>
 				<div>
 					<div class="fileupload fileupload-new" data-provides="fileupload">
 						<div class="input-append">
@@ -71,13 +71,13 @@
 							</span>
 							<a href="#" class="btn btn-danger fileupload-exists" data-dismiss="fileupload">Remove</a>
 						</div>
-						<div class="float-right"><a href="/html/example-data.csv">Download example data</a></div>
+						<div class="float-right"><a href="/html/example-data.csv">Download example</a></div>
 					</div>
 				</div>
 			</div>
 			<div class="modal-footer">
 				<a href="#" class="btn" data-dismiss="modal">Close</a>
-				<a href="#" class="btn btn-primary" id="import-features">Import features</a>
+				<a href="#" class="btn btn-primary" id="import-features">Import</a>
 			</div>
 		</div>
 	</div>

@@ -24,7 +24,7 @@
 			</div>
 			<div class="row-fluid">
 				<div  id="div-search" class="span12">
-					<div><strong>Search data items :</strong></div>
+					<div><strong>Search data elements :</strong></div>
 					<div class="input-append row-fluid">
 						<div class="span3">
 							<input id="search-dataitem" type="text" title="Enter your search term" />
