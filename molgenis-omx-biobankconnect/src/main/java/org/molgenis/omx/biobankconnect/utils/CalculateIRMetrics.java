@@ -7,9 +7,11 @@ import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.molgenis.io.excel.ExcelSheetWriter;
@@ -51,15 +53,7 @@ public class CalculateIRMetrics
 		totalRelevantDocuments.addAndGet(countDocuments(relevantDocuments, null));
 		totalRetrievedDocuments.addAndGet(countDocuments(retrievedDocuments, threshold));
 
-		// List<String> relevantVariableNames = new ArrayList<String>();
-		//
-		// for (StoreRelevantDocuments document : relevantDocuments.values())
-		// {
-		// for (Object name : document.getRelevantDocuments("HUNT"))
-		// {
-		// relevantVariableNames.add(name.toString());
-		// }
-		// }
+		Set<String> uniqueSet = new HashSet<String>();
 
 		for (Entry<String, StoreRelevantDocuments> retrievedDocument : retrievedDocuments.entrySet())
 		{
@@ -75,13 +69,13 @@ public class CalculateIRMetrics
 					if (isRetrieved(candidateMappings.get(i), relevantDocuments.get(standardVariableName)
 							.getRelevantDocuments(biobankName)))
 					{
-						retrievedRelevantDocuments.incrementAndGet();
-						// relevantVariableNames.remove(candidateMappings.get(i).toString());
+						uniqueSet.add(candidateMappings.get(i).toString());
+						// retrievedRelevantDocuments.incrementAndGet();
 					}
 				}
 			}
 		}
-		// System.out.println(relevantVariableNames);
+		retrievedRelevantDocuments.set(uniqueSet.size());
 	}
 
 	private boolean isRetrieved(Object retrievedDocument, List<Object> relevantDocuments)
@@ -108,16 +102,29 @@ public class CalculateIRMetrics
 
 	private int countDocuments(Map<String, StoreRelevantDocuments> documentMap, Integer threshold)
 	{
-		int count = 0;
+		Set<String> uniqueSet = new HashSet<String>();
+		// int count = 0;
 		for (Entry<String, StoreRelevantDocuments> document : documentMap.entrySet())
 		{
 			for (Entry<String, List<Object>> entry : document.getValue().getAllRelevantDocuments())
 			{
-				if (threshold == null) count += entry.getValue().size();
-				else count += (threshold < entry.getValue().size() ? threshold : entry.getValue().size());
+				// if (threshold == null) count += entry.getValue().size();
+				// else count += (threshold < entry.getValue().size() ?
+				// threshold : entry.getValue().size());
+				int number = 0;
+				for (Object term : entry.getValue())
+				{
+					if (threshold != null && number == threshold)
+					{
+						break;
+					}
+					uniqueSet.add(term.toString());
+					number++;
+				}
 			}
 		}
-		return count;
+		// return count;
+		return uniqueSet.size();
 	}
 
 	private static void writeTupleToSheet(String sheetName, List<KeyValueTuple> tuples, ExcelWriter excelWriter)
@@ -149,7 +156,7 @@ public class CalculateIRMetrics
 		System.out.println();
 		System.out
 				.println("Threshold\tPrecision\tRecall\tRelevant_Documents\tRetrieved_Documents\tTrue_Positive\tF-measure");
-		for (int i = 1; i < 21; i++)
+		for (int i = 1; i < 51; i++)
 		{
 			calculateIRMetrics.processData(loadRetrievedDocument.getRetrievedDocuments(),
 					loadRelevantDocument.getMapForRelevantDocuments(), i);
