@@ -3,7 +3,7 @@ package org.molgenis.omx.biobankconnect.utils;
 public class HitEntity implements Comparable<HitEntity>
 {
 	private final String variableName;
-	private int score;
+	private double score;
 
 	public HitEntity(String variableName, double score)
 	{
@@ -11,12 +11,12 @@ public class HitEntity implements Comparable<HitEntity>
 		this.score = (int) score;
 	}
 
-	public void setScore(int score)
+	public void setScore(double score)
 	{
 		this.score = score;
 	}
 
-	public int getScore()
+	public double getScore()
 	{
 		return score;
 	}

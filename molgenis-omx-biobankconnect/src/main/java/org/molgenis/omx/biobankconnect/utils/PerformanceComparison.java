@@ -155,22 +155,25 @@ public class PerformanceComparison
 				evaluation.get(biobankName).put(variableName, new ArrayList<Integer>());
 				List<String> manualMappings = value.get(variableName);
 
-				List<HitEntity> relevantElements = getRelevantElements(variableName, biobankName, featureInfoMap);
-				for (String mapping : manualMappings)
+				if (manualMappings.size() > 0)
 				{
-					boolean isFound = false;
-					for (int i = 0; i < relevantElements.size(); i++)
+					List<HitEntity> relevantElements = getRelevantElements(variableName, biobankName, featureInfoMap);
+					for (String mapping : manualMappings)
 					{
-						HitEntity entity = relevantElements.get(i);
-						if (entity.getVariableName().equalsIgnoreCase(mapping))
+						boolean isFound = false;
+						for (int i = 0; i < relevantElements.size(); i++)
 						{
-							evaluation.get(biobankName).get(variableName).add((i + 1));
-							isFound = true;
+							HitEntity entity = relevantElements.get(i);
+							if (entity.getVariableName().equalsIgnoreCase(mapping))
+							{
+								evaluation.get(biobankName).get(variableName).add((i + 1));
+								isFound = true;
+							}
 						}
-					}
-					if (!isFound)
-					{
-						evaluation.get(biobankName).get(variableName).add(featureInfoMap.get(biobankName).size() / 2);
+						if (!isFound)
+						{
+							evaluation.get(biobankName).get(variableName).add(-1);
+						}
 					}
 				}
 			}
@@ -194,7 +197,7 @@ public class PerformanceComparison
 					{
 						double score = NGramMatchingModel.stringMatching(variableName, featureEntity.getDescription(),
 								true);
-						hitEntity.setScore((int) score);
+						hitEntity.setScore((double) score);
 						relevantElements.add(hitEntity);
 					}
 				}
@@ -209,15 +212,6 @@ public class PerformanceComparison
 		catch (Exception e)
 		{
 			System.out.println("biobank : " + biobankName + " ---- variable : " + variableName);
-			// if (variableName.equals("Number of People in the Household") &&
-			// biobankName.equals("prevend"))
-			// {
-			// for (HitEntity entity : relevantElements)
-			// {
-			// System.out.println(entity.getVariableName() + " ---- " +
-			// entity.getScore());
-			// }
-			// }
 		}
 		return relevantElements;
 	}
@@ -269,6 +263,26 @@ public class PerformanceComparison
 				}
 				excelSheetWriter.close();
 				excelWriter.close();
+
+				for (String biobank : biobankNames)
+				{
+					System.out.println("biobank : " + biobank);
+					Map<String, List<Integer>> mappingResults = evaluation.get(biobank.toLowerCase());
+
+					for (String variableName : mappingResults.keySet())
+					{
+						if (!map.containsKey(variableName))
+						{
+							map.put(variableName, new KeyValueTuple());
+						}
+						List<Integer> ranks = mappingResults.get(variableName);
+						for (Integer rank : ranks)
+						{
+							System.out.println(rank);
+						}
+					}
+					System.out.println();
+				}
 			}
 		}
 	}

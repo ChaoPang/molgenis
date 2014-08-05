@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,19 @@ public class CalculateIRMetrics
 	private final AtomicInteger totalRelevantDocuments = new AtomicInteger();
 	private final AtomicInteger totalRetrievedDocuments = new AtomicInteger();
 	private final AtomicInteger retrievedRelevantDocuments = new AtomicInteger();
+	private final AtomicInteger total = new AtomicInteger();
+
+	private final static Map<String, Integer> biobankTotalNumber = new HashMap<String, Integer>();
+
+	public CalculateIRMetrics()
+	{
+		biobankTotalNumber.put("ncds", 513);
+		biobankTotalNumber.put("hunt", 353);
+		biobankTotalNumber.put("finrisk", 223);
+		biobankTotalNumber.put("kora", 75);
+		biobankTotalNumber.put("micros", 119);
+		biobankTotalNumber.put("total", 1283);
+	}
 
 	public BigDecimal calculatePrecision()
 	{
@@ -36,46 +50,66 @@ public class CalculateIRMetrics
 		return new BigDecimal(retrievedRelevantDocuments.doubleValue() / totalRelevantDocuments.doubleValue());
 	}
 
-	private BigDecimal calculateFMeasure()
-	{
-		BigDecimal precision = calculatePrecision();
-		BigDecimal recall = calculateRecall();
-		return new BigDecimal((2 * recall.doubleValue() * precision.doubleValue())
-				/ (recall.doubleValue() + precision.doubleValue()));
-	}
-
 	public void processData(Map<String, StoreRelevantDocuments> retrievedDocuments,
 			Map<String, StoreRelevantDocuments> relevantDocuments, int threshold)
 	{
-		totalRelevantDocuments.set(0);
-		totalRetrievedDocuments.set(0);
 		retrievedRelevantDocuments.set(0);
-		totalRelevantDocuments.addAndGet(countDocuments(relevantDocuments, null));
-		totalRetrievedDocuments.addAndGet(countDocuments(retrievedDocuments, threshold));
-
-		Set<String> uniqueSet = new HashSet<String>();
+		totalRelevantDocuments.set(countDocuments(relevantDocuments, null));
+		totalRetrievedDocuments.set(countDocuments(retrievedDocuments, threshold));
 
 		for (Entry<String, StoreRelevantDocuments> retrievedDocument : retrievedDocuments.entrySet())
 		{
 			String standardVariableName = retrievedDocument.getKey();
 			if (!relevantDocuments.containsKey(standardVariableName)) continue;
+
 			for (Entry<String, List<Object>> entry : retrievedDocument.getValue().getAllRelevantDocuments())
 			{
 				String biobankName = entry.getKey();
 				List<Object> candidateMappings = entry.getValue();
+				List<Object> allRelevantMappings = relevantDocuments.get(standardVariableName).getRelevantDocuments(
+						biobankName);
 
 				for (int i = 0; i < (threshold < candidateMappings.size() ? threshold : candidateMappings.size()); i++)
 				{
-					if (isRetrieved(candidateMappings.get(i), relevantDocuments.get(standardVariableName)
-							.getRelevantDocuments(biobankName)))
+					if (isRetrieved(candidateMappings.get(i), allRelevantMappings))
 					{
-						uniqueSet.add(candidateMappings.get(i).toString());
-						// retrievedRelevantDocuments.incrementAndGet();
+						retrievedRelevantDocuments.incrementAndGet();
 					}
 				}
 			}
 		}
-		retrievedRelevantDocuments.set(uniqueSet.size());
+	}
+
+	public void generateROC(Map<String, StoreRelevantDocuments> retrievedDocuments,
+			Map<String, StoreRelevantDocuments> relevantDocuments, int threshold)
+	{
+		retrievedRelevantDocuments.set(0);
+		totalRelevantDocuments.set(countUniqueDocuments(relevantDocuments, null));
+		totalRetrievedDocuments.set(countUniqueDocuments(retrievedDocuments, threshold));
+
+		Set<String> uniqueDocuments = new HashSet<String>();
+		for (Entry<String, StoreRelevantDocuments> retrievedDocument : retrievedDocuments.entrySet())
+		{
+			String standardVariableName = retrievedDocument.getKey();
+			if (!relevantDocuments.containsKey(standardVariableName)) continue;
+
+			for (Entry<String, List<Object>> entry : retrievedDocument.getValue().getAllRelevantDocuments())
+			{
+				String biobankName = entry.getKey();
+				List<Object> candidateMappings = entry.getValue();
+				List<Object> allRelevantMappings = relevantDocuments.get(standardVariableName).getRelevantDocuments(
+						biobankName);
+
+				for (int i = 0; i < (threshold < candidateMappings.size() ? threshold : candidateMappings.size()); i++)
+				{
+					if (isRetrieved(candidateMappings.get(i), allRelevantMappings))
+					{
+						uniqueDocuments.add(candidateMappings.get(i).toString());
+					}
+				}
+			}
+		}
+		retrievedRelevantDocuments.set(uniqueDocuments.size());
 	}
 
 	private boolean isRetrieved(Object retrievedDocument, List<Object> relevantDocuments)
@@ -100,40 +134,59 @@ public class CalculateIRMetrics
 		return false;
 	}
 
-	private int countDocuments(Map<String, StoreRelevantDocuments> documentMap, Integer threshold)
+	private int countUniqueDocuments(Map<String, StoreRelevantDocuments> documentMap, Integer threshold)
 	{
-		Set<String> uniqueSet = new HashSet<String>();
-		// int count = 0;
+		Set<String> uniqueDocuments = new HashSet<String>();
 		for (Entry<String, StoreRelevantDocuments> document : documentMap.entrySet())
 		{
 			for (Entry<String, List<Object>> entry : document.getValue().getAllRelevantDocuments())
 			{
-				// if (threshold == null) count += entry.getValue().size();
-				// else count += (threshold < entry.getValue().size() ?
-				// threshold : entry.getValue().size());
-				int number = 0;
-				for (Object term : entry.getValue())
+				int count = 0;
+				for (Object mapping : entry.getValue())
 				{
-					if (threshold != null && number == threshold)
-					{
-						break;
-					}
-					uniqueSet.add(term.toString());
-					number++;
+					if (threshold != null
+							&& count >= (threshold < entry.getValue().size() ? threshold : entry.getValue().size())) break;
+					uniqueDocuments.add(mapping.toString());
+					count++;
 				}
 			}
 		}
-		// return count;
-		return uniqueSet.size();
+		return uniqueDocuments.size();
+	}
+
+	private int countDocuments(Map<String, StoreRelevantDocuments> documentMap, Integer threshold)
+	{
+		int count = 0;
+		for (Entry<String, StoreRelevantDocuments> document : documentMap.entrySet())
+		{
+			for (Entry<String, List<Object>> entry : document.getValue().getAllRelevantDocuments())
+			{
+				if (threshold == null) count += entry.getValue().size();
+				else count += (threshold < entry.getValue().size() ? threshold : entry.getValue().size());
+
+			}
+		}
+		return count;
 	}
 
 	private static void writeTupleToSheet(String sheetName, List<KeyValueTuple> tuples, ExcelWriter excelWriter)
 			throws IOException
 	{
-		ExcelSheetWriter excelSheetWriter = (ExcelSheetWriter) excelWriter.createTupleWriter(sheetName.split("\\.")[0]);
-		excelSheetWriter.writeColNames(Arrays.asList("Precision", "Recall", "F-measure"));
+		String tableName = sheetName.split("\\.")[0];
+		ExcelSheetWriter excelSheetWriter = (ExcelSheetWriter) excelWriter.createTupleWriter(tableName);
+		excelSheetWriter.writeColNames(Arrays.asList("Precision", "Recall", "Positives", "Retrieved", "True_Positive",
+				"False_Positive", "FPR", "TPR", "Total"));
+		DecimalFormat df = new DecimalFormat("#.##");
 		for (KeyValueTuple tuple : tuples)
 		{
+			Integer retrieved = tuple.getInt("Retrieved");
+			Integer True_Positive = tuple.getInt("True_Positive");
+			Integer positive = tuple.getInt("Positives");
+			Integer total = biobankTotalNumber.get(tableName.toLowerCase());
+			tuple.set("False_Positive", (retrieved - True_Positive));
+			tuple.set("FPR", df.format((double) ((retrieved - True_Positive)) / (total - positive)));
+			tuple.set("TPR", df.format((double) True_Positive / positive));
+			tuple.set("Total", total);
 			excelSheetWriter.write(tuple);
 		}
 		excelSheetWriter.close();
@@ -155,9 +208,11 @@ public class CalculateIRMetrics
 		}
 		System.out.println();
 		System.out
-				.println("Threshold\tPrecision\tRecall\tRelevant_Documents\tRetrieved_Documents\tTrue_Positive\tF-measure");
-		for (int i = 1; i < 51; i++)
+				.println("Threshold\tPrecision\tRecall\tRelevant_Documents\tRetrieved_Documents\tTrue_Positive\tTotal");
+		for (int i = 1; i < 21; i++)
 		{
+			KeyValueTuple tuple = new KeyValueTuple();
+
 			calculateIRMetrics.processData(loadRetrievedDocument.getRetrievedDocuments(),
 					loadRelevantDocument.getMapForRelevantDocuments(), i);
 			System.out.print(i + "\t");
@@ -166,14 +221,20 @@ public class CalculateIRMetrics
 			System.out.print(df.format(calculateIRMetrics.totalRelevantDocuments) + "\t");
 			System.out.print(df.format(calculateIRMetrics.totalRetrievedDocuments) + "\t");
 			System.out.print(df.format(calculateIRMetrics.retrievedRelevantDocuments) + "\t");
-			System.out.print(df.format(calculateIRMetrics.calculateFMeasure()) + "\n");
+			System.out.print(df.format(calculateIRMetrics.total) + "\n");
 
-			KeyValueTuple tuple = new KeyValueTuple();
 			tuple.set("Precision", df.format(calculateIRMetrics.calculatePrecision()));
 			tuple.set("Recall", df.format(calculateIRMetrics.calculateRecall()));
-			tuple.set("F-measure", df.format(calculateIRMetrics.calculateFMeasure()));
+
+			calculateIRMetrics.generateROC(loadRetrievedDocument.getRetrievedDocuments(),
+					loadRelevantDocument.getMapForRelevantDocuments(), i);
+
+			tuple.set("Positives", calculateIRMetrics.totalRelevantDocuments.get());
+			tuple.set("Retrieved", calculateIRMetrics.totalRetrievedDocuments.get());
+			tuple.set("True_Positive", calculateIRMetrics.retrievedRelevantDocuments.get());
 			tuples.add(tuple);
 		}
+
 		System.out.println("\n");
 		return tuples;
 	}
