@@ -91,6 +91,8 @@ public class StoreMappingTableTest
 		when(ov1.getValue()).thenReturn(value1);
 
 		Characteristic ch2 = mock(Characteristic.class);
+		when(ch2.getIdentifier()).thenReturn("characteristic-identifier-2");
+		when(ch2.getName()).thenReturn("characteristic-name-2");
 		when(ch2.getId()).thenReturn(2);
 		XrefValue value2 = new XrefValue();
 		value2.setValue(ch2);
@@ -102,6 +104,8 @@ public class StoreMappingTableTest
 		when(ov2.getValue()).thenReturn(value2);
 
 		Characteristic ch3 = mock(Characteristic.class);
+		when(ch3.getIdentifier()).thenReturn("characteristic-identifier-3");
+		when(ch3.getName()).thenReturn("characteristic-name-3");
 		when(ch3.getId()).thenReturn(3);
 		XrefValue value3 = new XrefValue();
 		value3.setValue(ch3);
@@ -153,8 +157,8 @@ public class StoreMappingTableTest
 
 		assertTrue(iterator.hasNext());
 		Tuple tuple1 = iterator.next();
-		assertEquals(tuple1.get(STORE_MAPPING_FEATURE), 2);
-		assertEquals(tuple1.get(STORE_MAPPING_MAPPED_FEATURE), 3);
+		assertEquals(tuple1.get(STORE_MAPPING_FEATURE).toString(), "characteristic-name-2");
+		assertEquals(tuple1.get(STORE_MAPPING_MAPPED_FEATURE).toString(), "characteristic-name-3");
 		@SuppressWarnings("unchecked")
 		ValueCell<BoolValue> cell = (ValueCell<BoolValue>) tuple1.get(STORE_MAPPING_CONFIRM_MAPPING);
 		assertEquals(cell.getValue(), Boolean.FALSE);
