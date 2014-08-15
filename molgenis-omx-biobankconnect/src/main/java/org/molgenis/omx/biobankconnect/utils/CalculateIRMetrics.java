@@ -57,6 +57,11 @@ public class CalculateIRMetrics
 		totalRelevantDocuments.set(countDocuments(relevantDocuments, null));
 		totalRetrievedDocuments.set(countDocuments(retrievedDocuments, threshold));
 
+		List<String> mappedMapppings = new ArrayList<String>();
+		List<String> allReleventMappings = new ArrayList<String>();
+
+		String biobank = null;
+
 		for (Entry<String, StoreRelevantDocuments> retrievedDocument : retrievedDocuments.entrySet())
 		{
 			String standardVariableName = retrievedDocument.getKey();
@@ -65,19 +70,29 @@ public class CalculateIRMetrics
 			for (Entry<String, List<Object>> entry : retrievedDocument.getValue().getAllRelevantDocuments())
 			{
 				String biobankName = entry.getKey();
+				biobank = biobankName;
 				List<Object> candidateMappings = entry.getValue();
 				List<Object> allRelevantMappings = relevantDocuments.get(standardVariableName).getRelevantDocuments(
 						biobankName);
+
+				for (Object mapping : allRelevantMappings)
+				{
+					allReleventMappings.add(mapping.toString());
+				}
 
 				for (int i = 0; i < (threshold < candidateMappings.size() ? threshold : candidateMappings.size()); i++)
 				{
 					if (isRetrieved(candidateMappings.get(i), allRelevantMappings))
 					{
 						retrievedRelevantDocuments.incrementAndGet();
+						mappedMapppings.add(candidateMappings.get(i).toString());
 					}
 				}
 			}
 		}
+
+		allReleventMappings.removeAll(mappedMapppings);
+		System.out.println("biobank is : " + biobank + " missed : " + allReleventMappings);
 	}
 
 	public void generateROC(Map<String, StoreRelevantDocuments> retrievedDocuments,
@@ -209,7 +224,7 @@ public class CalculateIRMetrics
 		System.out.println();
 		System.out
 				.println("Threshold\tPrecision\tRecall\tRelevant_Documents\tRetrieved_Documents\tTrue_Positive\tTotal");
-		for (int i = 1; i < 21; i++)
+		for (int i = 20; i < 21; i++)
 		{
 			KeyValueTuple tuple = new KeyValueTuple();
 
@@ -245,9 +260,9 @@ public class CalculateIRMetrics
 		{
 			File relevantDocumentFolder = new File(args[0]);
 			File featureInfoFile = new File(args[1]);
-			File retrievedDocumentFile = new File(args[2]);
+			File retrievedDocumentFolder = new File(args[2]);
 
-			if (relevantDocumentFolder.exists() && featureInfoFile.exists() && retrievedDocumentFile.exists())
+			if (relevantDocumentFolder.exists() && featureInfoFile.exists() && retrievedDocumentFolder.exists())
 			{
 				File outputFile = new File(args[3]);
 				ExcelWriter excelWriter = new ExcelWriter(outputFile, FileFormat.XLSX);
@@ -256,11 +271,11 @@ public class CalculateIRMetrics
 				{
 					if (file.isDirectory() || file.getName().matches("^\\..+") || file.getName().matches("^\\W.+")) continue;
 					List<KeyValueTuple> tuples = calculateMetrics(Arrays.asList(file), featureInfoFile,
-							retrievedDocumentFile);
+							retrievedDocumentFolder);
 					writeTupleToSheet(file.getName(), tuples, excelWriter);
 					validFiles.add(file);
 				}
-				List<KeyValueTuple> tuples = calculateMetrics(validFiles, featureInfoFile, retrievedDocumentFile);
+				List<KeyValueTuple> tuples = calculateMetrics(validFiles, featureInfoFile, retrievedDocumentFolder);
 				writeTupleToSheet("total", tuples, excelWriter);
 				excelWriter.close();
 			}

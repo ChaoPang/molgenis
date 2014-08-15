@@ -508,7 +508,7 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 		{
 			List<QueryRule> finalQuery = new ArrayList<QueryRule>();
 			finalQuery.add(disMaxQuery);
-			finalQuery.add(new QueryRule(Operator.LIMIT, Integer.MAX_VALUE));
+			finalQuery.add(new QueryRule(Operator.LIMIT, 1000));
 			MultiSearchRequest request = new MultiSearchRequest(Arrays.asList(CATALOGUE_PREFIX + dataSetId,
 					FEATURE_CATEGORY + dataSetId), finalQuery, null);
 			result = searchService.multiSearch(request);

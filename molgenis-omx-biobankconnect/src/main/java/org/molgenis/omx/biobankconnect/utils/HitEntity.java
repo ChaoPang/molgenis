@@ -8,7 +8,7 @@ public class HitEntity implements Comparable<HitEntity>
 	public HitEntity(String variableName, double score)
 	{
 		this.variableName = variableName;
-		this.score = (int) score;
+		this.score = score;
 	}
 
 	public void setScore(double score)
@@ -24,7 +24,8 @@ public class HitEntity implements Comparable<HitEntity>
 	@Override
 	public int compareTo(HitEntity o)
 	{
-		if (getScore() >= o.getScore()) return -1;
+		if (getScore() > o.getScore()) return -1;
+		if (getScore() == o.getScore()) return 0;
 		return 1;
 	}
 
