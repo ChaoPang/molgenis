@@ -208,9 +208,7 @@ public class OntologyService
 					if (DEFAULT_MATCHING_NAME_FIELD.equals(attributeName.toLowerCase())
 							|| attributeName.toLowerCase().startsWith(DEFAULT_MATCHING_SYNONYM_FIELD))
 					{
-						BigDecimal ngramScore = new BigDecimal(NGramMatchingModel.stringMatching(
-								entity.getString(attributeName),
-								columnValueMap.get(OntologyTermIndexRepository.SYNONYMS).toString()));
+						BigDecimal ngramScore = matchOntologyTerm(entity.getString(attributeName), hit);
 						if (maxNgramScore.doubleValue() < ngramScore.doubleValue())
 						{
 							maxNgramScore = ngramScore;
@@ -288,18 +286,39 @@ public class OntologyService
 		Map<String, Object> inputData = new HashMap<String, Object>();
 		inputData.put(DEFAULT_MATCHING_NAME_FIELD, queryString);
 		List<ComparableHit> comparableHits = new ArrayList<ComparableHit>();
+		String cleanedQueryString = StringUtils.join(uniqueTerms,
+				OntologyTermQueryRepository.ILLEGAL_CHARACTERS_REPLACEMENT);
 		while (iterator.hasNext())
 		{
 			Hit hit = iterator.next();
-			String ontologySynonym = hit.getColumnValueMap().get(OntologyTermIndexRepository.SYNONYMS).toString();
+			BigDecimal ngramScore = matchOntologyTerm(cleanedQueryString, hit);
 			BigDecimal luceneScore = new BigDecimal(hit.getColumnValueMap().get(SCORE).toString());
-			BigDecimal ngramScore = new BigDecimal(NGramMatchingModel.stringMatching(
-					StringUtils.join(uniqueTerms, OntologyTermQueryRepository.ILLEGAL_CHARACTERS_REPLACEMENT),
-					ontologySynonym));
 			comparableHits.add(new ComparableHit(hit, luceneScore.multiply(ngramScore), null));
 		}
 		Collections.sort(comparableHits);
 		return convertResults(inputData, comparableHits);
+	}
+
+	private BigDecimal matchOntologyTerm(String queryString, Hit hit)
+	{
+		Map<String, Object> columnValueMap = hit.getColumnValueMap();
+		String ontologyTermSynonym = columnValueMap.get(OntologyTermIndexRepository.SYNONYMS).toString();
+		String ontologyTerm = columnValueMap.get(OntologyTermIndexRepository.ONTOLOGY_TERM).toString();
+
+		BigDecimal ngramScore = null;
+		if (!ontologyTerm.equalsIgnoreCase(ontologyTermSynonym))
+		{
+			double score_1 = NGramMatchingModel.stringMatching(queryString, ontologyTerm);
+			double score_2 = NGramMatchingModel.stringMatching(queryString, ontologyTermSynonym);
+
+			ngramScore = new BigDecimal(score_1 > score_2 ? score_1 : score_2);
+		}
+		else
+		{
+			ngramScore = new BigDecimal(NGramMatchingModel.stringMatching(queryString, ontologyTermSynonym));
+		}
+
+		return ngramScore;
 	}
 
 	private String medicalStemProxy(String queryString)
