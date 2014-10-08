@@ -36,7 +36,7 @@ public abstract class AbstractOntologyRepository implements Repository
 	public final static String TYPE_ONTOLOGYTERM = "ontologyTerm";
 	public final static String CHIDLREN = "children";
 	public final static String ILLEGAL_CHARACTERS_PATTERN = "[^(a-zA-Z0-9 )]";
-	public final static String ILLEGAL_CHARACTERS_REPLACEMENT = "\\s";
+	public final static String ILLEGAL_CHARACTERS_REPLACEMENT = " ";
 	public final static String NODE_PATH_REPLACEMENT_PATTERN = "\\.[0-9]+$";
 	public final static String MULTI_WHITESPACES = " +";
 	public final static String SINGLE_WHITESPACE = " ";
