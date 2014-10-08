@@ -229,11 +229,9 @@ public class OntologyService
 								{
 									for (Object databaseId : (List<?>) columnValueMap.get(key))
 									{
-										BigDecimal ngramScore = new BigDecimal(NGramMatchingModel.stringMatching(
-												entity.getString(attributeName), databaseId.toString()));
-										if (maxNgramScore.doubleValue() < ngramScore.doubleValue())
+										if (databaseId.toString().equalsIgnoreCase(entity.getString(attributeName)))
 										{
-											maxNgramScore = ngramScore;
+											maxNgramScore = new BigDecimal(100);
 											maxScoreField = attributeName;
 										}
 									}
