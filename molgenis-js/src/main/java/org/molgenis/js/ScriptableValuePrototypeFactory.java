@@ -3,6 +3,7 @@ package org.molgenis.js;
 import java.lang.reflect.Method;
 import java.util.Set;
 
+import org.molgenis.js.methods.BooleanMethods;
 import org.molgenis.js.methods.CategoricalMethods;
 import org.molgenis.js.methods.NumericMethods;
 import org.molgenis.js.sandbox.SandboxNativeJavaObject;
@@ -25,7 +26,7 @@ import com.google.common.collect.ImmutableSet;
 public class ScriptableValuePrototypeFactory
 {
 	private static final Set<Class<?>> methodProvidingClasses = ImmutableSet.<Class<?>> of(NumericMethods.class,
-			CategoricalMethods.class);
+			CategoricalMethods.class, BooleanMethods.class);
 
 	public static ScriptableValue buildPrototype()
 	{
