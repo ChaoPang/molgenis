@@ -1,5 +1,7 @@
 package org.molgenis.js.methods;
 
+import static org.molgenis.js.ScriptableValue.MISSING_VALUE;
+
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.text.DecimalFormat;
@@ -32,7 +34,7 @@ public class NumericMethods
 			throw new IllegalArgumentException("div expects one argument. Example: $('weight').div(10)");
 		}
 
-		if (thisObj == null || args[0] == null) return new ScriptableValue(thisObj, null);
+		if (thisObj == null || args[0] == null) return new ScriptableValue(thisObj, MISSING_VALUE);
 		return new ScriptableValue(thisObj, Boolean.parseBoolean(Context.toString(thisObj)) ? args[0] : args[1]);
 	}
 
@@ -52,7 +54,7 @@ public class NumericMethods
 			throw new IllegalArgumentException("div expects one argument. Example: $('weight').div(10)");
 		}
 
-		if (thisObj == null || args[0] == null) return new ScriptableValue(thisObj, null);
+		if (thisObj == null || args[0] == null) return new ScriptableValue(thisObj, MISSING_VALUE);
 
 		String objectValue = Context.toString(thisObj);
 		String object2Value = Context.toString(args[0]);
@@ -76,7 +78,7 @@ public class NumericMethods
 			throw new IllegalArgumentException("div expects one argument. Example: $('weight').div(10)");
 		}
 
-		if (thisObj == null || args[0] == null) return new ScriptableValue(thisObj, null);
+		if (thisObj == null || args[0] == null) return new ScriptableValue(thisObj, MISSING_VALUE);
 
 		BigDecimal lhs = new BigDecimal(Context.toNumber(thisObj));
 		BigDecimal rhs = new BigDecimal(Context.toNumber(args[0]));
@@ -99,7 +101,7 @@ public class NumericMethods
 			throw new IllegalArgumentException("div expects one argument. Example: $('weight').div(10)");
 		}
 
-		if (thisObj == null || args[0] == null) return new ScriptableValue(thisObj, null);
+		if (thisObj == null || args[0] == null) return new ScriptableValue(thisObj, MISSING_VALUE);
 
 		BigDecimal lhs = new BigDecimal(Context.toNumber(thisObj));
 		BigDecimal rhs = new BigDecimal(Context.toNumber(args[0]));
@@ -121,6 +123,8 @@ public class NumericMethods
 		{
 			throw new IllegalArgumentException("div expects one argument. Example: $('weight').div(10)");
 		}
+
+		if (thisObj == null || args[0] == null) return new ScriptableValue(thisObj, MISSING_VALUE);
 
 		BigDecimal lhs = new BigDecimal(Context.toNumber(thisObj));
 		BigDecimal rhs = new BigDecimal(Context.toNumber(args[0]));
@@ -144,6 +148,8 @@ public class NumericMethods
 		{
 			throw new IllegalArgumentException("pow expects one argument. Example: $('weight').pow(10)");
 		}
+
+		if (thisObj == null || args[0] == null) return new ScriptableValue(thisObj, MISSING_VALUE);
 
 		BigDecimal lhs = new BigDecimal(Context.toNumber(thisObj));
 		int rhs = (int) Context.toNumber(args[0]);

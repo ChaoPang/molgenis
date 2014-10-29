@@ -10,6 +10,7 @@ import org.mozilla.javascript.ScriptableObject;
  */
 public class ScriptableValue extends ScriptableObject
 {
+	public static final int MISSING_VALUE = 999999;
 	private static final long serialVersionUID = 277471335110754837L;
 	private static final String CLASS_NAME = "Value";
 	private Object value;
@@ -24,7 +25,7 @@ public class ScriptableValue extends ScriptableObject
 
 		if (value == null)
 		{
-			throw new IllegalArgumentException("Value is null");// TODO How to deal with null values?
+			// FIXME : log the information
 		}
 
 		this.value = value;

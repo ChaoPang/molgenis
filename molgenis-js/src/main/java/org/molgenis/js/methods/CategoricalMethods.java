@@ -1,5 +1,7 @@
 package org.molgenis.js.methods;
 
+import static org.molgenis.js.ScriptableValue.MISSING_VALUE;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,8 +16,6 @@ import org.mozilla.javascript.Scriptable;
  */
 public class CategoricalMethods
 {
-	private static final int MISSING_VALUE = 9999;
-
 	/**
 	 * $('test').map({ 1 : 0, 0 : 1 })
 	 * 
@@ -31,6 +31,7 @@ public class CategoricalMethods
 		{
 			throw new IllegalArgumentException("div expects one argument. Example: $('gender').div({'A':'1','B':'2'})");
 		}
+		if (thisObj == null || args[0] == null) return new ScriptableValue(thisObj, MISSING_VALUE);
 		Map<String, String> mappings = new HashMap<String, String>();
 		if (args[0] instanceof NativeObject)
 		{
