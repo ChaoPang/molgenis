@@ -115,10 +115,7 @@ public class OntologyTermIndexRepository extends AbstractOntologyRepository impl
 				entity.set(ONTOLOGY_TERM_DEFINITION, classContainer.getClassDefinition());
 				entity.set(ONTOLOGY_TERM_IRI, cls.getIRI().toString());
 				entity.set(ENTITY_TYPE, TYPE_ONTOLOGYTERM);
-				entity.set(
-						SYNONYMS,
-						classContainer.getClassLabel().replaceAll(ILLEGAL_CHARACTERS_PATTERN,
-								ILLEGAL_CHARACTERS_REPLACEMENT));
+				entity.set(SYNONYMS, classContainer.getClassLabel());
 				entity.set(ALTERNATIVE_DEFINITION, classContainer.getAssociatedClasses());
 				return entity;
 			}

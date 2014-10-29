@@ -332,15 +332,18 @@ public class ApplyAlgorithms
 		Map<Integer, Object> calculatedResults = new HashMap<Integer, Object>();
 		for (Entry<Integer, MapEntity> entry : eachIndividualValues.entrySet())
 		{
-			if (Iterables.size(entry.getValue().getAttributeNames()) != featureNames.size()) continue;
 			Object result = ScriptEvaluator.eval(algorithmScript, entry.getValue());
-			if (dataType.equalsIgnoreCase(MolgenisFieldTypes.FieldTypeEnum.INT.toString())) calculatedResults.put(
-					entry.getKey(), Integer.parseInt(Context.toString(result)));
-			else if (dataType.equalsIgnoreCase(MolgenisFieldTypes.FieldTypeEnum.CATEGORICAL.toString())) calculatedResults
-					.put(entry.getKey(), Integer.parseInt(Context.toString(result)));
-			else if (dataType.equalsIgnoreCase(MolgenisFieldTypes.FieldTypeEnum.DECIMAL.toString())) calculatedResults
-					.put(entry.getKey(), Context.toNumber(result));
-			else calculatedResults.put(entry.getKey(), Context.toString(result));
+
+			if (result != null)
+			{
+				if (dataType.equalsIgnoreCase(MolgenisFieldTypes.FieldTypeEnum.INT.toString())) calculatedResults.put(
+						entry.getKey(), Integer.parseInt(Context.toString(result)));
+				else if (dataType.equalsIgnoreCase(MolgenisFieldTypes.FieldTypeEnum.CATEGORICAL.toString())) calculatedResults
+						.put(entry.getKey(), Integer.parseInt(Context.toString(result)));
+				else if (dataType.equalsIgnoreCase(MolgenisFieldTypes.FieldTypeEnum.DECIMAL.toString())) calculatedResults
+						.put(entry.getKey(), Context.toNumber(result));
+				else calculatedResults.put(entry.getKey(), Context.toString(result));
+			}
 		}
 		return calculatedResults;
 	}

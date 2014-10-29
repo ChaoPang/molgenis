@@ -42,6 +42,7 @@ import org.molgenis.omx.observ.Protocol;
 import org.molgenis.omx.observ.target.OntologyTerm;
 import org.molgenis.omx.observ.value.IntValue;
 import org.molgenis.omx.observ.value.StringValue;
+import org.molgenis.omx.observ.value.TextValue;
 import org.molgenis.search.Hit;
 import org.molgenis.search.MultiSearchRequest;
 import org.molgenis.search.SearchRequest;
@@ -713,7 +714,7 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 
 			ObservableFeature algorithmScriptFeature = new ObservableFeature();
 			algorithmScriptFeature.setIdentifier(STORE_MAPPING_ALGORITHM_SCRIPT);
-			algorithmScriptFeature.setDataType(MolgenisFieldTypes.FieldTypeEnum.STRING.toString().toLowerCase());
+			algorithmScriptFeature.setDataType(MolgenisFieldTypes.FieldTypeEnum.TEXT.toString().toLowerCase());
 			algorithmScriptFeature.setName(STORE_MAPPING_ALGORITHM_SCRIPT);
 			features.add(algorithmScriptFeature);
 
@@ -825,10 +826,10 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 		valueForFeature.setValue(xrefForFeature);
 		listOfNewObservedValues.add(valueForFeature);
 
-		StringValue algorithmScriptValue = new StringValue();
+		TextValue algorithmScriptValue = new TextValue();
 		algorithmScriptValue.setValue(request.getAlgorithmScript() == null ? StringUtils.EMPTY : request
 				.getAlgorithmScript());
-		dataService.add(StringValue.ENTITY_NAME, algorithmScriptValue);
+		dataService.add(TextValue.ENTITY_NAME, algorithmScriptValue);
 
 		ObservedValue algorithmScriptObservedValue = new ObservedValue();
 		algorithmScriptObservedValue.setObservationSet(observationSet);
@@ -905,13 +906,13 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 								.eq(ObservedValue.FEATURE, storeMappingAlgorithmScriptFeature), ObservedValue.class);
 
 				if (algorithmScriptObservedValue != null
-						&& algorithmScriptObservedValue.getValue() instanceof StringValue)
+						&& algorithmScriptObservedValue.getValue() instanceof TextValue)
 				{
 					// Update algorithm script in database
-					StringValue algorithmScriptValue = (StringValue) algorithmScriptObservedValue.getValue();
+					TextValue algorithmScriptValue = (TextValue) algorithmScriptObservedValue.getValue();
 					algorithmScriptValue.setValue(algorithmScript);
-					dataService.update(StringValue.ENTITY_NAME, algorithmScriptValue);
-					dataService.getCrudRepository(StringValue.ENTITY_NAME).flush();
+					dataService.update(TextValue.ENTITY_NAME, algorithmScriptValue);
+					dataService.getCrudRepository(TextValue.ENTITY_NAME).flush();
 					// Update algorithm script in index
 					searchService.updateDocumentById(mappingDataSetIdentifier, hit.getId(),
 							constructIndexUpdateScript(STORE_MAPPING_ALGORITHM_SCRIPT, algorithmScript));
