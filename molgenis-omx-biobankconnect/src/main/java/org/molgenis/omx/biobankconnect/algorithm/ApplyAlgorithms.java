@@ -1,5 +1,7 @@
 package org.molgenis.omx.biobankconnect.algorithm;
 
+import static org.molgenis.js.ScriptableValue.MISSING_VALUE;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -10,6 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Logger;
 import org.molgenis.MolgenisFieldTypes;
 import org.molgenis.data.DataService;
 import org.molgenis.data.QueryRule;
@@ -68,6 +71,8 @@ public class ApplyAlgorithms
 	private static final String ENTITY_TYPE = "type";
 	private static final String STORE_MAPPING_FEATURE = "store_mapping_feature";
 	private static final String STORE_MAPPING_ALGORITHM_SCRIPT = "store_mapping_algorithm_script";
+	private static final Logger logger = Logger.getLogger(ApplyAlgorithms.class);
+	private static final int BATCH_NUMBER = 10000;
 
 	private static final Map<String, Class<? extends Value>> entityMap = new HashMap<String, Class<? extends Value>>();
 	static
@@ -89,7 +94,7 @@ public class ApplyAlgorithms
 		createDerivedDataSets(userName, targetDataSetId, sourceDataSetIds);
 		SearchResult allFeaturesResult = findAllFeatures(targetDataSetId);
 		currentUserStatus.setUserTotalNumberOfQueries(userName,
-				allFeaturesResult.getTotalHitCount() * sourceDataSetIds.size());
+				totalNumOfJobs(allFeaturesResult.getTotalHitCount(), sourceDataSetIds));
 
 		QueryImpl query = new QueryImpl();
 		query.pageSize(Integer.MAX_VALUE);
@@ -103,6 +108,19 @@ public class ApplyAlgorithms
 		searchService.indexRepository(new DataSetMatrixRepository(dataService, createDerivedDataSetIdentifier(userName,
 				targetDataSetId.toString(), StringUtils.join(sourceDataSetIds, '-'))));
 		currentUserStatus.setUserIsRunning(userName, false);
+	}
+
+	private Long totalNumOfJobs(long numOfFeatures, List<Integer> sourceDataSetIds)
+	{
+		long totalNumber = 0;
+		for (Integer sourceDataSetId : sourceDataSetIds)
+		{
+			DataSet sourceDataSet = dataService.findOne(DataSet.ENTITY_NAME, sourceDataSetId, DataSet.class);
+			long count = dataService.count(ObservationSet.ENTITY_NAME,
+					new QueryImpl().eq(ObservationSet.PARTOFDATASET, sourceDataSet));
+			totalNumber += count * numOfFeatures;
+		}
+		return totalNumber;
 	}
 
 	private void generateValues(String userName, QueryImpl query, Integer targetDataSetId,
@@ -124,8 +142,8 @@ public class ApplyAlgorithms
 				ObservableFeature feature = dataService.findOne(ObservableFeature.ENTITY_NAME, featureId,
 						ObservableFeature.class);
 				String algorithmScript = hit.getColumnValueMap().get(STORE_MAPPING_ALGORITHM_SCRIPT).toString();
-				for (Entry<Integer, Object> entry : createValueFromAlgorithm(feature.getDataType(), sourceDataSetId,
-						algorithmScript).entrySet())
+				for (Entry<Integer, Object> entry : createValueFromAlgorithm(userName, feature.getDataType(),
+						sourceDataSetId, algorithmScript).entrySet())
 				{
 					Integer observationSetId = entry.getKey();
 					if (!observationSetMap.containsKey(observationSetId))
@@ -142,7 +160,6 @@ public class ApplyAlgorithms
 					addValueByType(feature, observedValue, entry.getValue());
 					listOfObservedValues.add(observedValue);
 				}
-				currentUserStatus.incrementFinishedNumbersByOne(userName);
 			}
 		}
 		dataService.add(ObservationSet.ENTITY_NAME, observationSetMap.values());
@@ -207,23 +224,35 @@ public class ApplyAlgorithms
 						new QueryImpl().in(ObservedValue.OBSERVATIONSET, observationSets), ObservedValue.class);
 				currentUserStatus.setUserTotalNumberOfQueries(userName,
 						(long) (Iterables.size(observedValues) * sourceDataSetIds.size()));
+
 				for (ObservedValue value : observedValues)
 				{
 					String valueType = value.getValue().get__Type();
 					Integer valueId = value.getId();
 					if (!valuesByType.containsKey(valueType)) valuesByType.put(valueType, new ArrayList<Integer>());
 					valuesByType.get(valueType).add(valueId);
+
 				}
 			}
 			dataSetDeleterService.deleteData(dataSetIdentifier, false);
 			dataService.delete(DataSet.ENTITY_NAME, derivedDataSet);
+			searchService.deleteDocumentsByType(dataSetIdentifier);
+
+			int num = 0;
 			for (Entry<String, List<Integer>> entryValuesByType : valuesByType.entrySet())
 			{
 				String valueType = entryValuesByType.getKey();
 				List<Object> ids = new ArrayList<Object>(entryValuesByType.getValue());
 				dataService.delete(valueType, dataService.findAll(valueType, ids));
 				currentUserStatus.incrementFinishedNumbers(userName, ids.size());
+
+				num++;
+				if (num % BATCH_NUMBER == 0)
+				{
+					logger.info("Removed number :" + num + " values");
+				}
 			}
+			logger.info("Removed total number : " + num + " values");
 			dataService.getCrudRepository(ObservedValue.ENTITY_NAME).flush();
 		}
 	}
@@ -282,7 +311,7 @@ public class ApplyAlgorithms
 		return StringUtils.EMPTY;
 	}
 
-	public Map<Integer, Object> createValueFromAlgorithm(String dataType, Integer sourceDataSetId,
+	public Map<Integer, Object> createValueFromAlgorithm(String userName, String dataType, Integer sourceDataSetId,
 			String algorithmScript)
 	{
 		if (StringUtils.isEmpty(algorithmScript)) return Collections.emptyMap();
@@ -334,7 +363,7 @@ public class ApplyAlgorithms
 		{
 			Object result = ScriptEvaluator.eval(algorithmScript, entry.getValue());
 
-			if (result != null)
+			if (result != null && !result.toString().equals(MISSING_VALUE))
 			{
 				if (dataType.equalsIgnoreCase(MolgenisFieldTypes.FieldTypeEnum.INT.toString())) calculatedResults.put(
 						entry.getKey(), Integer.parseInt(Context.toString(result)));
@@ -344,6 +373,8 @@ public class ApplyAlgorithms
 						.put(entry.getKey(), Context.toNumber(result));
 				else calculatedResults.put(entry.getKey(), Context.toString(result));
 			}
+
+			currentUserStatus.incrementFinishedNumbersByOne(userName);
 		}
 		return calculatedResults;
 	}

@@ -237,8 +237,8 @@ public class BiobankConnectController extends AbstractWizardController
 		}
 		AlgorithmGenerateResponse response = new AlgorithmGenerateResponse(
 				currentUserStatus.getUserCurrentStage(userName), currentUserStatus.isUserMatching(userName),
-				ontologyMatcher.matchPercentage(userName), currentUserStatus.getTotalNumberOfUsers(), wizard
-						.getSelectedDataSet().getId(), wizard.getSelectedBiobanks(),
+				currentUserStatus.getPercentageOfProcessForUser(userName), currentUserStatus.getTotalNumberOfUsers(),
+				wizard.getSelectedDataSet().getId(), wizard.getSelectedBiobanks(),
 				derivedDataSet != null ? derivedDataSet.getId() : null);
 		return response;
 	}

@@ -5,6 +5,7 @@ import static org.molgenis.js.ScriptableValue.MISSING_VALUE;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.molgenis.js.ScriptHelper;
 import org.molgenis.js.ScriptableValue;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
@@ -31,7 +32,10 @@ public class CategoricalMethods
 		{
 			throw new IllegalArgumentException("div expects one argument. Example: $('gender').div({'A':'1','B':'2'})");
 		}
-		if (thisObj == null || args[0] == null) return new ScriptableValue(thisObj, MISSING_VALUE);
+
+		if (ScriptHelper.isNull(thisObj) || ScriptHelper.isNull(args[0])) return new ScriptableValue(thisObj,
+				MISSING_VALUE);
+
 		Map<String, String> mappings = new HashMap<String, String>();
 		if (args[0] instanceof NativeObject)
 		{

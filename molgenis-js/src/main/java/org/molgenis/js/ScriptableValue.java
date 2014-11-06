@@ -1,5 +1,6 @@
 package org.molgenis.js;
 
+import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 
@@ -10,7 +11,8 @@ import org.mozilla.javascript.ScriptableObject;
  */
 public class ScriptableValue extends ScriptableObject
 {
-	public static final int MISSING_VALUE = 999999;
+	public static final String MISSING_VALUE = "999999";
+	private static final String NUMBER_PATTERN = "\\d+\\.{0,1}\\d*";
 	private static final long serialVersionUID = 277471335110754837L;
 	private static final String CLASS_NAME = "Value";
 	private Object value;
@@ -25,9 +27,8 @@ public class ScriptableValue extends ScriptableObject
 
 		if (value == null)
 		{
-			// FIXME : log the information
+			value = MISSING_VALUE;
 		}
-
 		this.value = value;
 	}
 
@@ -45,6 +46,12 @@ public class ScriptableValue extends ScriptableObject
 	@Override
 	public Object getDefaultValue(Class<?> typeHint)
 	{
+		// Handle boolean variables
+		if (value.toString().equals("true") || value.toString().equals("false")) return Context.toBoolean(value);
+
+		// Handle numeric variables
+		if (value.toString().matches(NUMBER_PATTERN)) return Context.toNumber(value);
+
 		return value;
 	}
 

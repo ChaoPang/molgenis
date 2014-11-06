@@ -12,6 +12,9 @@ import org.mozilla.javascript.Scriptable;
  */
 public class GlobalMethods
 {
+	private final static String THIS_RESERVED_WORD = "this";
+	private final static String THIS_RESERVED_WORD_VAL = "this_val";
+
 	/**
 	 * Attribute value lookup.
 	 * 
@@ -34,11 +37,14 @@ public class GlobalMethods
 		}
 
 		String attributeName = (String) args[0];
+
+		if (attributeName.equalsIgnoreCase(THIS_RESERVED_WORD)) return new ScriptableValue(thisObj,
+				THIS_RESERVED_WORD_VAL);
+
 		MolgenisContext mctx = MolgenisContext.asMolgenisContext(ctx);
 		Entity entity = mctx.getEntity();
 		Object value = entity.get(attributeName);
 
 		return new ScriptableValue(thisObj, value);
 	}
-
 }

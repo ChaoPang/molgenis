@@ -110,7 +110,8 @@ public class AlgorithmEditorController extends MolgenisPluginController
 					ObservableFeature.class);
 			String message = applyAlgorithms.validateAlgorithmInputs(sourceDataSetId, algorithm);
 			Collection<Object> results = StringUtils.isEmpty(message) ? applyAlgorithms.createValueFromAlgorithm(
-					feature.getDataType(), sourceDataSetId, algorithm).values() : Collections.emptyList();
+					userAccountService.getCurrentUser().getUsername(), feature.getDataType(), sourceDataSetId,
+					algorithm).values() : Collections.emptyList();
 			jsonResults.put("results", results);
 			jsonResults.put("message", message);
 			jsonResults.put("totalCounts", countRowsByDataSet(sourceDataSetId));
