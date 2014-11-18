@@ -61,6 +61,15 @@ public class NumericMethods
 		return new ScriptableValue(thisObj, ScriptHelper.isNull(thisObj));
 	}
 
+	public static Scriptable whenNull(Context ctx, Scriptable thisObj, Object[] args, Function funObj)
+	{
+		if (args.length != 1)
+		{
+			throw new IllegalArgumentException("whenNull expects one argument. Example: $('weight').whenNull(10)");
+		}
+		return new ScriptableValue(thisObj, ScriptHelper.isNull(thisObj) ? args[0] : thisObj);
+	}
+
 	/**
 	 * $('test').not(5)
 	 * 
