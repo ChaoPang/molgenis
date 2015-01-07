@@ -154,6 +154,11 @@ public class QueryRule
 		SHOULD("SHOULD"),
 
 		/**
+		 * ElasticSearch Boolean query
+		 */
+		MUST("MUST"),
+
+		/**
 		 * Disjunction max query
 		 */
 		DIS_MAX("DIS_MAX");

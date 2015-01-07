@@ -1,6 +1,7 @@
 package org.molgenis.elasticsearch.request;
 
 import static org.molgenis.data.QueryRule.Operator.DIS_MAX;
+import static org.molgenis.data.QueryRule.Operator.MUST;
 import static org.molgenis.data.QueryRule.Operator.SHOULD;
 
 import java.util.regex.Pattern;
@@ -42,6 +43,15 @@ public class DisMaxQueryGenerator implements QueryPartGenerator
 			for (QueryRule subQuery : queryRule.getNestedRules())
 			{
 				builder.should(buildQueryString(subQuery));
+			}
+			return builder;
+		}
+		else if (queryRule.getOperator().equals(MUST))
+		{
+			BoolQueryBuilder builder = QueryBuilders.boolQuery();
+			for (QueryRule subQuery : queryRule.getNestedRules())
+			{
+				builder.must(buildQueryString(subQuery));
 			}
 			return builder;
 		}

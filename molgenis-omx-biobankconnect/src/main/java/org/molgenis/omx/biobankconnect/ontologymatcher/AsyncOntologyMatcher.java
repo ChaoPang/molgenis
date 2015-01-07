@@ -137,9 +137,8 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 	}
 
 	/**
-	 * This method is to generate a list of candidate mappings for the chosen
-	 * feature by using ElasticSearch based on the information from ontology
-	 * terms
+	 * This method is to generate a list of candidate mappings for the chosen feature by using ElasticSearch based on
+	 * the information from ontology terms
 	 */
 	@Override
 	@Transactional
@@ -166,11 +165,7 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 					ObservableFeature.class);
 			if (feature != null)
 			{
-				List<String> boostedOntologyTermUris = Arrays.asList(columnValueMap.get(FIELD_BOOST_ONTOLOGYTERM)
-						.toString().split(COMMON_SEPERATOR));
-				String description = StringUtils.isEmpty(feature.getDescription()) ? feature.getName().replaceAll(
-						PATTERN_MATCH, OntologyTermQueryRepository.SINGLE_WHITESPACE) : feature.getDescription()
-						.replaceAll(PATTERN_MATCH, OntologyTermQueryRepository.SINGLE_WHITESPACE);
+				QueryRule finalQueryRule = new QueryRule(new ArrayList<QueryRule>());
 
 				List<String> ontologyTermUris = Lists.transform(feature.getDefinitions(),
 						new Function<OntologyTerm, String>()
@@ -182,6 +177,12 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 							}
 						});
 
+				List<String> boostedOntologyTermUris = Arrays.asList(columnValueMap.get(FIELD_BOOST_ONTOLOGYTERM)
+						.toString().split(COMMON_SEPERATOR));
+				String description = StringUtils.isEmpty(feature.getDescription()) ? feature.getName().replaceAll(
+						PATTERN_MATCH, OntologyTermQueryRepository.SINGLE_WHITESPACE) : feature.getDescription()
+						.replaceAll(PATTERN_MATCH, OntologyTermQueryRepository.SINGLE_WHITESPACE);
+
 				// Collect the information from ontology terms and create
 				// ElasticSearch queries
 				Collection<OntologyTermContainer> ontologyTermContainers = collectOntologyTermInfo(ontologyTermUris,
@@ -192,13 +193,13 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 				List<QueryRule> subQueryRules_3 = getExistingMappings(feature, stemmer,
 						createMappingDataSetIdentifier(userName, targetDataSetId, sourceDataSetId));
 
-				QueryRule finalQueryRule = new QueryRule(new ArrayList<QueryRule>());
 				// Add original description of data items to the query
 				finalQueryRule.setOperator(Operator.DIS_MAX);
 				finalQueryRule.getNestedRules().add(subQueryRules_0);
 				finalQueryRule.getNestedRules().addAll(subQueryRules_1);
 				finalQueryRule.getNestedRules().addAll(subQueryRules_2);
 				finalQueryRule.getNestedRules().addAll(subQueryRules_3);
+
 				return searchDisMaxQuery(sourceDataSet.getProtocolUsed().getId().toString(), new QueryImpl(
 						finalQueryRule));
 			}
@@ -218,8 +219,8 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 	}
 
 	/**
-	 * This method is to collect existing mappings for the same desired data
-	 * element from other datasets and use them for query expansion as well
+	 * This method is to collect existing mappings for the same desired data element from other datasets and use them
+	 * for query expansion as well
 	 * 
 	 * @param description
 	 * @param desiredDataElement
@@ -289,8 +290,7 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 	}
 
 	/**
-	 * Compare whether or not the ontology annotation of feature of interest and
-	 * candidate feature are the same
+	 * Compare whether or not the ontology annotation of feature of interest and candidate feature are the same
 	 * 
 	 * @param featureId
 	 * @param sourceDataSetId
@@ -334,9 +334,8 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 	}
 
 	/**
-	 * Retrieve feature information from Index based on given featureIds list.
-	 * If featureIds is empty, all of features are retrieved for particular
-	 * dataset
+	 * Retrieve feature information from Index based on given featureIds list. If featureIds is empty, all of features
+	 * are retrieved for particular dataset
 	 * 
 	 * @param protocolId
 	 * @param featureIds
@@ -381,8 +380,7 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 	}
 
 	/**
-	 * This method is to collect ontology term information from the index, which
-	 * will be used in composing queries next
+	 * This method is to collect ontology term information from the index, which will be used in composing queries next
 	 * 
 	 * @param ontologyTermUris
 	 * @param boostedOntologyTerms
@@ -439,8 +437,7 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 	}
 
 	/**
-	 * The method is to create ElasticSearch queries with Molgenis queryRule by
-	 * using ontology term information
+	 * The method is to create ElasticSearch queries with Molgenis queryRule by using ontology term information
 	 * 
 	 * @param description
 	 * @param ontologyTermContainers
@@ -594,18 +591,20 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 											Arrays.asList(ontologyTermUri),
 											isBoosted ? Arrays.asList(ontologyTermUri) : Collections
 													.<String> emptyList()), stemmer);
-							subQueryRules.addAll(rules);
-
+							QueryRule rule = new QueryRule(rules);
+							rule.setOperator(Operator.SHOULD);
+							subQueryRules.add(rule);
 						}
+
 						if (subQueryRules.size() > 1)
 						{
 							QueryRule shouldQueryRule = new QueryRule(subQueryRules);
-							shouldQueryRule.setOperator(Operator.SHOULD);
+							shouldQueryRule.setOperator(Operator.MUST);
 							queryRules.add(shouldQueryRule);
 						}
 						else
 						{
-							queryRules.addAll(subQueryRules);
+							queryRules.addAll(subQueryRules.get(0).getNestedRules());
 						}
 					}
 				}
@@ -962,8 +961,7 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 	}
 
 	/**
-	 * A helper function to extract featureName from the algorithm script and
-	 * convert them to database IDs
+	 * A helper function to extract featureName from the algorithm script and convert them to database IDs
 	 * 
 	 * @param request
 	 * @return
