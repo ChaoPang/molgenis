@@ -1,5 +1,6 @@
 package org.molgenis.omx.biobankconnect.algorithm;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,7 +36,7 @@ public class AlgorithmScriptLibrary
 
 	public String findScriptTemplate(ObservableFeature feature)
 	{
-		SearchResult searchResult = findOntologyTerm(Arrays.asList(feature.getName(), feature.getDescription()));
+		SearchResult searchResult = searchOTsByNames(Arrays.asList(feature.getName(), feature.getDescription()));
 		if (searchResult.getTotalHitCount() > 0)
 		{
 			Hit hit = searchResult.getSearchHits().get(0);
@@ -50,16 +51,19 @@ public class AlgorithmScriptLibrary
 		return StringUtils.EMPTY;
 	}
 
-	public SearchResult findOntologyTerm(List<String> queryStrings)
+	public SearchResult searchOTsByNames(List<String> queryStrings)
 	{
 		QueryImpl query = new QueryImpl();
+		List<QueryRule> rules = new ArrayList<QueryRule>();
 		if (queryStrings.size() > 0)
 		{
 			for (String queryString : queryStrings)
 			{
-				if (query.getRules().size() > 0) query.addRule(new QueryRule(Operator.OR));
-				query.addRule(new QueryRule(ONTOLOGYTERM_SYNONYM, Operator.EQUALS, queryString));
+				rules.add(new QueryRule(ONTOLOGYTERM_SYNONYM, Operator.EQUALS, queryString));
 			}
+			QueryRule queryRule = new QueryRule(rules);
+			queryRule.setOperator(Operator.DIS_MAX);
+			query.addRule(queryRule);
 			query.addRule(new QueryRule(Operator.AND));
 			query.addRule(new QueryRule(ENTITY_TYPE, Operator.EQUALS, "ontologyTerm"));
 			query.pageSize(100);

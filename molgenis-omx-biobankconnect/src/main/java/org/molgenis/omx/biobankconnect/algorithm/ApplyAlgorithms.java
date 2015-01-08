@@ -73,6 +73,7 @@ public class ApplyAlgorithms
 	private static final String STORE_MAPPING_ALGORITHM_SCRIPT = "store_mapping_algorithm_script";
 	private static final Logger logger = Logger.getLogger(ApplyAlgorithms.class);
 	private static final int BATCH_NUMBER = 10000;
+	private static final char DATASET_CONNECT_CHAR = '-';
 
 	private static final Map<String, Class<? extends Value>> entityMap = new HashMap<String, Class<? extends Value>>();
 	static
@@ -127,7 +128,7 @@ public class ApplyAlgorithms
 			List<Integer> sourceDataSetIds)
 	{
 		String derivedDataSetIdentifier = createDerivedDataSetIdentifier(userName, targetDataSetId.toString(),
-				StringUtils.join(sourceDataSetIds, '-'));
+				StringUtils.join(sourceDataSetIds, DATASET_CONNECT_CHAR));
 		DataSet derivedDataSet = dataService.findOne(DataSet.ENTITY_NAME,
 				new QueryImpl().eq(DataSet.IDENTIFIER, derivedDataSetIdentifier), DataSet.class);
 		Map<Integer, ObservationSet> observationSetMap = new HashMap<Integer, ObservationSet>();

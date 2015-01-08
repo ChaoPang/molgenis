@@ -15,10 +15,12 @@ import org.molgenis.data.DataService;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
 import org.molgenis.data.support.QueryImpl;
+import org.molgenis.omx.biobankconnect.ontologymatcher.AsyncOntologyMatcher;
 import org.molgenis.omx.biobankconnect.ontologymatcher.OntologyMatcher;
 import org.molgenis.omx.biobankconnect.ontologymatcher.OntologyMatcherRequest;
 import org.molgenis.omx.biobankconnect.utils.NGramMatchingModel;
 import org.molgenis.omx.observ.Category;
+import org.molgenis.omx.observ.DataSet;
 import org.molgenis.omx.observ.ObservableFeature;
 import org.molgenis.omx.observ.target.OntologyTerm;
 import org.molgenis.search.Hit;
@@ -48,22 +50,48 @@ public class AlgorithmGenerator
 	private final static String NODE_PATH = "nodePath";
 	private static final String ONTOLOGY_TERM_IRI = "ontologyTermIRI";
 
+	private static final Map<String, String> RESERVED_CATEGORY_MAPPINGS = new HashMap<String, String>();
+	{
+		RESERVED_CATEGORY_MAPPINGS.put("never", "no");
+		RESERVED_CATEGORY_MAPPINGS.put("ever", "yes");
+		RESERVED_CATEGORY_MAPPINGS.put("missing", "unknown");
+	}
+
 	@RunAsSystem
 	public String generateAlgorithm(String userName, OntologyMatcherRequest request)
 	{
 		StringBuilder suggestedScript = new StringBuilder();
-
 		List<Integer> selectedDataSetIds = request.getSelectedDataSetIds();
 		if (selectedDataSetIds.size() > 0)
 		{
-			SearchResult searchResult = ontologyMatcher.generateMapping(userName, request.getFeatureId(),
-					request.getTargetDataSetId(), selectedDataSetIds.get(0));
+			// Retrieved the mapped features based on the user selection, if no mapped features are selected system
+			// re-generates all the potential mappings
+			SearchResult searchResult;
+			if (request.getMappedFeatureIds() != null && request.getMappedFeatureIds().size() != 0)
+			{
+				DataSet dataSet = dataService.findOne(DataSet.ENTITY_NAME, request.getSelectedDataSetIds().get(0),
+						DataSet.class);
+				QueryImpl query = new QueryImpl();
+				query.pageSize(Integer.MAX_VALUE);
+				for (Integer featureId : request.getMappedFeatureIds())
+				{
+					if (query.getRules().size() > 0) query.addRule(new QueryRule(Operator.OR));
+					query.addRule(new QueryRule(AsyncOntologyMatcher.ENTITY_ID, Operator.EQUALS, featureId));
+				}
+				searchResult = searchService.search(new SearchRequest(AsyncOntologyMatcher.CATALOGUE_PREFIX
+						+ dataSet.getProtocolUsed().getId(), query, null));
+			}
+			else
+			{
+				searchResult = ontologyMatcher.generateMapping(userName, request.getFeatureId(),
+						request.getTargetDataSetId(), selectedDataSetIds.get(0));
+			}
 			ObservableFeature standardFeature = dataService.findOne(ObservableFeature.ENTITY_NAME,
 					request.getFeatureId(), ObservableFeature.class);
 			String scriptTemplate = algorithmScriptLibrary.findScriptTemplate(standardFeature);
 			if (searchResult.getTotalHitCount() > 0)
 			{
-				if (StringUtils.isEmpty(scriptTemplate))
+				if (StringUtils.isEmpty(scriptTemplate) || searchResult.getTotalHitCount() == 1)
 				{
 					suggestedScript.append(convertToJavascript(standardFeature, searchResult));
 				}
@@ -73,26 +101,25 @@ public class AlgorithmGenerator
 				}
 			}
 		}
-
 		return suggestedScript.toString();
 	}
 
 	/**
-	 * Convert to Javascript based on the variable matching only
+	 * Convert to Javascript based on candidate mapped features
 	 * 
 	 * @param standardFeature
-	 * @param searchResult
+	 * @param mappingCandidateSearchResult
 	 * @return
 	 */
-	private String convertToJavascript(ObservableFeature standardFeature, SearchResult searchResult)
+	private String convertToJavascript(ObservableFeature standardFeature, SearchResult mappingCandidateSearchResult)
 	{
-		Hit hit = searchResult.getSearchHits().get(0);
+		Hit hit = mappingCandidateSearchResult.getSearchHits().get(0);
 		ObservableFeature customFeature = dataService.findOne(ObservableFeature.ENTITY_NAME,
 				Integer.parseInt(hit.getColumnValueMap().get(ObservableFeature.ID.toLowerCase()).toString()),
 				ObservableFeature.class);
 		String conversionScript = algorithmUnitConverter.convert(standardFeature.getUnit(), customFeature.getUnit());
 		StringBuilder javaScript = new StringBuilder();
-		javaScript.append(createJavascriptName(customFeature.getName(), conversionScript, false));
+		javaScript.append(createMagamaVarName(customFeature.getName(), conversionScript, false));
 
 		// If two variables are categorical, map the value codes onto each other
 		if (standardFeature.getDataType().equalsIgnoreCase(MolgenisFieldTypes.FieldTypeEnum.CATEGORICAL.toString())
@@ -113,7 +140,7 @@ public class AlgorithmGenerator
 				for (Category standardCategory : categoriesForStandardFeature)
 				{
 					double score = NGramMatchingModel.stringMatching(customCategory.getName(),
-							standardCategory.getName(), false);
+							replaceCategoryWithReservedMapping(standardCategory), false);
 					if (score > similarityScore)
 					{
 						similarityScore = score;
@@ -138,8 +165,7 @@ public class AlgorithmGenerator
 	}
 
 	/**
-	 * Convert to Javascript based on the formula pre-defined. E.g. BMI,
-	 * Hypertension
+	 * Convert to Javascript based on the formula pre-defined. E.g. BMI, Hypertension
 	 * 
 	 * @param scriptTemplate
 	 * @param standardFeature
@@ -149,17 +175,18 @@ public class AlgorithmGenerator
 	private String convertToJavascriptByFormula(String scriptTemplate, ObservableFeature standardFeature,
 			SearchResult searchResult)
 	{
-		for (String standardFeatureName : ApplyAlgorithms.extractFeatureName(scriptTemplate))
+		StringBuilder backupScriptTemplate = new StringBuilder(scriptTemplate);
+		for (String buildingBlock : ApplyAlgorithms.extractFeatureName(scriptTemplate))
 		{
-			SearchResult result = algorithmScriptLibrary.findOntologyTerm(Arrays.asList(standardFeatureName));
-			if (result.getTotalHitCount() > 0)
+			SearchResult otsResultBuildingBlock = algorithmScriptLibrary.searchOTsByNames(Arrays.asList(buildingBlock));
+			if (otsResultBuildingBlock.getTotalHitCount() > 0)
 			{
 				Hit bestMatchedFeature = null;
 				int miniDistance = 1000000;
 				for (Hit candidateFeature : searchResult.getSearchHits())
 				{
-					int distance = compareOntologyTermDistance(result.getSearchHits().get(0),
-							findOntologyTerms(candidateFeature));
+					int distance = compareOntologyTermDistance(otsResultBuildingBlock.getSearchHits().get(0),
+							searchOTsByFeature(candidateFeature));
 					if (distance >= 0 && distance < miniDistance)
 					{
 						miniDistance = distance;
@@ -174,17 +201,25 @@ public class AlgorithmGenerator
 									.get(ObservableFeature.ID.toLowerCase()).toString()), ObservableFeature.class);
 					String conversionScript = algorithmUnitConverter.convert(standardFeature.getUnit(),
 							mappedFeature.getUnit());
-					String mappedFeatureJavaScriptName = createJavascriptName(bestMatchedFeature.getColumnValueMap()
+					String mappedFeatureJavaScriptName = createMagamaVarName(bestMatchedFeature.getColumnValueMap()
 							.get(ObservableFeature.NAME.toLowerCase()).toString(), conversionScript, true);
-					String standardJavaScriptName = createJavascriptName(standardFeatureName, null, true);
+					String standardJavaScriptName = createMagamaVarName(buildingBlock, null, true);
 					scriptTemplate = scriptTemplate.replaceAll(standardJavaScriptName, mappedFeatureJavaScriptName);
 				}
 			}
 		}
-		return scriptTemplate;
+		return backupScriptTemplate.toString().equals(scriptTemplate) ? StringUtils.EMPTY : scriptTemplate;
 	}
 
-	private String createJavascriptName(String mappedFeatureName, String suffix, boolean escaped)
+	/**
+	 * A helper function to create feature representation in Magama syntax
+	 * 
+	 * @param mappedFeatureName
+	 * @param suffix
+	 * @param escaped
+	 * @return
+	 */
+	private String createMagamaVarName(String mappedFeatureName, String suffix, boolean escaped)
 	{
 		StringBuilder javaScriptName = new StringBuilder();
 		javaScriptName.append(escaped ? "\\$\\('" : "$('").append(mappedFeatureName).append(escaped ? "'\\)" : "')");
@@ -192,22 +227,72 @@ public class AlgorithmGenerator
 		return javaScriptName.toString();
 	}
 
-	private List<Hit> findOntologyTerms(Hit candidateFeature)
+	/**
+	 * A helper function to search for suitable ontology terms for given feature based on annotations or lexical
+	 * similarity
+	 * 
+	 * @param candidateFeature
+	 * @return
+	 */
+	private List<Hit> searchOTsByFeature(Hit candidateFeature)
 	{
-		Integer featureId = Integer.parseInt(candidateFeature.getColumnValueMap()
-				.get(ObservableFeature.ID.toLowerCase()).toString());
-		ObservableFeature feature = dataService.findOne(ObservableFeature.ENTITY_NAME, featureId,
-				ObservableFeature.class);
-
-		QueryImpl query = new QueryImpl();
-		for (OntologyTerm ot : feature.getDefinitions())
-		{
-			if (query.getRules().size() > 0) query.addRule(new QueryRule(Operator.OR));
-			query.addRule(new QueryRule(ONTOLOGY_TERM_IRI, Operator.EQUALS, ot.getTermAccession()));
-		}
-		return searchService.search(new SearchRequest(null, query, null)).getSearchHits();
+		ObservableFeature feature = dataService.findOne(
+				ObservableFeature.ENTITY_NAME,
+				Integer.parseInt(candidateFeature.getColumnValueMap().get(ObservableFeature.ID.toLowerCase())
+						.toString()), ObservableFeature.class);
+		return searchOTsByFeature(feature);
 	}
 
+	/**
+	 * A helper function to search for suitable ontology terms for given feature based on annotations or lexical
+	 * similarity
+	 * 
+	 * @param feature
+	 * @return
+	 */
+	private List<Hit> searchOTsByFeature(ObservableFeature feature)
+	{
+		if (feature.getDefinitions().size() > 0)
+		{
+			QueryImpl query = new QueryImpl();
+			for (OntologyTerm ot : feature.getDefinitions())
+			{
+				if (query.getRules().size() > 0) query.addRule(new QueryRule(Operator.OR));
+				query.addRule(new QueryRule(ONTOLOGY_TERM_IRI, Operator.EQUALS, ot.getTermAccession()));
+			}
+			return searchService.search(new SearchRequest(null, query, null)).getSearchHits();
+		}
+		return algorithmScriptLibrary
+				.searchOTsByNames(
+						Arrays.asList(
+								feature.getName(),
+								(StringUtils.isEmpty(feature.getDescription()) ? StringUtils.EMPTY : feature
+										.getDescription()))).getSearchHits();
+	}
+
+	/**
+	 * An internal function to replace the category codes if standard category codes contain reserved words
+	 * 
+	 * @param standardCategory
+	 * @return
+	 */
+	private String replaceCategoryWithReservedMapping(Category standardCategory)
+	{
+		String name = standardCategory.getName().toLowerCase();
+		for (String reservedCategoryName : RESERVED_CATEGORY_MAPPINGS.keySet())
+		{
+			if (name.contains(reservedCategoryName)) return RESERVED_CATEGORY_MAPPINGS.get(reservedCategoryName);
+		}
+		return standardCategory.getName();
+	}
+
+	/**
+	 * To calculate the minimal distance between target ontology term and a set of candidate ontology terms
+	 * 
+	 * @param targetOntologyTerm
+	 * @param sourceOntologyTerms
+	 * @return
+	 */
 	private int compareOntologyTermDistance(Hit targetOntologyTerm, List<Hit> sourceOntologyTerms)
 	{
 		int miniDistance = 1000000;
@@ -231,6 +316,7 @@ public class AlgorithmGenerator
 			if (distance == 0) return distance;
 			if (distance > 0 && distance < miniDistance) miniDistance = distance;
 		}
+
 		return miniDistance;
 	}
 }

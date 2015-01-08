@@ -68,7 +68,8 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 	public static final String STORE_MAPPING_ALGORITHM_SCRIPT = "store_mapping_algorithm_script";
 	public static final String COMMON_SEPERATOR = ",";
 	public static final String ALTERNATIVE_DEFINITION_SEPERATOR = "&&&";
-	private static final String CATALOGUE_PREFIX = "protocolTree-";
+	public static final String CATALOGUE_PREFIX = "protocolTree-";
+	public static final String ENTITY_ID = "id";
 	private static final String FEATURE_CATEGORY = "featureCategory-";
 	private static final String FIELD_DESCRIPTION_STOPWORDS = "descriptionStopwords";
 	private static final String FIELD_BOOST_ONTOLOGYTERM = "boostOntologyTerms";
@@ -79,7 +80,6 @@ public class AsyncOntologyMatcher implements OntologyMatcher, InitializingBean
 	private static final String ONTOLOGY_TERM_IRI = "ontologyTermIRI";
 	private static final String ALTERNATIVE_DEFINITION = "alternativeDefinition";
 	private static final String NODE_PATH = "nodePath";
-	private static final String ENTITY_ID = "id";
 	private static final String ENTITY_TYPE = "type";
 	private static final String PATTERN_MATCH = "[^a-zA-Z0-9 ]";
 	private static final int DEFAULT_RETRIEVAL_DOCUMENTS_SIZE = 50;

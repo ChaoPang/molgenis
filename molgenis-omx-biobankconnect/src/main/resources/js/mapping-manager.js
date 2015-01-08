@@ -164,7 +164,7 @@
 									'selectedDataSetIds' : [molgenis.hrefToId(mappedDataSet.href)]
 								};
 								var editor = createEditorInModel(leftControlDiv, mappedDataSet, script);
-								addButtonsToControl(controlDiv, searchRequest, editor);
+								addButtonsToControl(controlDiv, mappingTable, searchRequest, editor);
 								
 								//Modal footer information.
 								var confirmButton = $('<button class="btn btn-primary">Confirm</button>');
@@ -299,7 +299,7 @@
 			return editor;
 		}
 		
-		function addButtonsToControl(parentDiv, searchRequest, editor){
+		function addButtonsToControl(parentDiv, mappingTable, searchRequest, editor){
 			var testStatisticsButton = $('<button class="btn btn-info">Test</button>');
 			var suggestScriptButtion = $('<button class="btn btn-primary">Suggestion</button>');
 			var saveScriptButton = $('<button class="btn btn-success">Save script</button>').css('float','right');
@@ -341,6 +341,15 @@
 			});
 			
 			suggestScriptButtion.click(function(){
+				var mappedFeatureIds = [];
+				$(mappingTable).find('input:checked').each(function(){
+					mappedFeatureIds.push($(this).parents('tr:eq(0)').data('featureId'));
+				});
+				if(mappedFeatureIds.length > 0){
+					$.extend(searchRequest, {
+						'mappedFeatureIds' : mappedFeatureIds
+					});
+				}
 				$.ajax({
 					type : 'POST',
 					url : molgenis.adaptContextUrl(molgenis.getContextUrl()) + '/suggestscript',
@@ -579,7 +588,6 @@
 				highScoresIndex.push(index);
 			});
 		}
-//		var soretedMappedFeatures = sortByScoreAndLength(candidateMappedFeatures);
 		$.each(candidateMappedFeatures, function(index, mappedFeatureFromIndex){
 			var mappedFeatureId = mappedFeatureFromIndex.id;
 			var score = mappedFeatureFromIndex.score;
@@ -598,6 +606,7 @@
 						retrieveAllInfoForFeature(row, mappedFeature, mappedFeatureFromIndex.category);
 					});
 				}
+				row.data('featureId', mappedFeatureId);
 			}
 			if($.inArray(index, highScoresIndex) !== -1){
 				row.addClass('info');
