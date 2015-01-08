@@ -1,12 +1,11 @@
 package org.molgenis.omx.biobankconnect.algorithm;
 
+import static org.molgenis.omx.biobankconnect.algorithm.AlgorithmCategoryProcessor.RESERVED_MAPPERS;
+
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
@@ -18,7 +17,6 @@ import org.molgenis.data.support.QueryImpl;
 import org.molgenis.omx.biobankconnect.ontologymatcher.AsyncOntologyMatcher;
 import org.molgenis.omx.biobankconnect.ontologymatcher.OntologyMatcher;
 import org.molgenis.omx.biobankconnect.ontologymatcher.OntologyMatcherRequest;
-import org.molgenis.omx.biobankconnect.utils.NGramMatchingModel;
 import org.molgenis.omx.observ.Category;
 import org.molgenis.omx.observ.DataSet;
 import org.molgenis.omx.observ.ObservableFeature;
@@ -50,12 +48,6 @@ public class AlgorithmGenerator
 	private final static String NODE_PATH = "nodePath";
 	private static final String ONTOLOGY_TERM_IRI = "ontologyTermIRI";
 	private static final String DOT_SEPARATOR = "\\.";
-	private static final Map<String, String> RESERVED_CATEGORY_MAPPINGS = new HashMap<String, String>();
-	{
-		RESERVED_CATEGORY_MAPPINGS.put("never", "no");
-		RESERVED_CATEGORY_MAPPINGS.put("ever", "yes");
-		RESERVED_CATEGORY_MAPPINGS.put("missing", "unknown");
-	}
 
 	@RunAsSystem
 	public String generateAlgorithm(String userName, OntologyMatcherRequest request)
@@ -101,7 +93,6 @@ public class AlgorithmGenerator
 						return convertToJavascript(standardFeature, candidateFeature);
 					}
 				}
-
 				if (StringUtils.isEmpty(scriptTemplate) || searchResult.getTotalHitCount() == 1)
 				{
 					suggestedScript.append(convertToJavascript(standardFeature, searchResult.getSearchHits().get(0)));
@@ -142,34 +133,8 @@ public class AlgorithmGenerator
 			Iterable<Category> categoriesForCustomFeature = dataService.findAll(Category.ENTITY_NAME,
 					new QueryImpl().eq(Category.OBSERVABLEFEATURE, customFeature), Category.class);
 
-			Map<String, String> valueCodeMapping = new HashMap<String, String>();
-			for (Category customCategory : categoriesForCustomFeature)
-			{
-				double similarityScore = 0;
-				String mappedValueCode = null;
-				for (Category standardCategory : categoriesForStandardFeature)
-				{
-					double score = NGramMatchingModel.stringMatching(customCategory.getName(),
-							replaceCategoryWithReservedMapping(standardCategory), false);
-					if (score > similarityScore)
-					{
-						similarityScore = score;
-						mappedValueCode = standardCategory.getValueCode();
-					}
-				}
-				if (mappedValueCode != null) valueCodeMapping.put(customCategory.getValueCode(), mappedValueCode);
-			}
-			if (valueCodeMapping.size() > 0)
-			{
-				javaScript.append(".map({");
-				for (Entry<String, String> entry : valueCodeMapping.entrySet())
-				{
-					javaScript.append("'").append(entry.getKey()).append("'").append(" : ").append("'")
-							.append(entry.getValue()).append("',");
-				}
-				javaScript.delete(javaScript.length() - 1, javaScript.length());
-				javaScript.append("})");
-			}
+			javaScript.append(AlgorithmCategoryProcessor.matchCategory(categoriesForStandardFeature,
+					categoriesForCustomFeature));
 		}
 		return javaScript.toString();
 	}
@@ -185,7 +150,6 @@ public class AlgorithmGenerator
 	private String convertToJavascriptByFormula(String scriptTemplate, ObservableFeature standardFeature,
 			SearchResult searchResult)
 	{
-		StringBuilder backupScriptTemplate = new StringBuilder(scriptTemplate);
 		for (String buildingBlock : ApplyAlgorithms.extractFeatureName(scriptTemplate))
 		{
 			SearchResult otsResultBuildingBlock = algorithmScriptLibrary.searchOTsByNames(Arrays.asList(buildingBlock));
@@ -205,22 +169,36 @@ public class AlgorithmGenerator
 
 					if (distance == 0) break;
 				}
-				if (bestMatchedFeature != null)
+				if (bestMatchedFeature != null && miniDistance < 100)
 				{
 					ObservableFeature mappedFeature = dataService.findOne(
 							ObservableFeature.ENTITY_NAME,
 							Integer.parseInt(bestMatchedFeature.getColumnValueMap()
 									.get(ObservableFeature.ID.toLowerCase()).toString()), ObservableFeature.class);
+
 					String conversionScript = algorithmUnitConverter.convert(standardFeature.getUnit(),
 							mappedFeature.getUnit());
-					String mappedFeatureJavaScriptName = createMagamaVarName(bestMatchedFeature.getColumnValueMap()
-							.get(ObservableFeature.NAME.toLowerCase()).toString(), conversionScript, true);
+					String mappedFeatureJavaScriptName = createMagamaVarName(mappedFeature.getName(), conversionScript,
+							true);
 					String standardJavaScriptName = createMagamaVarName(buildingBlock, null, true);
+
+					if (mappedFeature.getDataType().equalsIgnoreCase("categorical")
+							&& RESERVED_MAPPERS.containsKey(buildingBlock))
+					{
+						Iterable<Category> customCategories = dataService.findAll(Category.ENTITY_NAME,
+								new QueryImpl().eq(Category.OBSERVABLEFEATURE, mappedFeature), Category.class);
+						mappedFeatureJavaScriptName += AlgorithmCategoryProcessor.matchCategory(
+								RESERVED_MAPPERS.get(buildingBlock), customCategories);
+					}
 					scriptTemplate = scriptTemplate.replaceAll(standardJavaScriptName, mappedFeatureJavaScriptName);
+				}
+				else
+				{
+					return convertToJavascript(standardFeature, searchResult.getSearchHits().get(0));
 				}
 			}
 		}
-		return backupScriptTemplate.toString().equals(scriptTemplate) ? StringUtils.EMPTY : scriptTemplate;
+		return scriptTemplate;
 	}
 
 	/**
@@ -280,22 +258,6 @@ public class AlgorithmGenerator
 								feature.getName(),
 								(StringUtils.isEmpty(feature.getDescription()) ? StringUtils.EMPTY : feature
 										.getDescription()))).getSearchHits();
-	}
-
-	/**
-	 * An internal function to replace the category codes if standard category codes contain reserved words
-	 * 
-	 * @param standardCategory
-	 * @return
-	 */
-	private String replaceCategoryWithReservedMapping(Category standardCategory)
-	{
-		String name = standardCategory.getName().toLowerCase();
-		for (String reservedCategoryName : RESERVED_CATEGORY_MAPPINGS.keySet())
-		{
-			if (name.contains(reservedCategoryName)) return RESERVED_CATEGORY_MAPPINGS.get(reservedCategoryName);
-		}
-		return standardCategory.getName();
 	}
 
 	/**

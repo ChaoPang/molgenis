@@ -440,7 +440,8 @@
 			'sourceDataSetId' : molgenis.hrefToId(selectedDataSet.href),
 			'selectedDataSetIds' : mappedDataSetIds,
 			'featureId' : featureId,
-			'mappedFeatureIds' : []
+			'mappedFeatureIds' : [],
+			'algorithmScript' : ''
 		};
 		$.ajax({
 			type : 'POST',

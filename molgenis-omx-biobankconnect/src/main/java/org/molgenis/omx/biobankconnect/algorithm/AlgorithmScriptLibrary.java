@@ -37,6 +37,10 @@ public class AlgorithmScriptLibrary
 	public String findScriptTemplate(ObservableFeature feature)
 	{
 		SearchResult searchResult = searchOTsByNames(Arrays.asList(feature.getName(), feature.getDescription()));
+		if (scriptLibrary.containsKey(feature.getName().toLowerCase())) return scriptLibrary.get(feature.getName()
+				.toLowerCase());
+		if (scriptLibrary.containsKey(feature.getDescription().toLowerCase())) return scriptLibrary.get(feature
+				.getDescription().toLowerCase());
 		if (searchResult.getTotalHitCount() > 0)
 		{
 			Hit hit = searchResult.getSearchHits().get(0);
@@ -96,5 +100,6 @@ public class AlgorithmScriptLibrary
 		scriptLibrary
 				.put("hypertension",
 						"function hypertension(SBP, DBP){\n\tif(SBP >= 140 || DBP >= 90) return 1;\n\telse return 0;\n}\nhypertension($('Systolic Blood Pressure'), $('Diastolic Blood Pressure'));");
+		scriptLibrary.put("fasting glucose", "$('fasting').eq(1).thenReturn($('glucose'), null)");
 	}
 }
