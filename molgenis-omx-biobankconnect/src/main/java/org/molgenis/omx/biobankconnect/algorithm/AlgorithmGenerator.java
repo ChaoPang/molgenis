@@ -49,7 +49,7 @@ public class AlgorithmGenerator
 
 	private final static String NODE_PATH = "nodePath";
 	private static final String ONTOLOGY_TERM_IRI = "ontologyTermIRI";
-
+	private static final String DOT_SEPARATOR = "\\.";
 	private static final Map<String, String> RESERVED_CATEGORY_MAPPINGS = new HashMap<String, String>();
 	{
 		RESERVED_CATEGORY_MAPPINGS.put("never", "no");
@@ -86,14 +86,25 @@ public class AlgorithmGenerator
 				searchResult = ontologyMatcher.generateMapping(userName, request.getFeatureId(),
 						request.getTargetDataSetId(), selectedDataSetIds.get(0));
 			}
+
 			ObservableFeature standardFeature = dataService.findOne(ObservableFeature.ENTITY_NAME,
 					request.getFeatureId(), ObservableFeature.class);
+
 			String scriptTemplate = algorithmScriptLibrary.findScriptTemplate(standardFeature);
 			if (searchResult.getTotalHitCount() > 0)
 			{
+				List<Hit> standardFeatureOTs = searchOTsByFeature(standardFeature);
+				for (Hit candidateFeature : searchResult.getSearchHits())
+				{
+					if (calculateOTsDistance(standardFeatureOTs, searchOTsByFeature(candidateFeature)) == 0)
+					{
+						return convertToJavascript(standardFeature, candidateFeature);
+					}
+				}
+
 				if (StringUtils.isEmpty(scriptTemplate) || searchResult.getTotalHitCount() == 1)
 				{
-					suggestedScript.append(convertToJavascript(standardFeature, searchResult));
+					suggestedScript.append(convertToJavascript(standardFeature, searchResult.getSearchHits().get(0)));
 				}
 				else
 				{
@@ -111,11 +122,10 @@ public class AlgorithmGenerator
 	 * @param mappingCandidateSearchResult
 	 * @return
 	 */
-	private String convertToJavascript(ObservableFeature standardFeature, SearchResult mappingCandidateSearchResult)
+	private String convertToJavascript(ObservableFeature standardFeature, Hit mappedFeatureId)
 	{
-		Hit hit = mappingCandidateSearchResult.getSearchHits().get(0);
-		ObservableFeature customFeature = dataService.findOne(ObservableFeature.ENTITY_NAME,
-				Integer.parseInt(hit.getColumnValueMap().get(ObservableFeature.ID.toLowerCase()).toString()),
+		ObservableFeature customFeature = dataService.findOne(ObservableFeature.ENTITY_NAME, Integer
+				.parseInt(mappedFeatureId.getColumnValueMap().get(ObservableFeature.ID.toLowerCase()).toString()),
 				ObservableFeature.class);
 		String conversionScript = algorithmUnitConverter.convert(standardFeature.getUnit(), customFeature.getUnit());
 		StringBuilder javaScript = new StringBuilder();
@@ -185,13 +195,15 @@ public class AlgorithmGenerator
 				int miniDistance = 1000000;
 				for (Hit candidateFeature : searchResult.getSearchHits())
 				{
-					int distance = compareOntologyTermDistance(otsResultBuildingBlock.getSearchHits().get(0),
+					int distance = calculateOTsDistance(otsResultBuildingBlock.getSearchHits(),
 							searchOTsByFeature(candidateFeature));
 					if (distance >= 0 && distance < miniDistance)
 					{
 						miniDistance = distance;
 						bestMatchedFeature = candidateFeature;
 					}
+
+					if (distance == 0) break;
 				}
 				if (bestMatchedFeature != null)
 				{
@@ -293,30 +305,38 @@ public class AlgorithmGenerator
 	 * @param sourceOntologyTerms
 	 * @return
 	 */
-	private int compareOntologyTermDistance(Hit targetOntologyTerm, List<Hit> sourceOntologyTerms)
+	private int calculateOTsDistance(List<Hit> targetOntologyTerms, List<Hit> sourceOntologyTerms)
 	{
-		int miniDistance = 1000000;
-		List<String> totTermPathParts = Arrays.asList(targetOntologyTerm.getColumnValueMap().get(NODE_PATH).toString()
-				.split("\\."));
-		Set<String> uniquePaths = new HashSet<String>();
-		for (Hit sourceOntologyTerm : sourceOntologyTerms)
+		int aggregatedDistance = -1;
+		for (Hit targetOntologyTerm : targetOntologyTerms)
 		{
-			if (sourceOntologyTerm.getColumnValueMap().containsKey(NODE_PATH))
+			int miniDistance = 1000000;
+			List<String> totTermPathParts = Arrays.asList(targetOntologyTerm.getColumnValueMap().get(NODE_PATH)
+					.toString().split(DOT_SEPARATOR));
+			Set<String> uniquePaths = new HashSet<String>();
+			for (Hit sourceOntologyTerm : sourceOntologyTerms)
 			{
-				uniquePaths.add(sourceOntologyTerm.getColumnValueMap().get(NODE_PATH).toString());
+				if (sourceOntologyTerm.getColumnValueMap().containsKey(NODE_PATH))
+				{
+					uniquePaths.add(sourceOntologyTerm.getColumnValueMap().get(NODE_PATH).toString());
+				}
 			}
+			for (String uniquePath : uniquePaths)
+			{
+				List<String> sosPathParts = new ArrayList<String>(Arrays.asList(uniquePath.split(DOT_SEPARATOR)));
+				int beforeRemove = sosPathParts.size();
+				sosPathParts.removeAll(totTermPathParts);
+				int afterRemove = sosPathParts.size();
+				int distance = (beforeRemove + totTermPathParts.size()) - 2 * (beforeRemove - afterRemove);
+				if (distance == 0)
+				{
+					miniDistance = distance;
+					break;
+				}
+				else if (distance > 0 && distance < miniDistance) miniDistance = distance;
+			}
+			aggregatedDistance = aggregatedDistance == -1 ? miniDistance : aggregatedDistance + miniDistance;
 		}
-		for (String uniquePath : uniquePaths)
-		{
-			List<String> sosPathParts = new ArrayList<String>(Arrays.asList(uniquePath.split("\\.")));
-			int beforeRemove = sosPathParts.size();
-			sosPathParts.removeAll(totTermPathParts);
-			int afterRemove = sosPathParts.size();
-			int distance = (beforeRemove + totTermPathParts.size()) - 2 * (beforeRemove - afterRemove);
-			if (distance == 0) return distance;
-			if (distance > 0 && distance < miniDistance) miniDistance = distance;
-		}
-
-		return miniDistance;
+		return aggregatedDistance;
 	}
 }
