@@ -30,7 +30,7 @@ import org.semanticweb.owlapi.vocab.OWLRDFVocabulary;
 
 public class OntologyLoader
 {
-	private static String DB_ID_PATTERN = "(\\w*):(\\d*)";
+	private static String DB_ID_PATTERN = "(\\w*):([\\w\\d]*)";
 	private String ontologyIRI = null;
 	private String ontologyName = null;
 	private File ontologyFile = null;
