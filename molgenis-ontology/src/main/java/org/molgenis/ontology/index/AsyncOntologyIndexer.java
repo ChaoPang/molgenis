@@ -16,6 +16,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.indices.exists.types.TypesExistsRequest;
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingResponse;
+import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.Client;
@@ -159,16 +160,6 @@ public class AsyncOntologyIndexer implements OntologyIndexer
 				{
 					docs.put(attributeName, entity.get(attributeName));
 				}
-				if (dynamaticFields != null)
-				{
-					for (String dynamaticField : dynamaticFields)
-					{
-						if (!docs.containsKey(dynamaticField))
-						{
-							docs.put(dynamaticField, StringUtils.EMPTY);
-						}
-					}
-				}
 
 				bulkRequest.add(client.prepareIndex(indexName, documentType).setSource(docs));
 				count++;
@@ -194,6 +185,7 @@ public class AsyncOntologyIndexer implements OntologyIndexer
 				throw new RuntimeException("error while indexing row [" + count + "]: " + bulkResponse);
 			}
 
+			client.admin().indices().refresh(new RefreshRequest(indexName)).actionGet();
 			long t = (System.currentTimeMillis() - t0) / 1000;
 			LOG.info("Import of ontology term from ontology [" + documentType + "] completed in " + t + " sec. Added ["
 					+ count + "] rows.");

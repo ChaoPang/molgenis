@@ -8,8 +8,11 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.molgenis.MolgenisFieldTypes.FieldTypeEnum;
 import org.molgenis.data.Entity;
 import org.molgenis.data.elasticsearch.SearchService;
+import org.molgenis.data.support.DefaultAttributeMetaData;
+import org.molgenis.data.support.DefaultEntityMetaData;
 import org.molgenis.data.support.MapEntity;
 import org.molgenis.ontology.beans.OWLClassContainer;
 import org.molgenis.ontology.utils.OntologyLoader;
@@ -36,6 +39,7 @@ public class OntologyTermIndexRepository extends AbstractOntologyRepository
 
 	private void recursivelyFindDatabaseIds(Set<OWLClass> owlClasses)
 	{
+		DefaultEntityMetaData dynamicEntityMetaData = (DefaultEntityMetaData) getEntityMetaData();
 		if (owlClasses != null)
 		{
 			for (OWLClass cls : owlClasses)
@@ -46,6 +50,8 @@ public class OntologyTermIndexRepository extends AbstractOntologyRepository
 					for (String databaseId : allDatabaseIds.keySet())
 					{
 						dynamaticFields.add(databaseId);
+						dynamicEntityMetaData.addAttributeMetaData(new DefaultAttributeMetaData(databaseId,
+								FieldTypeEnum.ENUM));
 					}
 				}
 			}
@@ -89,7 +95,7 @@ public class OntologyTermIndexRepository extends AbstractOntologyRepository
 						orderedList.add(new OWLClassContainer(childClass, synonym, definition, nodePath,
 								parentNodePath, parentOntologyTermIRI, false, ontologyLoader.getChildClass(childClass)
 										.size() == 0, synonym.equals(ontologyLoader.getLabel(childClass)),
-								createAlternativeDefinitions(childClass), allDatabaseIds));
+								StringUtils.EMPTY, allDatabaseIds));
 					}
 
 					count++;
@@ -144,6 +150,15 @@ public class OntologyTermIndexRepository extends AbstractOntologyRepository
 						entity.set(entry.getKey(), entry.getValue());
 					}
 				}
+
+				for (String dynamicField : dynamaticFields)
+				{
+					if (entity.get(dynamicField) == null)
+					{
+						entity.set(dynamicField, StringUtils.EMPTY);
+					}
+				}
+
 				return entity;
 			}
 
@@ -191,36 +206,6 @@ public class OntologyTermIndexRepository extends AbstractOntologyRepository
 		nodePathStringBuilder.append(currentPosition).append('[')
 				.append(nodePathStringBuilder.toString().split("\\.").length - 1).append(']');
 		return nodePathStringBuilder.toString();
-	}
-
-	/**
-	 * A helper function to create alternative definitions stored in string for ontology terms.
-	 * 
-	 * @param cls
-	 * @return
-	 */
-	private String createAlternativeDefinitions(OWLClass cls)
-	{
-		// TODO : it`s not important at the moment, but fix it in the future!
-		StringBuilder alternativeDefinitions = new StringBuilder();
-		// for (Set<OWLClass> alternativeDefinition :
-		// ontologyLoader.getAssociatedClasses(cls))
-		// {
-		// StringBuilder newDefinition = new StringBuilder();
-		// for (OWLClass associatedClass : alternativeDefinition)
-		// {
-		// if (newDefinition.length() != 0)
-		// newDefinition.append(SemanticSearchServiceImpl.COMMON_SEPERATOR);
-		// newDefinition.append(associatedClass.getIRI().toString());
-		// }
-		// if (alternativeDefinitions.length() != 0 && newDefinition.length() !=
-		// 0)
-		// {
-		// alternativeDefinitions.append(SemanticSearchServiceImpl.ALTERNATIVE_DEFINITION_SEPERATOR);
-		// }
-		// alternativeDefinitions.append(newDefinition);
-		// }
-		return alternativeDefinitions.toString();
 	}
 
 	public Set<String> getDynamaticFields()
