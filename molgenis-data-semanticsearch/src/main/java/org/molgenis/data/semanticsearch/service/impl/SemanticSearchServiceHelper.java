@@ -116,26 +116,6 @@ public class SemanticSearchServiceHelper
 		return disMaxQueryRule;
 	}
 
-	// /**
-	// * Create disMaxJunc query rule based a list of queryTerm. All queryTerms are lower cased and stop words are
-	// removed
-	// *
-	// * @param queryTerms
-	// * @return disMaxJunc queryRule
-	// */
-	// public QueryRule createDisMaxQueryRuleForTerms(List<String> queryTerms)
-	// {
-	// List<QueryRule> rules = new ArrayList<QueryRule>();
-	// queryTerms.stream().filter(query -> StringUtils.isNotEmpty(query)).map(QueryParser::escape)
-	// .map(this::reverseEscapeLuceneChar).forEach(query -> {
-	// rules.add(new QueryRule(AttributeMetaDataMetaData.LABEL, Operator.FUZZY_MATCH, query));
-	// rules.add(new QueryRule(AttributeMetaDataMetaData.DESCRIPTION, Operator.FUZZY_MATCH, query));
-	// });
-	// QueryRule finalDisMaxQuery = new QueryRule(rules);
-	// finalDisMaxQuery.setOperator(Operator.DIS_MAX);
-	// return finalDisMaxQuery;
-	// }
-
 	/**
 	 * Create disMaxJunc query rule based a list of queryTerm. All queryTerms are lower cased and stop words are removed
 	 * 
@@ -157,23 +137,6 @@ public class SemanticSearchServiceHelper
 
 		return finalDisMaxQuery;
 	}
-
-	/**
-	 * Create a disMaxQueryRule with corresponding boosted value
-	 * 
-	 * @param queryTerms
-	 * @param boostValue
-	 * @return a disMaxQueryRule with boosted value
-	 */
-	// public QueryRule createDisMaxQueryRuleForTermsWithBoost(List<String> queryTerms, Double boostValue)
-	// {
-	// QueryRule finalDisMaxQuery = createDisMaxQueryRuleForTerms(queryTerms);
-	// if (boostValue != null && boostValue.intValue() != 0)
-	// {
-	// finalDisMaxQuery.setValue(boostValue);
-	// }
-	// return finalDisMaxQuery;
-	// }
 
 	/**
 	 * Create a boolean should query for composite tags containing multiple ontology terms

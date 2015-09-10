@@ -32,11 +32,9 @@ public interface SemanticSearchService
 	 * @param entityMetaData
 	 * @param searchAttributes
 	 * @param queryTerms
-	 * @param ontologyTerms
 	 * @return Entity of resembling search queries, sorted by relevance
 	 */
-	Iterable<Entity> find(EntityMetaData entityMetaData, Set<AttributeMetaData> searchAttributes,
-			Set<String> queryTerms, Collection<OntologyTerm> ontologyTerms);
+	Iterable<Entity> find(EntityMetaData entityMetaData, Set<AttributeMetaData> searchAttributes, Set<String> queryTerms);
 
 	/**
 	 * A decision tree for getting the relevant attributes

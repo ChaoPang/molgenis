@@ -15,6 +15,7 @@ import java.util.concurrent.ExecutionException;
 
 import org.elasticsearch.common.collect.Sets;
 import org.mockito.Mockito;
+import org.molgenis.MolgenisFieldTypes.FieldTypeEnum;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
@@ -111,6 +112,20 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 
 		when(semanticSearchServiceHelper.getOtLabelAndSynonyms(maternalHypertension)).thenReturn(
 				Sets.newHashSet("Maternal hypertension"));
+	}
+
+	@Test
+	public void testIsNonNumericAttribute()
+	{
+		DefaultAttributeMetaData attribute1 = new DefaultAttributeMetaData("attribute1", FieldTypeEnum.INT);
+
+		DefaultAttributeMetaData attribute2 = new DefaultAttributeMetaData("attribute2", FieldTypeEnum.LONG);
+
+		DefaultAttributeMetaData attribute3 = new DefaultAttributeMetaData("attribute3", FieldTypeEnum.STRING);
+
+		Assert.assertFalse(semanticSearchService.isNonNumericAttribute(attribute1));
+		Assert.assertFalse(semanticSearchService.isNonNumericAttribute(attribute2));
+		Assert.assertTrue(semanticSearchService.isNonNumericAttribute(attribute3));
 	}
 
 	@Test

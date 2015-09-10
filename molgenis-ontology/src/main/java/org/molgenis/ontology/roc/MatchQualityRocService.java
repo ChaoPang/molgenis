@@ -21,6 +21,7 @@ import org.molgenis.data.excel.ExcelRepositoryCollection;
 import org.molgenis.data.excel.ExcelSheetWriter;
 import org.molgenis.data.excel.ExcelWriter;
 import org.molgenis.data.excel.ExcelWriter.FileFormat;
+import org.molgenis.data.semanticsearch.utils.EntityToMapTransformer;
 import org.molgenis.data.support.MapEntity;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.file.FileStore;
@@ -30,7 +31,6 @@ import org.molgenis.ontology.matching.MatchingTaskContentEntityMetaData;
 import org.molgenis.ontology.matching.MatchingTaskEntityMetaData;
 import org.molgenis.ontology.matching.OntologyService;
 import org.molgenis.ontology.matching.OntologyServiceImpl;
-import org.molgenis.ontology.utils.OntologyServiceUtil;
 import org.molgenis.security.user.UserAccountService;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -124,7 +124,7 @@ public class MatchQualityRocService
 				data.put("rocfilePath", file.getAbsolutePath());
 				data.put("totalNumber", totalNumberOfTerms);
 				data.put("validatedNumber", Iterables.size(validatedMatchEntities));
-				data.put("rocEntities", OntologyServiceUtil.getEntityAsMap(excelRepositoryCollection.getSheet(0)));
+				data.put("rocEntities", EntityToMapTransformer.getEntityAsMap(excelRepositoryCollection.getSheet(0)));
 			}
 		}
 		return data;

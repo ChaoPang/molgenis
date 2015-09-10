@@ -1,4 +1,4 @@
-package org.molgenis.ontology.utils;
+package org.molgenis.data.semanticsearch.utils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -8,7 +8,7 @@ import java.util.Map;
 
 import org.molgenis.data.Entity;
 
-public class OntologyServiceUtil
+public class EntityToMapTransformer
 {
 	public static List<Map<String, Object>> getEntityAsMap(Iterable<? extends Entity> entities)
 	{

@@ -19,6 +19,7 @@ import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.spell.StringDistance;
 import org.elasticsearch.common.base.Joiner;
 import org.elasticsearch.common.collect.Lists;
+import org.molgenis.MolgenisFieldTypes;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
@@ -35,6 +36,7 @@ import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.string.NGramDistanceAlgorithm;
 import org.molgenis.data.semanticsearch.string.Stemmer;
 import org.molgenis.data.support.QueryImpl;
+import org.molgenis.fieldtypes.FieldType;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.slf4j.Logger;
@@ -76,7 +78,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 	@Override
 	public Iterable<Entity> find(EntityMetaData entityMetaData, Set<AttributeMetaData> searchAttributes,
-			Set<String> queryTerms, Collection<OntologyTerm> ontologyTerms)
+			Set<String> queryTerms)
 	{
 		// If the search attributes are not specified, all the non-reference attributes will be taken from the
 		// entityMetaData
@@ -86,13 +88,29 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 					.filter(attribute -> attribute.getRefEntity() == null).collect(Collectors.toSet());
 		}
 
-		Set<String> fields = searchAttributes.stream().map(attribute -> attribute.getName())
-				.collect(Collectors.toSet());
+		List<OntologyTerm> ontologyTerms = ontologyService.findExcatOntologyTerms(
+				ontologyService.getAllOntologiesIds(), queryTerms, MAX_NUM_TAGS);
 
-		QueryRule disMaxQueryRule = semanticSearchServiceHelper.createDisMaxQueryRuleForAttribute(queryTerms,
-				ontologyTerms, fields);
+		Set<String> fields = searchAttributes.stream().filter(this::isNonNumericAttribute)
+				.map(attribute -> attribute.getName()).collect(Collectors.toSet());
 
-		return dataService.findAll(entityMetaData.getName(), new QueryImpl(disMaxQueryRule));
+		if (fields.size() != 0)
+		{
+			QueryRule disMaxQueryRule = semanticSearchServiceHelper.createDisMaxQueryRuleForAttribute(queryTerms,
+					ontologyTerms, fields);
+
+			return dataService.findAll(entityMetaData.getName(), new QueryImpl(Arrays.asList(disMaxQueryRule)));
+		}
+
+		return Collections.emptyList();
+	}
+
+	boolean isNonNumericAttribute(AttributeMetaData attributeMetaData)
+	{
+		FieldType dataType = attributeMetaData.getDataType();
+		return !dataType.equals(MolgenisFieldTypes.INT) && !dataType.equals(MolgenisFieldTypes.LONG)
+				&& !dataType.equals(MolgenisFieldTypes.DECIMAL) && !dataType.equals(MolgenisFieldTypes.DATE)
+				&& !dataType.equals(MolgenisFieldTypes.DATETIME);
 	}
 
 	@Override

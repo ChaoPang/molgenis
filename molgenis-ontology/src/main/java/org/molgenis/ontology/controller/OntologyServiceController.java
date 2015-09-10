@@ -37,6 +37,7 @@ import org.molgenis.data.processor.LowerCaseProcessor;
 import org.molgenis.data.processor.TrimProcessor;
 import org.molgenis.data.rest.EntityCollectionResponse;
 import org.molgenis.data.rest.EntityPager;
+import org.molgenis.data.semanticsearch.utils.EntityToMapTransformer;
 import org.molgenis.data.support.MapEntity;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.file.FileStore;
@@ -52,7 +53,6 @@ import org.molgenis.ontology.matching.OntologyServiceImpl;
 import org.molgenis.ontology.matching.UploadProgress;
 import org.molgenis.ontology.request.OntologyServiceRequest;
 import org.molgenis.ontology.roc.MatchQualityRocService;
-import org.molgenis.ontology.utils.OntologyServiceUtil;
 import org.molgenis.security.core.MolgenisPermissionService;
 import org.molgenis.security.user.UserAccountService;
 import org.molgenis.ui.MolgenisPluginController;
@@ -114,7 +114,7 @@ public class OntologyServiceController extends MolgenisPluginController
 		String username = userAccountService.getCurrentUser().getUsername();
 
 		if (uploadProgress.isUserExists(username)) return matchResult(uploadProgress.getCurrentJob(username), model);
-		model.addAttribute("existingTasks", OntologyServiceUtil.getEntityAsMap(dataService.findAll(
+		model.addAttribute("existingTasks", EntityToMapTransformer.getEntityAsMap(dataService.findAll(
 				MatchingTaskEntityMetaData.ENTITY_NAME,
 				new QueryImpl().eq(MatchingTaskEntityMetaData.MOLGENIS_USER, username))));
 		return "ontology-match-view";
@@ -123,7 +123,7 @@ public class OntologyServiceController extends MolgenisPluginController
 	@RequestMapping(method = GET, value = "/newtask")
 	public String matchTask(Model model)
 	{
-		model.addAttribute("ontologies", OntologyServiceUtil.getEntityAsMap(ontologyService.getAllOntologyEntities()));
+		model.addAttribute("ontologies", EntityToMapTransformer.getEntityAsMap(ontologyService.getAllOntologyEntities()));
 		return "ontology-match-view";
 	}
 
@@ -265,12 +265,12 @@ public class OntologyServiceController extends MolgenisPluginController
 					new QueryImpl().eq(AdaptedCsvRepository.ALLOWED_IDENTIFIER,
 							mappingEntity.getString(MatchingTaskContentEntityMetaData.INPUT_TERM)));
 			Map<String, Object> outputEntity = new HashMap<String, Object>();
-			outputEntity.put("inputTerm", OntologyServiceUtil.getEntityAsMap(RefEntity));
-			outputEntity.put("matchedTerm", OntologyServiceUtil.getEntityAsMap(mappingEntity));
+			outputEntity.put("inputTerm", EntityToMapTransformer.getEntityAsMap(RefEntity));
+			outputEntity.put("matchedTerm", EntityToMapTransformer.getEntityAsMap(mappingEntity));
 			Object matchedTerm = mappingEntity.get(MatchingTaskContentEntityMetaData.MATCHED_TERM);
 			if (matchedTerm != null)
 			{
-				outputEntity.put("ontologyTerm", OntologyServiceUtil.getEntityAsMap(ontologyService
+				outputEntity.put("ontologyTerm", EntityToMapTransformer.getEntityAsMap(ontologyService
 						.getOntologyTermEntity(matchedTerm.toString(), ontologyIri)));
 			}
 			entityMaps.add(outputEntity);
