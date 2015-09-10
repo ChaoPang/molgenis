@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
@@ -89,7 +90,8 @@ public class SemanticSearchServiceHelper
 	 * 
 	 * @return disMaxJunc queryRule
 	 */
-	public QueryRule createDisMaxQueryRuleForAttribute(Set<String> searchTerms, Collection<OntologyTerm> ontologyTerms)
+	public QueryRule createDisMaxQueryRuleForAttribute(Set<String> searchTerms, Collection<OntologyTerm> ontologyTerms,
+			Set<String> fields)
 	{
 		List<String> queryTerms = new ArrayList<String>();
 
@@ -104,15 +106,35 @@ public class SemanticSearchServiceHelper
 			queryTerms.addAll(parseOntologyTermQueries(ot));
 		});
 
-		QueryRule disMaxQueryRule = createDisMaxQueryRuleForTerms(queryTerms);
+		QueryRule disMaxQueryRule = createDisMaxQueryRuleForTerms(queryTerms, fields);
 
 		// Handle tags with multiple ontologyterms
 		ontologyTerms.stream().filter(ontologyTerm -> ontologyTerm.getIRI().contains(",")).forEach(ot -> {
-			disMaxQueryRule.getNestedRules().add(createShouldQueryRule(ot.getIRI()));
+			disMaxQueryRule.getNestedRules().add(createShouldQueryRule(ot.getIRI(), fields));
 		});
 
 		return disMaxQueryRule;
 	}
+
+	// /**
+	// * Create disMaxJunc query rule based a list of queryTerm. All queryTerms are lower cased and stop words are
+	// removed
+	// *
+	// * @param queryTerms
+	// * @return disMaxJunc queryRule
+	// */
+	// public QueryRule createDisMaxQueryRuleForTerms(List<String> queryTerms)
+	// {
+	// List<QueryRule> rules = new ArrayList<QueryRule>();
+	// queryTerms.stream().filter(query -> StringUtils.isNotEmpty(query)).map(QueryParser::escape)
+	// .map(this::reverseEscapeLuceneChar).forEach(query -> {
+	// rules.add(new QueryRule(AttributeMetaDataMetaData.LABEL, Operator.FUZZY_MATCH, query));
+	// rules.add(new QueryRule(AttributeMetaDataMetaData.DESCRIPTION, Operator.FUZZY_MATCH, query));
+	// });
+	// QueryRule finalDisMaxQuery = new QueryRule(rules);
+	// finalDisMaxQuery.setOperator(Operator.DIS_MAX);
+	// return finalDisMaxQuery;
+	// }
 
 	/**
 	 * Create disMaxJunc query rule based a list of queryTerm. All queryTerms are lower cased and stop words are removed
@@ -120,16 +142,19 @@ public class SemanticSearchServiceHelper
 	 * @param queryTerms
 	 * @return disMaxJunc queryRule
 	 */
-	public QueryRule createDisMaxQueryRuleForTerms(List<String> queryTerms)
+	public QueryRule createDisMaxQueryRuleForTerms(List<String> queryTerms, Set<String> fields)
 	{
 		List<QueryRule> rules = new ArrayList<QueryRule>();
+
+		Consumer<? super String> action = queryTerm -> rules.addAll(fields.stream()
+				.map(field -> new QueryRule(field, Operator.FUZZY_MATCH, queryTerm)).collect(Collectors.toList()));
+
 		queryTerms.stream().filter(query -> StringUtils.isNotEmpty(query)).map(QueryParser::escape)
-				.map(this::reverseEscapeLuceneChar).forEach(query -> {
-					rules.add(new QueryRule(AttributeMetaDataMetaData.LABEL, Operator.FUZZY_MATCH, query));
-					rules.add(new QueryRule(AttributeMetaDataMetaData.DESCRIPTION, Operator.FUZZY_MATCH, query));
-				});
+				.map(this::reverseEscapeLuceneChar).forEach(action);
+
 		QueryRule finalDisMaxQuery = new QueryRule(rules);
 		finalDisMaxQuery.setOperator(Operator.DIS_MAX);
+
 		return finalDisMaxQuery;
 	}
 
@@ -140,15 +165,15 @@ public class SemanticSearchServiceHelper
 	 * @param boostValue
 	 * @return a disMaxQueryRule with boosted value
 	 */
-	public QueryRule createDisMaxQueryRuleForTermsWithBoost(List<String> queryTerms, Double boostValue)
-	{
-		QueryRule finalDisMaxQuery = createDisMaxQueryRuleForTerms(queryTerms);
-		if (boostValue != null && boostValue.intValue() != 0)
-		{
-			finalDisMaxQuery.setValue(boostValue);
-		}
-		return finalDisMaxQuery;
-	}
+	// public QueryRule createDisMaxQueryRuleForTermsWithBoost(List<String> queryTerms, Double boostValue)
+	// {
+	// QueryRule finalDisMaxQuery = createDisMaxQueryRuleForTerms(queryTerms);
+	// if (boostValue != null && boostValue.intValue() != 0)
+	// {
+	// finalDisMaxQuery.setValue(boostValue);
+	// }
+	// return finalDisMaxQuery;
+	// }
 
 	/**
 	 * Create a boolean should query for composite tags containing multiple ontology terms
@@ -156,7 +181,7 @@ public class SemanticSearchServiceHelper
 	 * @param multiOntologyTermIri
 	 * @return return a boolean should queryRule
 	 */
-	public QueryRule createShouldQueryRule(String multiOntologyTermIri)
+	public QueryRule createShouldQueryRule(String multiOntologyTermIri, Set<String> fields)
 	{
 		QueryRule shouldQueryRule = new QueryRule(new ArrayList<QueryRule>());
 		shouldQueryRule.setOperator(Operator.SHOULD);
@@ -165,7 +190,14 @@ public class SemanticSearchServiceHelper
 			OntologyTerm ontologyTerm = ontologyService.getOntologyTerm(ontologyTermIri);
 			List<String> queryTerms = parseOntologyTermQueries(ontologyTerm);
 			Double termFrequency = termFrequencyService.getTermFrequency(ontologyTerm.getLabel());
-			shouldQueryRule.getNestedRules().add(createDisMaxQueryRuleForTermsWithBoost(queryTerms, termFrequency));
+
+			QueryRule disMaxQueryRule = createDisMaxQueryRuleForTerms(queryTerms, fields);
+			if (termFrequency != null && termFrequency.intValue() != 0)
+			{
+				disMaxQueryRule.setValue(termFrequency);
+			}
+
+			shouldQueryRule.getNestedRules().add(disMaxQueryRule);
 		}
 		return shouldQueryRule;
 	}

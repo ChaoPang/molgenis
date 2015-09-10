@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import org.elasticsearch.common.collect.Sets;
@@ -138,6 +139,25 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 	}
 
 	@Test
+	public void testCreateLexicalSearchQueryTerms()
+	{
+		// Case one, when the user defined search terms exist, the targetAttribute information will not be used
+		Set<String> searchTerms = Sets.newHashSet("weight", "height");
+		DefaultAttributeMetaData targetAttribute = new DefaultAttributeMetaData("targetAttribute");
+		targetAttribute.setLabel("label");
+		targetAttribute.setDescription("description");
+		Set<String> actual = semanticSearchService.createLexicalSearchQueryTerms(targetAttribute, searchTerms);
+		Assert.assertEquals(actual.size(), 2);
+		Assert.assertTrue(actual.containsAll(Sets.newHashSet("weight", "height")));
+
+		// Case two, when the user defined search terms do not exist, the targetAttribute information will be used
+		Set<String> searchTerms1 = null;
+		Set<String> actual1 = semanticSearchService.createLexicalSearchQueryTerms(targetAttribute, searchTerms1);
+		Assert.assertEquals(actual1.size(), 2);
+		Assert.assertTrue(actual1.containsAll(Sets.newHashSet("label", "description")));
+	}
+
+	@Test
 	public void testSearchDescription() throws InterruptedException, ExecutionException
 	{
 		Mockito.reset(ontologyService);
@@ -184,9 +204,12 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 		QueryRule disMaxQueryRule = new QueryRule(rules);
 		disMaxQueryRule.setOperator(Operator.DIS_MAX);
 
+		Set<String> attributeFields = Sets.newLinkedHashSet(Arrays.asList(AttributeMetaDataMetaData.LABEL,
+				AttributeMetaDataMetaData.DESCRIPTION));
+
 		when(
 				semanticSearchServiceHelper.createDisMaxQueryRuleForAttribute(Sets.newHashSet("targetAttribute"),
-						Collections.emptyList())).thenReturn(disMaxQueryRule);
+						Collections.emptyList(), attributeFields)).thenReturn(disMaxQueryRule);
 
 		MapEntity entity1 = new MapEntity(ImmutableMap.of(AttributeMetaDataMetaData.NAME, "height_0",
 				AttributeMetaDataMetaData.LABEL, "height", AttributeMetaDataMetaData.DESCRIPTION,

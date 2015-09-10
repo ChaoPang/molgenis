@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.molgenis.data.AttributeMetaData;
+import org.molgenis.data.Entity;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
 import org.molgenis.data.semanticsearch.semantic.Hit;
@@ -23,6 +24,18 @@ public interface SemanticSearchService
 	 * @return AttributeMetaData of resembling attributes, sorted by relevance
 	 */
 	Map<AttributeMetaData, Iterable<ExplainedQueryString>> findAttributes(EntityMetaData sourceEntityMetaData,
+			Set<String> queryTerms, Collection<OntologyTerm> ontologyTerms);
+
+	/**
+	 * Find all the records using semanticsearch in specified entity table in the database
+	 * 
+	 * @param entityMetaData
+	 * @param searchAttributes
+	 * @param queryTerms
+	 * @param ontologyTerms
+	 * @return Entity of resembling search queries, sorted by relevance
+	 */
+	Iterable<Entity> find(EntityMetaData entityMetaData, Set<AttributeMetaData> searchAttributes,
 			Set<String> queryTerms, Collection<OntologyTerm> ontologyTerms);
 
 	/**

@@ -75,14 +75,37 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	}
 
 	@Override
+	public Iterable<Entity> find(EntityMetaData entityMetaData, Set<AttributeMetaData> searchAttributes,
+			Set<String> queryTerms, Collection<OntologyTerm> ontologyTerms)
+	{
+		// If the search attributes are not specified, all the non-reference attributes will be taken from the
+		// entityMetaData
+		if (searchAttributes == null || searchAttributes.size() == 0)
+		{
+			searchAttributes = Lists.newArrayList(entityMetaData.getAttributes()).stream()
+					.filter(attribute -> attribute.getRefEntity() == null).collect(Collectors.toSet());
+		}
+
+		Set<String> fields = searchAttributes.stream().map(attribute -> attribute.getName())
+				.collect(Collectors.toSet());
+
+		QueryRule disMaxQueryRule = semanticSearchServiceHelper.createDisMaxQueryRuleForAttribute(queryTerms,
+				ontologyTerms, fields);
+
+		return dataService.findAll(entityMetaData.getName(), new QueryImpl(disMaxQueryRule));
+	}
+
+	@Override
 	public Map<AttributeMetaData, Iterable<ExplainedQueryString>> findAttributes(EntityMetaData sourceEntityMetaData,
 			Set<String> queryTerms, Collection<OntologyTerm> ontologyTerms)
 	{
 		Iterable<String> attributeIdentifiers = semanticSearchServiceHelper
 				.getAttributeIdentifiers(sourceEntityMetaData);
 
+		Set<String> fields = Sets.newHashSet(AttributeMetaDataMetaData.LABEL, AttributeMetaDataMetaData.DESCRIPTION);
+
 		QueryRule disMaxQueryRule = semanticSearchServiceHelper.createDisMaxQueryRuleForAttribute(queryTerms,
-				ontologyTerms);
+				ontologyTerms, fields);
 
 		List<QueryRule> finalQueryRules = Lists.newArrayList(new QueryRule(AttributeMetaDataMetaData.IDENTIFIER,
 				Operator.IN, attributeIdentifiers));
@@ -200,10 +223,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		Explanation explanation = elasticSearchExplainService.explain(new QueryImpl(finalQueryRules),
 				dataService.getEntityMetaData(AttributeMetaDataMetaData.ENTITY_NAME), attributeId);
 
-		Set<ExplainedQueryString> detectedQueryStrings = elasticSearchExplainService.findQueriesFromExplanation(
-				collectExpanedQueryMap, explanation);
-
-		return detectedQueryStrings;
+		return elasticSearchExplainService.findQueriesFromExplanation(collectExpanedQueryMap, explanation);
 	}
 
 	@Override

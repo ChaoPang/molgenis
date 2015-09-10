@@ -58,19 +58,24 @@ public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContext
 	@Autowired
 	private MetaDataService metaDataService;
 
+	private final Set<String> attributeFields = Sets.newLinkedHashSet(Arrays.asList(AttributeMetaDataMetaData.LABEL,
+			AttributeMetaDataMetaData.DESCRIPTION));
+
 	@Test
 	public void testCreateDisMaxQueryRule()
 	{
+
 		List<String> createdTargetAttributeQueries = Arrays.asList("Height", "Standing height in cm", "body_length",
 				"Sitting height", "sitting_length", "Height", "sature");
-		QueryRule actualRule = semanticSearchServiceHelper.createDisMaxQueryRuleForTerms(createdTargetAttributeQueries);
+		QueryRule actualRule = semanticSearchServiceHelper.createDisMaxQueryRuleForTerms(createdTargetAttributeQueries,
+				attributeFields);
 		String expectedQueryRuleToString = "(label FUZZY_MATCH 'Height'description FUZZY_MATCH 'Height'label FUZZY_MATCH 'Standing height in cm'description FUZZY_MATCH 'Standing height in cm'label FUZZY_MATCH 'body_length'description FUZZY_MATCH 'body_length'label FUZZY_MATCH 'Sitting height'description FUZZY_MATCH 'Sitting height'label FUZZY_MATCH 'sitting_length'description FUZZY_MATCH 'sitting_length'label FUZZY_MATCH 'Height'description FUZZY_MATCH 'Height'label FUZZY_MATCH 'sature'description FUZZY_MATCH 'sature')";
 		assertEquals(actualRule.getOperator(), Operator.DIS_MAX);
 		assertEquals(actualRule.toString(), expectedQueryRuleToString);
 
 		List<String> createdTargetAttributeQueries2 = Arrays.asList("(Height) [stand^~]");
-		QueryRule actualRule2 = semanticSearchServiceHelper
-				.createDisMaxQueryRuleForTerms(createdTargetAttributeQueries2);
+		QueryRule actualRule2 = semanticSearchServiceHelper.createDisMaxQueryRuleForTerms(
+				createdTargetAttributeQueries2, attributeFields);
 		String expectedQueryRuleToString2 = "(label FUZZY_MATCH '\\(Height\\) \\[stand^\\~\\]'description FUZZY_MATCH '\\(Height\\) \\[stand^\\~\\]')";
 		assertEquals(actualRule2.getOperator(), Operator.DIS_MAX);
 		assertEquals(actualRule2.toString(), expectedQueryRuleToString2);
@@ -86,7 +91,8 @@ public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContext
 		when(ontologyService.getOntologyTerm(ontologyTerm_1.getIRI())).thenReturn(ontologyTerm_1);
 		when(ontologyService.getOntologyTerm(ontologyTerm_2.getIRI())).thenReturn(ontologyTerm_2);
 
-		QueryRule actualShouldQueryRule = semanticSearchServiceHelper.createShouldQueryRule(multiOntologyTermIri);
+		QueryRule actualShouldQueryRule = semanticSearchServiceHelper.createShouldQueryRule(multiOntologyTermIri,
+				attributeFields);
 		String expectedShouldQueryRuleToString = "((label FUZZY_MATCH 'gcc molgenis label'description FUZZY_MATCH 'gcc molgenis label')(label FUZZY_MATCH '2 label'description FUZZY_MATCH '2 label'label FUZZY_MATCH '2 genetics molgenis label'description FUZZY_MATCH '2 genetics molgenis label'))";
 
 		assertEquals(actualShouldQueryRule.toString(), expectedShouldQueryRuleToString);
@@ -116,19 +122,19 @@ public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContext
 
 		// Case 1
 		QueryRule actualTargetAttributeQueryTerms_1 = semanticSearchServiceHelper.createDisMaxQueryRuleForAttribute(
-				Sets.newLinkedHashSet(Arrays.asList("targetAttribute 1", "Height")), tags.values());
+				Sets.newLinkedHashSet(Arrays.asList("targetAttribute 1", "Height")), tags.values(), attributeFields);
 		String expecteddisMaxQueryRuleToString_1 = "(label FUZZY_MATCH '1 targetattribute'description FUZZY_MATCH '1 targetattribute'label FUZZY_MATCH 'height'description FUZZY_MATCH 'height'label FUZZY_MATCH 'length body'description FUZZY_MATCH 'length body'label FUZZY_MATCH 'standing height'description FUZZY_MATCH 'standing height'label FUZZY_MATCH 'length sitting'description FUZZY_MATCH 'length sitting'label FUZZY_MATCH 'sitting height'description FUZZY_MATCH 'sitting height'label FUZZY_MATCH 'sature'description FUZZY_MATCH 'sature'label FUZZY_MATCH 'height'description FUZZY_MATCH 'height')";
 		assertEquals(actualTargetAttributeQueryTerms_1.toString(), expecteddisMaxQueryRuleToString_1);
 
 		// Case 2
 		QueryRule expecteddisMaxQueryRuleToString_2 = semanticSearchServiceHelper.createDisMaxQueryRuleForAttribute(
-				Sets.newHashSet("Height"), tags.values());
+				Sets.newHashSet("Height"), tags.values(), attributeFields);
 		String expectedTargetAttributeQueryTermsToString_2 = "(label FUZZY_MATCH 'height'description FUZZY_MATCH 'height'label FUZZY_MATCH 'length body'description FUZZY_MATCH 'length body'label FUZZY_MATCH 'standing height'description FUZZY_MATCH 'standing height'label FUZZY_MATCH 'length sitting'description FUZZY_MATCH 'length sitting'label FUZZY_MATCH 'sitting height'description FUZZY_MATCH 'sitting height'label FUZZY_MATCH 'sature'description FUZZY_MATCH 'sature'label FUZZY_MATCH 'height'description FUZZY_MATCH 'height')";
 		assertEquals(expecteddisMaxQueryRuleToString_2.toString(), expectedTargetAttributeQueryTermsToString_2);
 
 		// Case 3
 		QueryRule expecteddisMaxQueryRuleToString_3 = semanticSearchServiceHelper.createDisMaxQueryRuleForAttribute(
-				Sets.newHashSet("targetAttribute 3"), tags.values());
+				Sets.newHashSet("targetAttribute 3"), tags.values(), attributeFields);
 		String expectedTargetAttributeQueryTermsToString_3 = "(label FUZZY_MATCH '3 targetattribute'description FUZZY_MATCH '3 targetattribute'label FUZZY_MATCH 'length body'description FUZZY_MATCH 'length body'label FUZZY_MATCH 'standing height'description FUZZY_MATCH 'standing height'label FUZZY_MATCH 'length sitting'description FUZZY_MATCH 'length sitting'label FUZZY_MATCH 'sitting height'description FUZZY_MATCH 'sitting height'label FUZZY_MATCH 'sature'description FUZZY_MATCH 'sature'label FUZZY_MATCH 'height'description FUZZY_MATCH 'height')";
 		assertEquals(expecteddisMaxQueryRuleToString_3.toString(), expectedTargetAttributeQueryTermsToString_3);
 	}
