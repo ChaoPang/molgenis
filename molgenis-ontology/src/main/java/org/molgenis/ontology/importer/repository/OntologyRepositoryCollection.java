@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -66,7 +65,7 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 	private final Multimap<String, Entity> nodePathsPerOntologyTerm = ArrayListMultimap.create();
 	private final File uploadedZipOntologyFile;
 	private Entity ontologyEntity;
-	private OntologyReader ontologyReader = null;
+	private OntologyReader ontologyReader;
 
 	private static final String DATABASE_ANNOTATION_PATTERN = "(\\w*):(\\d*)";
 
@@ -312,7 +311,6 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 			{
 				throw new MolgenisDataException(e.getMessage());
 			}
-			ontologyReader = Objects.requireNonNull(ontologyReader);
 		}
 	}
 
@@ -334,13 +332,5 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 			throw new IllegalArgumentException("Not a obo.zip or owl.zip file [" + file.getName() + "]");
 		}
 		return name;
-	}
-
-	public Map<String, EntityMetaData> getRepositoryEntityMetaData()
-	{
-		Map<String, EntityMetaData> repositoryEntityMetaData = new LinkedHashMap<String, EntityMetaData>();
-		repositories.entrySet().stream()
-				.forEach(entry -> repositoryEntityMetaData.put(entry.getKey(), entry.getValue().getEntityMetaData()));
-		return repositoryEntityMetaData;
 	}
 }
