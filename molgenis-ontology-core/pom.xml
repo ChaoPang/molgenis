@@ -17,12 +17,12 @@
   		<dependency>
 			<groupId>net.sourceforge.owlapi</groupId>
 			<artifactId>owlapi-api</artifactId>
-			<version>4.0.2</version>
+			<version>4.0.0</version>
 		</dependency>
 		<dependency>
 			<groupId>net.sourceforge.owlapi</groupId>
 		    <artifactId>owlapi-apibinding</artifactId>
-		    <version>4.0.2</version>
+		    <version>4.0.0</version>
 		</dependency>
 		<dependency>
 		    <groupId>org.apache.commons</groupId>
@@ -62,11 +62,6 @@
 		<dependency>
 			<groupId>org.molgenis</groupId>
 			<artifactId>molgenis-data-excel</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.molgenis</groupId>
-			<artifactId>molgenis-dataexplorer</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
