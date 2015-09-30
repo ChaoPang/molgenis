@@ -42,7 +42,9 @@ public class OntologyReaderImpl implements OntologyReader
 	private final OWLOntologyManager manager;
 	private final String ontologyName;
 
-	private static final String PSEUDO_ROOT_CLASS_NODEPATH = "0[0]";
+	public static final String PSEUDO_ROOT_CLASS_NODEPATH = "0[0]";
+
+	private final OntologyTerm artificialTopOntologyTerm;
 
 	private static final Set<String> synonymProperties = Sets
 			.newHashSet("http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#FULL_SYN",
@@ -59,12 +61,21 @@ public class OntologyReaderImpl implements OntologyReader
 		this.factory = manager.getOWLDataFactory();
 		this.ontologyName = Objects.requireNonNull(ontologyName);
 		this.ontology = manager.loadOntologyFromOntologyDocument(Objects.requireNonNull(ontologyFile));
+		this.artificialTopOntologyTerm = OntologyTerm.create(ontologyName, ontologyName);
+	}
+
+	@Override
+	public List<OntologyTerm> getAllOntologyTerms()
+	{
+		List<OntologyTerm> ontologyTerms = Lists.newArrayList(ontology.getClassesInSignature().stream()
+				.map(this::transformOWLClassToOntologyTerm).collect(Collectors.toList()));
+		ontologyTerms.add(artificialTopOntologyTerm);
+		return ontologyTerms;
 	}
 
 	@Override
 	public Iterator<OrientedOntologyTerm> preOrderIterator()
 	{
-		final OntologyTerm artificialTopOntologyTerm = OntologyTerm.create(ontologyName, ontologyName);
 		TreeTraverser<OrientedOntologyTerm> traverser = new TreeTraverser<OrientedOntologyTerm>()
 		{
 			@Override

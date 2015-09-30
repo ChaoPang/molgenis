@@ -21,4 +21,6 @@ public interface OntologyReader
 	public abstract Ontology getOntology();
 
 	public abstract Iterator<OrientedOntologyTerm> preOrderIterator();
+
+	public abstract List<OntologyTerm> getAllOntologyTerms();
 }

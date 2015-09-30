@@ -4,8 +4,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.molgenis.data.Entity;
@@ -61,9 +63,10 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 			OntologyTermNodePathMetaData.ENTITY_NAME, nodePathRepository, OntologyMetaData.ENTITY_NAME,
 			ontologyRepository, OntologyTermMetaData.ENTITY_NAME, ontologyTermRepository);
 
-	private final OntologyReader ontologyReader;
 	private final Multimap<String, Entity> nodePathsPerOntologyTerm = ArrayListMultimap.create();
+	private final File uploadedZipOntologyFile;
 	private Entity ontologyEntity;
+	private OntologyReader ontologyReader = null;
 
 	private static final String DATABASE_ANNOTATION_PATTERN = "(\\w*):(\\d*)";
 
@@ -77,33 +80,13 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 			IOException
 	{
 		super(GenericImporterExtensions.getOntology());
-		if (file == null) throw new IllegalArgumentException("file is null");
-
-		String name = file.getName();
-		if (name.endsWith(GenericImporterExtensions.OBO_ZIP.toString()))
-		{
-			name = name.substring(0, name.lastIndexOf('.' + GenericImporterExtensions.OBO_ZIP.toString())).replace('.',
-					'_');
-		}
-		else if (name.endsWith(GenericImporterExtensions.OWL_ZIP.toString()))
-		{
-			name = name.substring(0, name.lastIndexOf('.' + GenericImporterExtensions.OWL_ZIP.toString())).replace('.',
-					'_');
-		}
-		else
-		{
-			throw new IllegalArgumentException("Not a obo.zip or owl.zip file [" + file.getName() + "]");
-		}
-
-		List<File> uploadedFiles = ZipFileUtil.unzip(file);
-		ontologyReader = new OntologyReaderImpl(name, uploadedFiles.get(0));
-		createOntology();
-		createNodePaths();
-		createOntologyTerms();
+		this.uploadedZipOntologyFile = Objects.requireNonNull(file);
 	}
 
 	/**
 	 * Initializes the {@link #ontologyEntity} and adds it to the {@link #ontologyRepository}.
+	 * 
+	 * @param ontologyReader
 	 */
 	private void createOntology()
 	{
@@ -118,6 +101,8 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 	/**
 	 * Creates {@link OntologyTermNodePathMetaData} {@link Entity}s for an entire ontology tree and writes them to the
 	 * {@link #nodePathsPerOntologyTerm} {@link Multimap}.
+	 * 
+	 * @param ontologyReader
 	 */
 	private void createNodePaths()
 	{
@@ -136,14 +121,12 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 	/**
 	 * Creates {@link OntologyTermMetaData} {@link Entity}s for all {@link OWLClass}ses in the {@link #loader} and adds
 	 * them to the {@link #ontologyTermRepository}.
+	 * 
+	 * @param ontologyReader
 	 */
 	private void createOntologyTerms()
 	{
-		Iterator<OrientedOntologyTerm> preOrderIterator = ontologyReader.preOrderIterator();
-		while (preOrderIterator.hasNext())
-		{
-			createOntologyTerm(preOrderIterator.next());
-		}
+		ontologyReader.getAllOntologyTerms().forEach(this::createOntologyTerm);
 	}
 
 	/**
@@ -153,17 +136,16 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 	 *            the OWLClass to create an entity for
 	 * @return the created ontology term {@link Entity}
 	 */
-	private Entity createOntologyTerm(OrientedOntologyTerm orientedOntologyTerm)
+	private Entity createOntologyTerm(OntologyTerm ontologyTerm)
 	{
-		String ontologyTermIRI = orientedOntologyTerm.getOntologyTerm().getIRI().toString();
-		String ontologyTermName = orientedOntologyTerm.getOntologyTerm().getLabel();
+		String ontologyTermIRI = ontologyTerm.getIRI().toString();
+		String ontologyTermName = ontologyTerm.getLabel();
 		Entity entity = new MapEntity(OntologyTermMetaData.INSTANCE);
 		entity.set(OntologyTermMetaData.ID, idGenerator.generateId());
 		entity.set(OntologyTermMetaData.ONTOLOGY_TERM_IRI, ontologyTermIRI);
 		entity.set(OntologyTermMetaData.ONTOLOGY_TERM_NAME, ontologyTermName);
-		entity.set(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM, createSynonyms(orientedOntologyTerm));
-		entity.set(OntologyTermMetaData.ONTOLOGY_TERM_DYNAMIC_ANNOTATION,
-				createDynamicAnnotations(orientedOntologyTerm));
+		entity.set(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM, createSynonyms(ontologyTerm));
+		entity.set(OntologyTermMetaData.ONTOLOGY_TERM_DYNAMIC_ANNOTATION, createDynamicAnnotations(ontologyTerm));
 		entity.set(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, nodePathsPerOntologyTerm.get(ontologyTermIRI));
 		entity.set(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
 		ontologyTermRepository.add(entity);
@@ -177,10 +159,9 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 	 *            {@link OWLClass} for the ontology term
 	 * @return {@link List} of created synonym {@link Entity}s
 	 */
-	private List<Entity> createSynonyms(OrientedOntologyTerm orientedOntologyTerm)
+	private List<Entity> createSynonyms(OntologyTerm ontologyTerm)
 	{
-		return orientedOntologyTerm.getOntologyTerm().getSynonyms().stream().map(this::createSynonym)
-				.collect(Collectors.toList());
+		return ontologyTerm.getSynonyms().stream().map(this::createSynonym).collect(Collectors.toList());
 	}
 
 	/**
@@ -206,10 +187,10 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 	 *            the term to create annotation entities for
 	 * @return List of created {@link Entity}s.
 	 */
-	private List<Entity> createDynamicAnnotations(OrientedOntologyTerm orientedOntologyTerm)
+	private List<Entity> createDynamicAnnotations(OntologyTerm ontologyTerm)
 	{
-		List<OntologyTermAnnotation> ontologyTermAnnotations = ontologyReader.getOntologyTermAnnotations(
-				orientedOntologyTerm.getOntologyTerm(), Optional.of(DATABASE_ANNOTATION_PATTERN));
+		List<OntologyTermAnnotation> ontologyTermAnnotations = ontologyReader.getOntologyTermAnnotations(ontologyTerm,
+				Optional.of(DATABASE_ANNOTATION_PATTERN));
 		return ontologyTermAnnotations.stream().map(this::createDynamicAnnotation).collect(Collectors.toList());
 	}
 
@@ -279,6 +260,19 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 	@Override
 	public Repository getRepository(String name)
 	{
+		initializeOntologyReader();
+
+		if (OntologyMetaData.ENTITY_NAME.equals(name))
+		{
+			createOntology();
+		}
+		else
+		{
+			createOntology();
+			createNodePaths();
+			createOntologyTerms();
+		}
+
 		if (!repositories.containsKey(name)) throw new MolgenisDataException("Unknown entity name [" + name + "]");
 		return repositories.get(name);
 	}
@@ -293,5 +287,60 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 			if (entityNames.next().equals(name)) return true;
 		}
 		return false;
+	}
+
+	private void initializeOntologyReader()
+	{
+		if (ontologyReader == null)
+		{
+			List<File> uploadedFiles;
+			try
+			{
+				uploadedFiles = ZipFileUtil.unzip(uploadedZipOntologyFile);
+			}
+			catch (IOException e)
+			{
+				throw new MolgenisDataException(e.getMessage());
+			}
+
+			try
+			{
+				ontologyReader = new OntologyReaderImpl(getUploadedOntologyName(uploadedZipOntologyFile),
+						uploadedFiles.get(0));
+			}
+			catch (OWLOntologyCreationException e)
+			{
+				throw new MolgenisDataException(e.getMessage());
+			}
+			ontologyReader = Objects.requireNonNull(ontologyReader);
+		}
+	}
+
+	private String getUploadedOntologyName(File file)
+	{
+		String name = uploadedZipOntologyFile.getName();
+		if (name.endsWith(GenericImporterExtensions.OBO_ZIP.toString()))
+		{
+			name = name.substring(0, name.lastIndexOf('.' + GenericImporterExtensions.OBO_ZIP.toString())).replace('.',
+					'_');
+		}
+		else if (name.endsWith(GenericImporterExtensions.OWL_ZIP.toString()))
+		{
+			name = name.substring(0, name.lastIndexOf('.' + GenericImporterExtensions.OWL_ZIP.toString())).replace('.',
+					'_');
+		}
+		else
+		{
+			throw new IllegalArgumentException("Not a obo.zip or owl.zip file [" + file.getName() + "]");
+		}
+		return name;
+	}
+
+	public Map<String, EntityMetaData> getRepositoryEntityMetaData()
+	{
+		Map<String, EntityMetaData> repositoryEntityMetaData = new LinkedHashMap<String, EntityMetaData>();
+		repositories.entrySet().stream()
+				.forEach(entry -> repositoryEntityMetaData.put(entry.getKey(), entry.getValue().getEntityMetaData()));
+		return repositoryEntityMetaData;
 	}
 }
