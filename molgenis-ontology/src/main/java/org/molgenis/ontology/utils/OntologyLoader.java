@@ -2,12 +2,10 @@ package org.molgenis.ontology.utils;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.semanticweb.owlapi.apibinding.OWLManager;
@@ -26,45 +24,33 @@ import org.semanticweb.owlapi.model.OWLOntology;
 import org.semanticweb.owlapi.model.OWLOntologyCreationException;
 import org.semanticweb.owlapi.model.OWLOntologyManager;
 import org.semanticweb.owlapi.model.OWLSubClassOfAxiom;
+import org.semanticweb.owlapi.search.Searcher;
 import org.semanticweb.owlapi.vocab.OWLRDFVocabulary;
+
+import com.google.common.collect.Sets;
 
 public class OntologyLoader
 {
-	private static String DB_ID_PATTERN = "(\\w*):(\\d*)";
-	private String ontologyIRI = null;
-	private String ontologyName = null;
-	private File ontologyFile = null;
-	private OWLDataFactory factory = null;
-	private OWLOntology ontology = null;
-	private OWLOntologyManager manager = null;
-	private Set<String> synonymsProperties;
-	{
-		synonymsProperties = new HashSet<String>(Arrays.asList(
-				"http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#FULL_SYN",
-				"http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#P90",
-				"http://www.geneontology.org/formats/oboInOwl#hasExactSynonym",
-				"http://www.ebi.ac.uk/efo/alternative_term"));
-	}
+	private static final String DATABASE_ANNOTATION_PATTERN = "(\\w*):(\\d*)";
 
-	private Set<String> owlObjectProperties;
-	{
-		owlObjectProperties = new HashSet<String>(
-				Arrays.asList("http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#is_associated_with"));
-	}
+	private final String ontologyIRI;
+	private final String ontologyName;
+	private final File ontologyFile;
+	private final OWLDataFactory factory;
+	private final OWLOntology ontology;
+	private final OWLOntologyManager manager;
 
-	private Set<String> ontologyTermDefinitions;
-	{
-		ontologyTermDefinitions = new HashSet<String>(Arrays.asList("http://purl.obolibrary.org/obo/",
-				"http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#DEFINITION"));
-	}
+	private final Set<String> synonymProperties = Sets
+			.newHashSet("http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#FULL_SYN",
+					"http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#P90",
+					"http://www.geneontology.org/formats/oboInOwl#hasExactSynonym",
+					"http://www.ebi.ac.uk/efo/alternative_term");
 
-	private Map<String, OWLClass> hashToRetrieveClass = new HashMap<String, OWLClass>();
+	private final Set<String> associativeRelationProperties = Sets
+			.newHashSet("http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#is_associated_with");
 
-	public OntologyLoader(OWLOntologyManager manager, OWLDataFactory factory)
-	{
-		this.manager = manager;
-		this.factory = factory;
-	}
+	private final Set<String> ontologyTermDefinitionProperties = Sets.newHashSet("http://purl.obolibrary.org/obo/",
+			"http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#DEFINITION");
 
 	public OntologyLoader(String ontologyName, File ontologyFile) throws OWLOntologyCreationException
 	{
@@ -74,32 +60,6 @@ public class OntologyLoader
 		this.ontologyName = ontologyName;
 		this.ontology = manager.loadOntologyFromOntologyDocument(ontologyFile);
 		this.ontologyIRI = ontology.getOntologyID().getOntologyIRI().toString();
-	}
-
-	public void loadOntology(String ontologyName, File ontologyFile) throws OWLOntologyCreationException
-	{
-		this.ontologyName = ontologyName;
-		this.ontologyFile = ontologyFile;
-		this.ontology = manager.loadOntologyFromOntologyDocument(ontologyFile);
-		this.ontologyIRI = ontology.getOntologyID().getOntologyIRI().toString();
-	}
-
-	public void preProcessing()
-	{
-		for (OWLClass cls : ontology.getClassesInSignature())
-		{
-			hashToRetrieveClass.put(getLabel(cls).trim().toLowerCase(), cls);
-		}
-	}
-
-	public Set<OWLAnnotationAssertionAxiom> getAllAnnotationAxiom(OWLClass cls)
-	{
-		Set<OWLAnnotationAssertionAxiom> axioms = new HashSet<OWLAnnotationAssertionAxiom>();
-		for (OWLAnnotation annotation : cls.getAnnotations(ontology))
-		{
-			axioms.add(factory.getOWLAnnotationAssertionAxiom(cls.getIRI(), annotation));
-		}
-		return axioms;
 	}
 
 	public Set<OWLClass> getRootClasses()
@@ -113,12 +73,17 @@ public class OntologyLoader
 		return listOfTopClasses;
 	}
 
-	public OWLClass getTopClass()
+	public Set<OWLAnnotationAssertionAxiom> getAllAnnotationAxiom(OWLClass cls)
 	{
-		return factory.getOWLThing();
+		Set<OWLAnnotationAssertionAxiom> annotationAxioms = Searcher
+				.annotations(ontology.getAnnotationAssertionAxioms(cls.getIRI())).stream()
+				.map(annotation -> factory.getOWLAnnotationAssertionAxiom(cls.getIRI(), annotation))
+				.collect(Collectors.toSet());
+
+		return annotationAxioms;
 	}
 
-	public List<Set<OWLClass>> getAssociatedClasses(OWLClass cls)
+	public List<Set<OWLClass>> getAssociativeClasses(OWLClass cls)
 	{
 		List<Set<OWLClass>> alternativeDefinitions = new ArrayList<Set<OWLClass>>();
 		for (OWLSubClassOfAxiom axiom : ontology.getSubClassAxiomsForSubClass(cls))
@@ -129,7 +94,7 @@ public class OntologyLoader
 			{
 				for (OWLObjectProperty property : expression.getObjectPropertiesInSignature())
 				{
-					if (owlObjectProperties.contains(property.getIRI().toString()))
+					if (associativeRelationProperties.contains(property.getIRI().toString()))
 					{
 						for (OWLClass associatedClass : expression.getClassesInSignature())
 						{
@@ -193,7 +158,7 @@ public class OntologyLoader
 	public Set<String> getSynonyms(OWLClass cls)
 	{
 		Set<String> listOfSynonyms = new HashSet<String>();
-		for (String eachSynonymProperty : synonymsProperties)
+		for (String eachSynonymProperty : synonymProperties)
 		{
 			listOfSynonyms.addAll(getAnnotation(cls, eachSynonymProperty));
 		}
@@ -203,7 +168,7 @@ public class OntologyLoader
 
 	public String getDefinition(OWLClass cls)
 	{
-		for (String definitionProperty : ontologyTermDefinitions)
+		for (String definitionProperty : ontologyTermDefinitionProperties)
 		{
 			for (String definition : getAnnotation(cls, definitionProperty))
 			{
@@ -224,61 +189,31 @@ public class OntologyLoader
 
 	private Set<String> getAnnotation(OWLEntity entity, String property)
 	{
-		Set<String> annotations = new HashSet<String>();
-		try
-		{
-			OWLAnnotationProperty owlAnnotationProperty = factory.getOWLAnnotationProperty(IRI.create(property));
-			for (OWLAnnotation annotation : entity.getAnnotations(ontology, owlAnnotationProperty))
-			{
-				if (annotation.getValue() instanceof OWLLiteral)
-				{
-					OWLLiteral val = (OWLLiteral) annotation.getValue();
-					annotations.add(val.getLiteral().toString());
-				}
-			}
-		}
-		catch (Exception e)
-		{
-			throw new RuntimeException("Failed to get label for OWLClass " + entity);
-		}
-		return annotations;
+		OWLAnnotationProperty owlAnnotationProperty = factory.getOWLAnnotationProperty(IRI.create(property));
+		Set<String> literalAnnotations = Searcher
+				.annotations(ontology.getAnnotationAssertionAxioms(entity.getIRI()), owlAnnotationProperty).stream()
+				.filter(this::isAnnotationOwlLiteral)
+				.map(annotation -> ((OWLLiteral) annotation.getValue()).getLiteral()).collect(Collectors.toSet());
+
+		return Sets.newHashSet(literalAnnotations);
 	}
 
-	public Map<String, Set<String>> getAllDatabaseIds(OWLClass entity)
+	private boolean isAnnotationOwlLiteral(OWLAnnotation annotation)
 	{
-		Map<String, Set<String>> dbAnnotations = new HashMap<String, Set<String>>();
-
-		for (OWLAnnotation annotation : entity.getAnnotations(ontology))
-		{
-			if (annotation.getValue() instanceof OWLLiteral)
-			{
-				OWLLiteral val = (OWLLiteral) annotation.getValue();
-				String value = val.getLiteral().toString();
-				if (value.matches(DB_ID_PATTERN))
-				{
-					String databaseName = value.replaceAll(DB_ID_PATTERN, "$1");
-					if (!dbAnnotations.containsKey(databaseName))
-					{
-						dbAnnotations.put(databaseName, new HashSet<String>());
-					}
-					dbAnnotations.get(databaseName).add(value.replaceAll(DB_ID_PATTERN, "$2"));
-				}
-			}
-		}
-		return dbAnnotations;
+		return annotation != null && annotation.getValue() instanceof OWLLiteral;
 	}
 
 	// TODO : FIXME replace the getAllDatabaseIds later on
 	public Set<String> getDatabaseIds(OWLClass entity)
 	{
 		Set<String> dbAnnotations = new HashSet<String>();
-		for (OWLAnnotation annotation : entity.getAnnotations(ontology))
+		for (OWLAnnotation annotation : Searcher.annotations(ontology.getAnnotationAssertionAxioms(entity.getIRI())))
 		{
 			if (annotation.getValue() instanceof OWLLiteral)
 			{
 				OWLLiteral val = (OWLLiteral) annotation.getValue();
 				String value = val.getLiteral().toString();
-				if (value.matches(DB_ID_PATTERN))
+				if (value.matches(DATABASE_ANNOTATION_PATTERN))
 				{
 					dbAnnotations.add(value);
 				}
@@ -335,11 +270,6 @@ public class OntologyLoader
 		return ontologyFile.getAbsolutePath();
 	}
 
-	public Map<String, OWLClass> getHashToRetrieveClass()
-	{
-		return hashToRetrieveClass;
-	}
-
 	public Set<OWLSubClassOfAxiom> getSubClassAxiomsForSuperClass(OWLClass cls)
 	{
 		return ontology.getSubClassAxiomsForSuperClass(cls);
@@ -352,7 +282,7 @@ public class OntologyLoader
 
 	public void addSynonymsProperties(Set<String> synonymsProperties)
 	{
-		this.synonymsProperties.addAll(synonymsProperties);
+		this.synonymProperties.addAll(synonymsProperties);
 	}
 
 	public OWLClass createClass(String iri, Set<OWLClass> rootClasses)
