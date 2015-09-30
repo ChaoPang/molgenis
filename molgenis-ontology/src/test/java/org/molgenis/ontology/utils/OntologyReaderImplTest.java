@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.List;
-import java.util.Set;
 
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -42,7 +41,7 @@ public class OntologyReaderImplTest
 	{
 		OntologyTerm measurementOntologyTerm = OntologyTerm
 				.create("http://www.molgenis.org#measurement", "measurement");
-		Set<OntologyTerm> measurementChildOntologyTerms = ontologyReaderImpl
+		List<OntologyTerm> measurementChildOntologyTerms = ontologyReaderImpl
 				.getChildOntologyTerms(measurementOntologyTerm);
 		Assert.assertEquals(measurementChildOntologyTerms.size(), 2);
 		Assert.assertTrue(measurementChildOntologyTerms.contains(OntologyTerm.create("http://www.molgenis.org#height",
@@ -54,14 +53,15 @@ public class OntologyReaderImplTest
 
 		OntologyTerm organizationOntologyTerm = OntologyTerm.create("http://www.molgenis.org#Organization",
 				"organization");
-		Set<OntologyTerm> organizationChildOntologyTerms = ontologyReaderImpl
+		List<OntologyTerm> organizationChildOntologyTerms = ontologyReaderImpl
 				.getChildOntologyTerms(organizationOntologyTerm);
 		Assert.assertEquals(organizationChildOntologyTerms.size(), 1);
 		Assert.assertTrue(organizationChildOntologyTerms.contains(OntologyTerm.create(
 				"http://www.molgenis.org#hospital", "hospital")));
 
 		OntologyTerm hospitialOntologyTerm = OntologyTerm.create("http://www.molgenis.org#hospital", "hospital");
-		Set<OntologyTerm> hospitialChildOntologyTerms = ontologyReaderImpl.getChildOntologyTerms(hospitialOntologyTerm);
+		List<OntologyTerm> hospitialChildOntologyTerms = ontologyReaderImpl
+				.getChildOntologyTerms(hospitialOntologyTerm);
 		Assert.assertEquals(hospitialChildOntologyTerms.size(), 1);
 		Assert.assertTrue(hospitialChildOntologyTerms.contains(OntologyTerm.create("http://www.molgenis.org#GCC",
 				"Genomics coordination center")));
@@ -75,7 +75,7 @@ public class OntologyReaderImplTest
 				"Genomics coordination center");
 
 		// Test 1: retrieve all the annotations
-		Set<OntologyTermAnnotation> ontologyTermAnnotations = ontologyReaderImpl.getOntologyTermAnnotations(
+		List<OntologyTermAnnotation> ontologyTermAnnotations = ontologyReaderImpl.getOntologyTermAnnotations(
 				gccOntologyTerm, Optional.absent());
 		OntologyTermAnnotation comment1 = OntologyTermAnnotation.create(
 				owlDataFactory.getOWLClass(IRI.create("http://www.molgenis.org#GCC")),
@@ -94,7 +94,7 @@ public class OntologyReaderImplTest
 		Assert.assertTrue(ontologyTermAnnotations.contains(label));
 
 		// Test 2: retrieve the annotations that matches the given regular expression filter
-		Set<OntologyTermAnnotation> ontologyTermAnnotations2 = ontologyReaderImpl.getOntologyTermAnnotations(
+		List<OntologyTermAnnotation> ontologyTermAnnotations2 = ontologyReaderImpl.getOntologyTermAnnotations(
 				gccOntologyTerm, Optional.fromNullable("(\\w*):(\\d*)"));
 		Assert.assertEquals(ontologyTermAnnotations2.size(), 2);
 		Assert.assertTrue(ontologyTermAnnotations2.contains(comment1));
@@ -111,8 +111,7 @@ public class OntologyReaderImplTest
 	@Test
 	public void testGetRootOntologyTerms()
 	{
-		Set<OntologyTerm> rootOntologyTerms = ontologyReaderImpl.getRootOntologyTerms();
-
+		List<OntologyTerm> rootOntologyTerms = ontologyReaderImpl.getRootOntologyTerms();
 		Assert.assertEquals(rootOntologyTerms.size(), 3);
 
 		Assert.assertTrue(rootOntologyTerms.contains(OntologyTerm.create("http://www.molgenis.org#measurement",

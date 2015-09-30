@@ -1,15 +1,20 @@
 package org.molgenis.ontology.utils;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.model.OrientedOntologyTerm;
 import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.model.IRI;
 import org.semanticweb.owlapi.model.OWLAnnotation;
@@ -28,6 +33,7 @@ import org.semanticweb.owlapi.vocab.OWLRDFVocabulary;
 import com.google.common.base.Optional;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.collect.TreeTraverser;
 
 public class OntologyReaderImpl implements OntologyReader
 {
@@ -36,14 +42,16 @@ public class OntologyReaderImpl implements OntologyReader
 	private final OWLOntologyManager manager;
 	private final String ontologyName;
 
-	private final Set<String> synonymProperties = Sets
+	private static final String PSEUDO_ROOT_CLASS_NODEPATH = "0[0]";
+
+	private static final Set<String> synonymProperties = Sets
 			.newHashSet("http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#FULL_SYN",
 					"http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#P90",
 					"http://www.geneontology.org/formats/oboInOwl#hasExactSynonym",
 					"http://www.ebi.ac.uk/efo/alternative_term");
 
-	private final Set<String> ontologyTermDefinitionProperties = Sets.newHashSet("http://purl.obolibrary.org/obo/",
-			"http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#DEFINITION");
+	private static final Set<String> ontologyTermDefinitionProperties = Sets.newHashSet(
+			"http://purl.obolibrary.org/obo/", "http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#DEFINITION");
 
 	public OntologyReaderImpl(String ontologyName, File ontologyFile) throws OWLOntologyCreationException
 	{
@@ -54,27 +62,54 @@ public class OntologyReaderImpl implements OntologyReader
 	}
 
 	@Override
-	public Set<OntologyTerm> getRootOntologyTerms()
+	public Iterator<OrientedOntologyTerm> preOrderIterator()
 	{
-		return ontology.getClassesInSignature().stream().filter(this::isOwlClassTop)
-				.map(this::transformOWLClassToOntologyTerm).collect(Collectors.toSet());
+		final OntologyTerm artificialTopOntologyTerm = OntologyTerm.create(ontologyName, ontologyName);
+		TreeTraverser<OrientedOntologyTerm> traverser = new TreeTraverser<OrientedOntologyTerm>()
+		{
+			@Override
+			public Iterable<OrientedOntologyTerm> children(OrientedOntologyTerm orientedOntologyTerm)
+			{
+				int count = 0;
+				List<OrientedOntologyTerm> childOrientedOntologyTerms = new ArrayList<>();
+				String parentNodePath = orientedOntologyTerm.getNodePath();
+				OntologyTerm currentOntologyTerm = orientedOntologyTerm.getOntologyTerm();
+
+				for (OntologyTerm childOntologyTerm : (artificialTopOntologyTerm == currentOntologyTerm ? getRootOntologyTerms() : getChildOntologyTerms(currentOntologyTerm)))
+				{
+					childOrientedOntologyTerms.add(OrientedOntologyTerm.create(childOntologyTerm,
+							constructNodePath(parentNodePath, count), false));
+					count++;
+				}
+				return childOrientedOntologyTerms;
+			}
+		};
+		return traverser.preOrderTraversal(
+				OrientedOntologyTerm.create(artificialTopOntologyTerm, PSEUDO_ROOT_CLASS_NODEPATH, true)).iterator();
 	}
 
 	@Override
-	public Set<OntologyTerm> getChildOntologyTerms(OntologyTerm ontologyTerm)
+	public List<OntologyTerm> getRootOntologyTerms()
+	{
+		return ontology.getClassesInSignature().stream().filter(this::isOwlClassTop)
+				.map(this::transformOWLClassToOntologyTerm).collect(Collectors.toList());
+	}
+
+	@Override
+	public List<OntologyTerm> getChildOntologyTerms(OntologyTerm ontologyTerm)
 	{
 		OWLClass owlClass = factory.getOWLClass(IRI.create(ontologyTerm.getIRI()));
 		return owlClass != null ? getSubClasses(owlClass).stream().map(this::transformOWLClassToOntologyTerm)
-				.collect(Collectors.toSet()) : Collections.emptySet();
+				.collect(Collectors.toList()) : Collections.emptyList();
 	}
 
 	@Override
-	public Set<OntologyTermAnnotation> getOntologyTermAnnotations(OntologyTerm ontologyTerm,
+	public List<OntologyTermAnnotation> getOntologyTermAnnotations(OntologyTerm ontologyTerm,
 			Optional<String> optionalRegex)
 	{
 		OWLClass owlClass = factory.getOWLClass(IRI.create(ontologyTerm.getIRI()));
 		return owlClass != null ? getOntologyTermAnnotations(owlClass, Optional.fromNullable(null), optionalRegex) : Collections
-				.emptySet();
+				.emptyList();
 	}
 
 	@Override
@@ -120,10 +155,10 @@ public class OntologyReaderImpl implements OntologyReader
 	 * @param optionalRegexFilters
 	 * @return the {@link OntologyTermAnnotation}s of the current {@link OWLClass}
 	 */
-	Set<OntologyTermAnnotation> getOntologyTermAnnotations(OWLClass cls, Optional<String> property,
+	List<OntologyTermAnnotation> getOntologyTermAnnotations(OWLClass cls, Optional<String> property,
 			Optional<String> optionalRegexFilters)
 	{
-		Set<OntologyTermAnnotation> ontologyTermAnnotations = new HashSet<>();
+		List<OntologyTermAnnotation> ontologyTermAnnotations = new ArrayList<>();
 		if (property.isPresent())
 		{
 			ontologyTermAnnotations.addAll(getClassAnnotations(cls, property.get(), optionalRegexFilters));
@@ -190,17 +225,8 @@ public class OntologyReaderImpl implements OntologyReader
 		{
 			return ontologyTermLabelAnnotation.getValue();
 		}
-
-		String[] split;
 		String clsIri = cls.getIRI().toString();
-		if (clsIri.contains("#"))
-		{
-			split = clsIri.split("#");
-		}
-		else
-		{
-			split = clsIri.split("/");
-		}
+		String[] split = clsIri.contains("#") ? clsIri.split("#") : clsIri.split("/");
 		return split[split.length - 1];
 	}
 
@@ -262,5 +288,23 @@ public class OntologyReaderImpl implements OntologyReader
 	private boolean isAnnotationOwlLiteral(OWLAnnotation annotation)
 	{
 		return annotation != null && annotation.getValue() instanceof OWLLiteral;
+	}
+
+	/**
+	 * Constructs the node path string for a child node
+	 * 
+	 * @param parentNodePath
+	 *            node path string of the node's parent
+	 * @param currentPosition
+	 *            position of the node in the parent's child list
+	 * @return node path string
+	 */
+	private String constructNodePath(String parentNodePath, int currentPosition)
+	{
+		StringBuilder nodePathStringBuilder = new StringBuilder();
+		if (!StringUtils.isEmpty(parentNodePath)) nodePathStringBuilder.append(parentNodePath).append('.');
+		nodePathStringBuilder.append(currentPosition).append('[')
+				.append(nodePathStringBuilder.toString().split("\\.").length - 1).append(']');
+		return nodePathStringBuilder.toString();
 	}
 }
