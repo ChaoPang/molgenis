@@ -19,16 +19,6 @@
 	</build>
 	
   	<dependencies>
-  		<dependency>
-			<groupId>net.sourceforge.owlapi</groupId>
-		    <artifactId>owlapi-api</artifactId>
-		    <version>3.4.5</version>
-		</dependency>
-		<dependency>
-			<groupId>net.sourceforge.owlapi</groupId>
-		    <artifactId>owlapi-apibinding</artifactId>
-		    <version>3.4.5</version>
-		</dependency>
         <dependency>
 			<groupId>org.molgenis</groupId>
 			<artifactId>molgenis-core</artifactId>
