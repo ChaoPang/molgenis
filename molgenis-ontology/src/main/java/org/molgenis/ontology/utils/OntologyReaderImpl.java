@@ -112,18 +112,21 @@ public class OntologyReaderImpl implements OntologyReader
 		return listOfClasses;
 	}
 
-	private Set<OntologyTermAnnotation> getOntologyTermAnnotations(OWLClass cls, Optional<String> property,
+	/**
+	 * Get all the annotations of the current {@link OWLClass}.
+	 * 
+	 * @param cls
+	 * @param property
+	 * @param optionalRegexFilters
+	 * @return the {@link OntologyTermAnnotation}s of the current {@link OWLClass}
+	 */
+	Set<OntologyTermAnnotation> getOntologyTermAnnotations(OWLClass cls, Optional<String> property,
 			Optional<String> optionalRegexFilters)
 	{
 		Set<OntologyTermAnnotation> ontologyTermAnnotations = new HashSet<>();
 		if (property.isPresent())
 		{
-			OWLAnnotationProperty owlAnnotationProperty = factory.getOWLAnnotationProperty(IRI.create(property.get()));
-			Set<String> annotations = getClassAnnotations(cls, property.get(), optionalRegexFilters);
-
-			ontologyTermAnnotations.addAll(annotations.stream()
-					.map(annotation -> OntologyTermAnnotation.create(cls, owlAnnotationProperty, annotation))
-					.collect(Collectors.toSet()));
+			ontologyTermAnnotations.addAll(getClassAnnotations(cls, property.get(), optionalRegexFilters));
 		}
 		else
 		{
@@ -136,33 +139,56 @@ public class OntologyReaderImpl implements OntologyReader
 		return ontologyTermAnnotations;
 	}
 
-	private Set<String> getClassSynonyms(OWLClass cls)
+	/**
+	 * Get a list of synonyms including the label of the current {@link OWLClass}.
+	 * 
+	 * @param cls
+	 * @return the synonyms of the current {@link OWLClass}
+	 */
+	Set<String> getClassSynonyms(OWLClass cls)
 	{
 		Set<String> listOfSynonyms = Sets.newHashSet(getClassLabel(cls));
 		for (String eachSynonymProperty : synonymProperties)
 		{
-			listOfSynonyms.addAll(getClassAnnotations(cls, eachSynonymProperty, Optional.absent()));
+			listOfSynonyms.addAll(getClassAnnotations(cls, eachSynonymProperty, Optional.absent()).stream()
+					.map(OntologyTermAnnotation::getValue).collect(Collectors.toSet()));
 		}
 		return listOfSynonyms;
 	}
 
-	private String getClassDefinition(OWLClass cls)
+	/**
+	 * Get the first encountered definition of the current {@link OWLClass}. If the definition does not exist, the null
+	 * value will be returned.
+	 * 
+	 * @param cls
+	 * @return The definition of the current {@link OWLClass}
+	 */
+	String getClassDefinition(OWLClass cls)
 	{
 		for (String definitionProperty : ontologyTermDefinitionProperties)
 		{
-			for (String definition : getClassAnnotations(cls, definitionProperty, Optional.absent()))
+			for (OntologyTermAnnotation ontologyTermDefinitionAnnotation : getClassAnnotations(cls, definitionProperty,
+					Optional.absent()))
 			{
-				return definition;
+				return ontologyTermDefinitionAnnotation.getValue();
 			}
 		}
 		return null;
 	}
 
-	private String getClassLabel(OWLClass cls)
+	/**
+	 * Get a label for the current {@link OWLClass}. If the label exists, it will be retrieved. Otherwise the last part
+	 * of the URL behind the forward slash or hash symbol
+	 * 
+	 * @param cls
+	 * @return The display label of the current {@link OWLClass}
+	 */
+	String getClassLabel(OWLClass cls)
 	{
-		for (String annotation : getClassAnnotations(cls, OWLRDFVocabulary.RDFS_LABEL.toString(), Optional.absent()))
+		for (OntologyTermAnnotation ontologyTermLabelAnnotation : getClassAnnotations(cls,
+				OWLRDFVocabulary.RDFS_LABEL.toString(), Optional.absent()))
 		{
-			return annotation;
+			return ontologyTermLabelAnnotation.getValue();
 		}
 
 		String[] split;
@@ -178,15 +204,34 @@ public class OntologyReaderImpl implements OntologyReader
 		return split[split.length - 1];
 	}
 
-	private Set<String> getClassAnnotations(OWLClass cls, String property, Optional<String> optionalRegexFilters)
+	/**
+	 * Get all the {@link OntologyTermAnnotation}s based on the specified annotationProperty for the current
+	 * {@link OWLClass}
+	 * 
+	 * @param cls
+	 * @param annotationProperty
+	 * @param optionalRegexFilters
+	 * @return a list of {@link OntologyTermAnnotation}s that match the specified regular expression filter
+	 */
+	private Set<OntologyTermAnnotation> getClassAnnotations(OWLClass cls, String annotationProperty,
+			Optional<String> optionalRegexFilters)
 	{
-		OWLAnnotationProperty owlAnnotationProperty = factory.getOWLAnnotationProperty(IRI.create(property));
+		OWLAnnotationProperty owlAnnotationProperty = factory.getOWLAnnotationProperty(IRI.create(annotationProperty));
 		Collection<OWLAnnotation> literalAnnotations = Searcher.annotations(
 				ontology.getAnnotationAssertionAxioms(cls.getIRI()), owlAnnotationProperty);
 
-		return Sets.newHashSet(filterAnnotations(literalAnnotations, optionalRegexFilters));
+		return filterAnnotations(literalAnnotations, optionalRegexFilters).stream()
+				.map(annotation -> OntologyTermAnnotation.create(cls, owlAnnotationProperty, annotation))
+				.collect(Collectors.toSet());
 	}
 
+	/**
+	 * Filter the {@link OWLAnnotation}s that matches the regular expression
+	 * 
+	 * @param annotations
+	 * @param optionalRegexFilters
+	 * @return a list of filtered of {@link OWLAnnotation}s
+	 */
 	private Collection<String> filterAnnotations(Collection<OWLAnnotation> annotations,
 			Optional<String> optionalRegexFilters)
 	{
@@ -197,11 +242,23 @@ public class OntologyReaderImpl implements OntologyReader
 				.filter(annotation -> annotation.matches(optionalRegexFilters.get())).collect(Collectors.toSet()) : literalAnnotations;
 	}
 
+	/**
+	 * A helper function to convert {@link OWLAnnotation} to a {@link String} value representation
+	 * 
+	 * @param annotation
+	 * @return the string value of the {@link OWLAnnotation}
+	 */
 	private String owlLiteralToString(OWLAnnotation annotation)
 	{
 		return ((OWLLiteral) annotation.getValue()).getLiteral();
 	}
 
+	/**
+	 * A helper function to check if the annotation is of type {@link OWLLiteral}
+	 * 
+	 * @param annotation
+	 * @return
+	 */
 	private boolean isAnnotationOwlLiteral(OWLAnnotation annotation)
 	{
 		return annotation != null && annotation.getValue() instanceof OWLLiteral;

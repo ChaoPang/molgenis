@@ -19,12 +19,13 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.Sets;
 import com.google.common.io.Resources;
 
 public class OntologyReaderImplTest
 {
-
 	OntologyReaderImpl ontologyReaderImpl;
+	OWLDataFactory owlDataFactory;
 
 	@BeforeMethod
 	public void setup() throws OWLOntologyCreationException, IOException
@@ -33,10 +34,11 @@ public class OntologyReaderImplTest
 		File ontologyTestFile = ResourceUtils.getFile(url.getFile());
 		List<File> uploadedFiles = ZipFileUtil.unzip(ontologyTestFile);
 		ontologyReaderImpl = new OntologyReaderImpl("test", uploadedFiles.get(0));
+		owlDataFactory = OWLManager.createOWLOntologyManager().getOWLDataFactory();
 	}
 
 	@Test
-	public void getChildOntologyTerms()
+	public void testGetChildOntologyTerms()
 	{
 		OntologyTerm measurementOntologyTerm = OntologyTerm
 				.create("http://www.molgenis.org#measurement", "measurement");
@@ -67,13 +69,12 @@ public class OntologyReaderImplTest
 	}
 
 	@Test
-	public void getClassAnnotations()
+	public void testGetClassAnnotations()
 	{
 		OntologyTerm gccOntologyTerm = OntologyTerm.create("http://www.molgenis.org#GCC",
 				"Genomics coordination center");
 
-		OWLDataFactory owlDataFactory = OWLManager.createOWLOntologyManager().getOWLDataFactory();
-
+		// Test 1: retrieve all the annotations
 		Set<OntologyTermAnnotation> ontologyTermAnnotations = ontologyReaderImpl.getOntologyTermAnnotations(
 				gccOntologyTerm, Optional.absent());
 		OntologyTermAnnotation comment1 = OntologyTermAnnotation.create(
@@ -92,7 +93,7 @@ public class OntologyReaderImplTest
 		Assert.assertTrue(ontologyTermAnnotations.contains(comment2));
 		Assert.assertTrue(ontologyTermAnnotations.contains(label));
 
-		// Test 2
+		// Test 2: retrieve the annotations that matches the given regular expression filter
 		Set<OntologyTermAnnotation> ontologyTermAnnotations2 = ontologyReaderImpl.getOntologyTermAnnotations(
 				gccOntologyTerm, Optional.fromNullable("(\\w*):(\\d*)"));
 		Assert.assertEquals(ontologyTermAnnotations2.size(), 2);
@@ -101,14 +102,14 @@ public class OntologyReaderImplTest
 	}
 
 	@Test
-	public void getOntology()
+	public void testGetOntology()
 	{
 		Assert.assertEquals(ontologyReaderImpl.getOntology(),
 				Ontology.create("http://www.molgenis.org", "http://www.molgenis.org", "test"));
 	}
 
 	@Test
-	public void getRootOntologyTerms()
+	public void testGetRootOntologyTerms()
 	{
 		Set<OntologyTerm> rootOntologyTerms = ontologyReaderImpl.getRootOntologyTerms();
 
@@ -124,5 +125,27 @@ public class OntologyReaderImplTest
 
 		Assert.assertFalse(rootOntologyTerms.contains(OntologyTerm.create("http://www.molgenis.org#negative_test",
 				"negative_test")));
+	}
+
+	@Test
+	public void testGetClassLabel()
+	{
+		Assert.assertEquals(
+				ontologyReaderImpl.getClassLabel(owlDataFactory.getOWLClass(IRI.create("http://www.molgenis.org#GCC"))),
+				"Genomics coordination center");
+	}
+
+	@Test
+	public void testGetClassDefinition()
+	{
+		Assert.assertEquals(ontologyReaderImpl.getClassDefinition(owlDataFactory.getOWLClass(IRI
+				.create("http://www.molgenis.org#GCC"))), null);
+	}
+
+	@Test
+	public void testGetClassSynonyms()
+	{
+		Assert.assertEquals(ontologyReaderImpl.getClassSynonyms(owlDataFactory.getOWLClass(IRI
+				.create("http://www.molgenis.org#GCC"))), Sets.newHashSet("Genomics coordination center"));
 	}
 }
