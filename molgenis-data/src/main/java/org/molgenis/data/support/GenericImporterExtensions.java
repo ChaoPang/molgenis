@@ -16,7 +16,10 @@ public enum GenericImporterExtensions
 	OBO_ZIP("obo.zip"), OWL_ZIP("owl.zip"),
 
 	// VCF
-	VCF("vcf"), VCF_GZ("vcf.gz");
+	VCF("vcf"), VCF_GZ("vcf.gz"),
+
+	// SPSS
+	SPSS("sav");
 
 	private String name;
 
@@ -29,6 +32,11 @@ public enum GenericImporterExtensions
 	public String toString()
 	{
 		return this.name;
+	}
+
+	public static Set<String> getSpss()
+	{
+		return ImmutableSet.of(SPSS.toString());
 	}
 
 	public static Set<String> getOntology()
