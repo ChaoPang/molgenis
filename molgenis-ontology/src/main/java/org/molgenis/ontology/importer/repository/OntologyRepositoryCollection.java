@@ -27,7 +27,6 @@ import org.molgenis.ontology.core.meta.OntologyTermSynonymMetaData;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.OrientedOntologyTerm;
-import org.molgenis.ontology.utils.OWLClassContainer;
 import org.molgenis.ontology.utils.OntologyReader;
 import org.molgenis.ontology.utils.OntologyReaderImpl;
 import org.molgenis.ontology.utils.OntologyTermAnnotation;
@@ -39,7 +38,6 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
-
 /**
  * RepositoryCollection for the import of an owl file.
  * 
