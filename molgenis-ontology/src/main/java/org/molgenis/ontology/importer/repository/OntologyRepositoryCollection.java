@@ -28,7 +28,6 @@ import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.OrientedOntologyTerm;
 import org.molgenis.ontology.utils.OWLClassContainer;
-import org.molgenis.ontology.utils.OntologyLoader;
 import org.molgenis.ontology.utils.OntologyReader;
 import org.molgenis.ontology.utils.OntologyReaderImpl;
 import org.molgenis.ontology.utils.OntologyTermAnnotation;
