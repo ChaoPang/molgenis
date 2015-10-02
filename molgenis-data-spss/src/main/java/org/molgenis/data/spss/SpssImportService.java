@@ -68,6 +68,8 @@ public class SpssImportService implements ImportService
 
 					dataService.getRepository(repo.getName()).add(repo);
 
+					addedEntities.add(repo.getEntityMetaData());
+
 					List<String> entityNames = addedEntities.stream().map(emd -> emd.getName())
 							.collect(Collectors.toList());
 					permissionSystemService.giveUserEntityPermissions(SecurityContextHolder.getContext(), entityNames);
