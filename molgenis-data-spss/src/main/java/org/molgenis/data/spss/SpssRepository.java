@@ -140,7 +140,7 @@ public class SpssRepository extends AbstractRepository
 
 			if (spssFile.isMetadataLoaded && spssFile.isDataLoaded)
 			{
-				return new SpssIterator(spssFile, entityMetaData);
+				return new SpssIterator(spssFile, entityMetaData, referenceRepositories);
 			}
 		}
 		catch (Exception e)
