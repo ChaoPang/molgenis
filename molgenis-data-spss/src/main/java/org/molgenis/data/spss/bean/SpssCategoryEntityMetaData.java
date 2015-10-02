@@ -12,8 +12,8 @@ public class SpssCategoryEntityMetaData extends DefaultEntityMetaData
 	{
 		super(entityName);
 		addAttributeMetaData(new DefaultAttributeMetaData(CODE).setIdAttribute(true).setNillable(false)
-				.setVisible(false).setLookupAttribute(true));
+				.setLookupAttribute(true));
 		addAttributeMetaData(new DefaultAttributeMetaData(Label).setLabelAttribute(true).setNillable(false)
-				.setVisible(false).setLookupAttribute(true));
+				.setLookupAttribute(true));
 	}
 }
