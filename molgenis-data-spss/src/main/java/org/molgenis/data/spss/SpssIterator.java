@@ -99,6 +99,7 @@ public class SpssIterator implements Iterator<Entity>
 				throw new MolgenisDataAccessException(e.getMessage());
 			}
 		}
+		recordIndex.incrementAndGet();
 		descrmentCounter.decrementAndGet();
 		return entity;
 	}
