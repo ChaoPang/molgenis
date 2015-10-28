@@ -37,6 +37,7 @@ import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.string.NGramDistanceAlgorithm;
 import org.molgenis.data.semanticsearch.string.Stemmer;
+import org.molgenis.data.semanticsearch.string.ThreeGramDistanceAlgorithm;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -384,7 +385,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	{
 		String s1 = stemmer.stemAndJoin(splitIntoTerms(synonym));
 		String s2 = stemmer.stemAndJoin(searchTerms);
-		float distance = (float) NGramDistanceAlgorithm.stringMatching(s1, s2) / 100;
+		float distance = (float) ThreeGramDistanceAlgorithm.stringMatching(s1, s2) / 100;
 		LOG.debug("Similarity between: {} and {} is {}", s1, s2, distance);
 		return distance;
 	}

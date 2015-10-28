@@ -15,7 +15,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.search.Explanation;
 import org.elasticsearch.common.collect.Lists;
 import org.molgenis.data.MolgenisDataAccessException;
-import org.molgenis.data.semanticsearch.string.NGramDistanceAlgorithm;
+import org.molgenis.data.semanticsearch.string.TwoGramDistanceAlgorithm;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.FluentIterable;
@@ -133,7 +133,7 @@ public class ExplainServiceHelper
 			if (wordsInQuery.containsAll(matchedWords))
 			{
 				qualifiedQueries.put(entry.getKey(),
-						NGramDistanceAlgorithm.stringMatching(matchedWordsString, entry.getKey()));
+						TwoGramDistanceAlgorithm.stringMatching(matchedWordsString, entry.getKey()));
 			}
 		}
 		return qualifiedQueries;

@@ -17,6 +17,7 @@ import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
 import org.molgenis.data.elasticsearch.SearchService;
 import org.molgenis.data.semanticsearch.string.NGramDistanceAlgorithm;
+import org.molgenis.data.semanticsearch.string.TwoGramDistanceAlgorithm;
 import org.molgenis.data.support.MapEntity;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.beans.Ontology;
@@ -117,8 +118,7 @@ public class OntologyServiceImpl implements OntologyService
 		Entity ontologyEntity = getOntologyEntity(ontologyIri);
 		if (ontologyEntity != null)
 		{
-			return dataService.findOne(
-					OntologyTermMetaData.ENTITY_NAME,
+			return dataService.findOne(OntologyTermMetaData.ENTITY_NAME,
 					new QueryImpl().eq(OntologyTermMetaData.ONTOLOGY_TERM_IRI, ontologyTermIri).and()
 							.eq(OntologyTermMetaData.ONTOLOGY, ontologyEntity));
 		}
@@ -177,8 +177,8 @@ public class OntologyServiceImpl implements OntologyService
 	public OntologyServiceResult searchEntity(String ontologyIri, Entity inputEntity)
 	{
 		Entity ontologyEntity = getOntologyEntity(ontologyIri);
-		if (ontologyEntity == null) throw new IllegalArgumentException("Ontology IRI " + ontologyIri
-				+ " does not exist in the database!");
+		if (ontologyEntity == null)
+			throw new IllegalArgumentException("Ontology IRI " + ontologyIri + " does not exist in the database!");
 
 		List<Entity> relevantEntities = new ArrayList<Entity>();
 
@@ -203,8 +203,8 @@ public class OntologyServiceImpl implements OntologyService
 				}
 				else if (StringUtils.isNotEmpty(inputEntity.getString(attributeName)))
 				{
-					rulesForOtherFields.add(new QueryRule(attributeName, Operator.EQUALS, inputEntity
-							.getString(attributeName)));
+					rulesForOtherFields
+							.add(new QueryRule(attributeName, Operator.EQUALS, inputEntity.getString(attributeName)));
 				}
 			}
 		}
@@ -230,8 +230,9 @@ public class OntologyServiceImpl implements OntologyService
 			QueryRule queryRule = new QueryRule(combinedRules);
 			queryRule.setOperator(Operator.DIS_MAX);
 
-			List<QueryRule> finalQueryRules = Arrays.asList(new QueryRule(OntologyTermMetaData.ONTOLOGY,
-					Operator.EQUALS, ontologyEntity), new QueryRule(Operator.AND), queryRule);
+			List<QueryRule> finalQueryRules = Arrays.asList(
+					new QueryRule(OntologyTermMetaData.ONTOLOGY, Operator.EQUALS, ontologyEntity),
+					new QueryRule(Operator.AND), queryRule);
 
 			EntityMetaData entityMetaData = dataService.getEntityMetaData(OntologyTermMetaData.ENTITY_NAME);
 			for (Entity entity : searchService.search(new QueryImpl(finalQueryRules).pageSize(MAX_NUMBER_MATCHES),
@@ -314,9 +315,9 @@ public class OntologyServiceImpl implements OntologyService
 					for (String attrName : input.getAttributeNames())
 						mapEntity.set(attrName, input.get(attrName));
 
-					String ontologyTermSynonym = removeIllegalCharWithSingleWhiteSpace(input
-							.getString(OntologyTermSynonymMetaData.ONTOLOGY_TERM_SYNONYM));
-					double score_1 = NGramDistanceAlgorithm.stringMatching(queryString, ontologyTermSynonym);
+					String ontologyTermSynonym = removeIllegalCharWithSingleWhiteSpace(
+							input.getString(OntologyTermSynonymMetaData.ONTOLOGY_TERM_SYNONYM));
+					double score_1 = TwoGramDistanceAlgorithm.stringMatching(queryString, ontologyTermSynonym);
 					mapEntity.set(SCORE, score_1);
 
 					return mapEntity;
@@ -344,8 +345,8 @@ public class OntologyServiceImpl implements OntologyService
 				StringBuilder tempCombinedSynonym = new StringBuilder().append(topMatchedSynonym)
 						.append(SINGLE_WHITESPACE).append(nextMatchedSynonym);
 
-				double newScore = NGramDistanceAlgorithm.stringMatching(queryString.replaceAll(ILLEGAL_CHARACTERS_PATTERN,
-						SINGLE_WHITESPACE),
+				double newScore = TwoGramDistanceAlgorithm.stringMatching(
+						queryString.replaceAll(ILLEGAL_CHARACTERS_PATTERN, SINGLE_WHITESPACE),
 						tempCombinedSynonym.toString().replaceAll(ILLEGAL_CHARACTERS_PATTERN, SINGLE_WHITESPACE));
 
 				if (newScore > ngramScore)
@@ -368,9 +369,8 @@ public class OntologyServiceImpl implements OntologyService
 			{
 				if (synonymStemmedWordSet.contains(originalWord) && weightedWordSimilarity.containsKey(originalWord))
 				{
-					topMatchedSynonymEntity.set(COMBINED_SCORE,
-							(topMatchedSynonymEntity.getDouble(COMBINED_SCORE) + weightedWordSimilarity
-									.get(originalWord)));
+					topMatchedSynonymEntity.set(COMBINED_SCORE, (topMatchedSynonymEntity.getDouble(COMBINED_SCORE)
+							+ weightedWordSimilarity.get(originalWord)));
 				}
 			}
 			return topMatchedSynonymEntity;

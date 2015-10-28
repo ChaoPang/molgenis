@@ -98,8 +98,8 @@ public class SemanticSearchServiceHelper
 	public QueryRule createDisMaxQueryRuleForTerms(List<String> queryTerms)
 	{
 		List<QueryRule> rules = new ArrayList<QueryRule>();
-		queryTerms.stream().filter(query -> StringUtils.isNotEmpty(query)).map(QueryParser::escape)
-				.map(this::reverseEscapeLuceneChar).forEach(query -> {
+		queryTerms.stream().filter(StringUtils::isNotEmpty).map(QueryParser::escape).map(this::reverseEscapeLuceneChar)
+				.forEach(query -> {
 					rules.add(new QueryRule(AttributeMetaDataMetaData.LABEL, Operator.FUZZY_MATCH, query));
 					rules.add(new QueryRule(AttributeMetaDataMetaData.DESCRIPTION, Operator.FUZZY_MATCH, query));
 				});
@@ -154,7 +154,7 @@ public class SemanticSearchServiceHelper
 	 */
 	public List<String> parseOntologyTermQueries(OntologyTerm ontologyTerm)
 	{
-		List<String> queryTerms = getOtLabelAndSynonyms(ontologyTerm).stream().map(term -> parseQueryString(term))
+		List<String> queryTerms = getOtLabelAndSynonyms(ontologyTerm).stream().map(this::parseQueryString)
 				.collect(Collectors.<String> toList());
 
 		for (OntologyTerm childOt : ontologyService.getChildren(ontologyTerm))

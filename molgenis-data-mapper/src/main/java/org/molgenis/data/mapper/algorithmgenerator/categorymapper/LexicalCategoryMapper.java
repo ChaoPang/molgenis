@@ -8,7 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.mapper.algorithmgenerator.bean.Category;
 import org.molgenis.data.mapper.algorithmgenerator.rules.CategoryMatchQuality;
 import org.molgenis.data.mapper.algorithmgenerator.rules.CategoryRule;
-import org.molgenis.data.semanticsearch.string.NGramDistanceAlgorithm;
+import org.molgenis.data.semanticsearch.string.TwoGramDistanceAlgorithm;
 
 public class LexicalCategoryMapper extends CategoryMapper
 {
@@ -33,7 +33,7 @@ public class LexicalCategoryMapper extends CategoryMapper
 				return targetCategory;
 			}
 
-			double ngramScore = NGramDistanceAlgorithm.stringMatching(sourceCategoryLabel, targetCategoryLabel);
+			double ngramScore = TwoGramDistanceAlgorithm.stringMatching(sourceCategoryLabel, targetCategoryLabel);
 			if (bestNGramScore == -1 || bestNGramScore < ngramScore)
 			{
 				bestNGramScore = ngramScore;
