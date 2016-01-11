@@ -297,7 +297,8 @@
 				options : {
 					enableBasicAutocompletion : true
 				},
-				readOnly : $textarea.data('readonly') === true,
+				//TODO: this is commented out for the purpose of demonstration
+//				readOnly : $textarea.data('readonly') === true,
 				theme : 'eclipse',
 				mode : 'javascript',
 				showGutter : true,

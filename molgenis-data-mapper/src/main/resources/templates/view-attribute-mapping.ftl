@@ -36,6 +36,7 @@
 			<span class="glyphicon glyphicon-chevron-left"></span>
 			Cancel and go back
 		</a>
+		<#if hasWritePermission>
 		<button id="save-mapping-btn" type="btn" class="btn btn-primary btn-xs">
 			<span class="glyphicon glyphicon-floppy-save"></span>
 			Save
@@ -44,6 +45,7 @@
 			<span class="glyphicon glyphicon-floppy-save"></span>
 			Save to discuss
 		</button>
+		</#if>
 	</div>
 </div>
 <div class="row">
