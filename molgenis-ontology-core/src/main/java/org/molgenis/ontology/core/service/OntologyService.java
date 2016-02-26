@@ -88,6 +88,15 @@ public interface OntologyService
 	Integer getOntologyTermDistance(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2);
 
 	/**
+	 * Calculate relatedness between two ontology terms by the 2 * overlap / (depth1 + depth2)
+	 * 
+	 * @param ontologyTerm1
+	 * @param ontologyTerm2
+	 * @return
+	 */
+	Double getOntologyTermSemanticRelatedness(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2);
+
+	/**
 	 * Retrieves all ontologies ids.
 	 * 
 	 * @return String Ontology Id

@@ -4,7 +4,6 @@ import org.molgenis.data.DataService;
 import org.molgenis.data.IdGenerator;
 import org.molgenis.data.Repository;
 import org.molgenis.data.elasticsearch.factory.EmbeddedElasticSearchServiceFactory;
-import org.molgenis.data.meta.MetaDataService;
 import org.molgenis.data.meta.TagMetaData;
 import org.molgenis.data.semantic.LabeledResource;
 import org.molgenis.data.semanticsearch.explain.service.ElasticSearchExplainService;
@@ -15,6 +14,7 @@ import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.TagService;
 import org.molgenis.data.semanticsearch.service.impl.OntologyTagServiceImpl;
+import org.molgenis.data.semanticsearch.service.impl.OntologyTermBasedSemanticSearchImpl;
 import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceHelper;
 import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceImpl;
 import org.molgenis.data.semanticsearch.service.impl.UntypedTagService;
@@ -29,9 +29,6 @@ public class SemanticSearchConfig
 {
 	@Autowired
 	DataService dataService;
-
-	@Autowired
-	MetaDataService metaDataService;
 
 	@Autowired
 	OntologyService ontologyService;
@@ -60,8 +57,8 @@ public class SemanticSearchConfig
 	@Bean
 	public SemanticSearchService semanticSearchService()
 	{
-		return new SemanticSearchServiceImpl(dataService, ontologyService, metaDataService,
-				semanticSearchServiceHelper(), elasticSearchExplainService());
+		return new SemanticSearchServiceImpl(dataService, ontologyService, semanticSearchServiceHelper(),
+				elasticSearchExplainService());
 	}
 
 	@Bean
@@ -88,5 +85,11 @@ public class SemanticSearchConfig
 	{
 		return new ElasticSearchExplainServiceImpl(embeddedElasticSearchServiceFactory.getClient(),
 				explainServiceHelper());
+	}
+
+	@Bean
+	OntologyTermBasedSemanticSearchImpl ontologyTermBasedSemanticSearchImpl()
+	{
+		return new OntologyTermBasedSemanticSearchImpl(semanticSearchService(), ontologyService, ontologyTagService());
 	}
 }

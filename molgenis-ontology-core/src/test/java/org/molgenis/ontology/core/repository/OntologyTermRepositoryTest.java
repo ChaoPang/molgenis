@@ -8,11 +8,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.mockito.ArgumentCaptor;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
@@ -179,6 +183,37 @@ public class OntologyTermRepositoryTest extends AbstractTestNGSpringContextTests
 
 		// Case 5
 		assertEquals(ontologyTermRepository.calculateNodePathDistance("0[0].0[1]", "0[0].0[1]"), 0);
+
+		// Case 6
+		assertEquals(ontologyTermRepository.calculateNodePathDistance(StringUtils.EMPTY, StringUtils.EMPTY), 20);
+
+		// Case 7
+		assertEquals(ontologyTermRepository.calculateNodePathDistance("0[0].0[1]", StringUtils.EMPTY), 12);
+	}
+
+	@Test
+	public void testCalculateRelatedness()
+	{
+		DecimalFormat decimalFormat = new DecimalFormat("##.##", DecimalFormatSymbols.getInstance(Locale.US));
+
+		String case1 = decimalFormat.format(ontologyTermRepository.calculateRelatedness("0[0].0[1]", "0[0].0[1].1[2]"));
+		assertEquals(case1, "0.8");
+		String case2 = decimalFormat.format(ontologyTermRepository.calculateRelatedness("0[0].0[1].1[2]", "0[0].0[1]"));
+		assertEquals(case2, "0.8");
+		String case3 = decimalFormat
+				.format(ontologyTermRepository.calculateRelatedness("0[0].0[1].1[2].2[3]", "0[0].0[1].0[2].2[3]"));
+		assertEquals(case3, "0.5");
+		String case4 = decimalFormat
+				.format(ontologyTermRepository.calculateRelatedness("0[0].0[1]", "0[0].0[1].0[2].1[3].2[4]"));
+		assertEquals(case4, "0.57");
+		String case5 = decimalFormat.format(ontologyTermRepository.calculateRelatedness("0[0].0[1]", "0[0].0[1]"));
+		assertEquals(case5, "1");
+		String case6 = decimalFormat
+				.format(ontologyTermRepository.calculateRelatedness(StringUtils.EMPTY, StringUtils.EMPTY));
+		assertEquals(case6, "0.09");
+		String case7 = decimalFormat
+				.format(ontologyTermRepository.calculateRelatedness("0[0].0[1]", StringUtils.EMPTY));
+		assertEquals(case7, "0.15");
 	}
 
 	@Test

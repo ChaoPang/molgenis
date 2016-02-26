@@ -22,7 +22,7 @@ public class OntologyTermSynonymMetaData extends DefaultEntityMetaData
 		addAttributeMetaData(new DefaultAttributeMetaData(ID).setVisible(false), ROLE_ID);
 
 		DefaultAttributeMetaData ontologyTermSynonymAttr = new DefaultAttributeMetaData(ONTOLOGY_TERM_SYNONYM,
-				FieldTypeEnum.STRING).setNillable(false);
+				FieldTypeEnum.TEXT).setNillable(false);
 		addAttributeMetaData(ontologyTermSynonymAttr, ROLE_LABEL);
 	}
 }

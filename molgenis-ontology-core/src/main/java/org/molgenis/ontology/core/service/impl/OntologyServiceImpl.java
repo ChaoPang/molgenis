@@ -1,6 +1,5 @@
 package org.molgenis.ontology.core.service.impl;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 import java.util.ArrayList;
@@ -14,6 +13,8 @@ import org.molgenis.ontology.core.repository.OntologyRepository;
 import org.molgenis.ontology.core.repository.OntologyTermRepository;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import static java.util.Objects.requireNonNull;
 
 public class OntologyServiceImpl implements OntologyService
 {
@@ -90,5 +91,11 @@ public class OntologyServiceImpl implements OntologyService
 	public Integer getOntologyTermDistance(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
 	{
 		return ontologyTermRepository.getOntologyTermDistance(ontologyTerm1, ontologyTerm2);
+	}
+
+	@Override
+	public Double getOntologyTermSemanticRelatedness(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
+	{
+		return ontologyTermRepository.getOntologyTermSemanticRelatedness(ontologyTerm1, ontologyTerm2);
 	}
 }

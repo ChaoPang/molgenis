@@ -1,6 +1,6 @@
 package org.molgenis.ontology.core.repository;
 
-import static java.util.Objects.requireNonNull;
+import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ENTITY_NAME;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM_IRI;
@@ -9,17 +9,19 @@ import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.common.collect.Iterables;
 import org.elasticsearch.common.collect.Lists;
+import org.elasticsearch.common.collect.Sets;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
-import org.molgenis.data.MolgenisDataAccessException;
 import org.molgenis.data.Query;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
@@ -34,12 +36,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.collect.FluentIterable;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * Maps {@link OntologyTermMetaData} {@link Entity} <-> {@link OntologyTerm}
  */
 public class OntologyTermRepository
 {
 	private final DataService dataService;
+
+	private final static int PENALIZE_EMPTY_PATH = 10;
 
 	@Autowired
 	public OntologyTermRepository(DataService dataService)
@@ -216,38 +222,58 @@ public class OntologyTermRepository
 	 * 
 	 * @return the distance between two ontology terms
 	 */
-	public int getOntologyTermDistance(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
+	public Integer getOntologyTermDistance(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
 	{
-		String nodePath1 = getOntologyTermNodePath(ontologyTerm1);
-		String nodePath2 = getOntologyTermNodePath(ontologyTerm2);
+		// If the list of NodePaths is empty, add an empty string to the list so that it can be calculated
+		List<String> listOfNodePath1 = ontologyTerm1.getNodePaths().isEmpty() ? Arrays.asList(StringUtils.EMPTY)
+				: ontologyTerm1.getNodePaths();
+		List<String> listOfNodePath2 = ontologyTerm2.getNodePaths().isEmpty() ? Arrays.asList(StringUtils.EMPTY)
+				: ontologyTerm2.getNodePaths();
 
-		if (StringUtils.isEmpty(nodePath1))
+		int shortestDistance = 0;
+		for (String nodePath1 : listOfNodePath1)
 		{
-			throw new MolgenisDataAccessException("The nodePath cannot be null : " + ontologyTerm1.toString());
+			for (String nodePath2 : listOfNodePath2)
+			{
+				int distance = calculateNodePathDistance(nodePath1, nodePath2);
+				if (shortestDistance == 0 || distance < shortestDistance)
+				{
+					shortestDistance = distance;
+				}
+			}
 		}
-
-		if (StringUtils.isEmpty(nodePath2))
-		{
-			throw new MolgenisDataAccessException("The nodePath cannot be null : " + ontologyTerm2.toString());
-		}
-
-		return calculateNodePathDistance(nodePath1, nodePath2);
+		return shortestDistance;
 	}
 
-	private String getOntologyTermNodePath(OntologyTerm ontologyTerm)
+	/**
+	 * Calculate the semantic relatedness between any two ontology terms in the ontology tree
+	 * 
+	 * @param ontologyTerm1
+	 * @param ontologyTerm2
+	 * 
+	 * @return the distance between two ontology terms
+	 */
+	public double getOntologyTermSemanticRelatedness(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
 	{
-		Entity ontologyTermEntity = dataService.findOne(ENTITY_NAME,
-				new QueryImpl().eq(ONTOLOGY_TERM_IRI, ontologyTerm.getIRI()));
+		// If the list of NodePaths is empty, add an empty string to the list so that it can be calculated
+		List<String> listOfNodePath1 = ontologyTerm1.getNodePaths().isEmpty() ? Arrays.asList(StringUtils.EMPTY)
+				: ontologyTerm1.getNodePaths();
+		List<String> listOfNodePath2 = ontologyTerm2.getNodePaths().isEmpty() ? Arrays.asList(StringUtils.EMPTY)
+				: ontologyTerm2.getNodePaths();
 
-		Iterable<Entity> ontologyTermNodePathEntities = ontologyTermEntity
-				.getEntities(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH);
-
-		for (Entity ontologyTermNodePathEntity : ontologyTermNodePathEntities)
+		double maxRelatedness = 0;
+		for (String nodePath1 : listOfNodePath1)
 		{
-			return ontologyTermNodePathEntity.getString(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH);
+			for (String nodePath2 : listOfNodePath2)
+			{
+				double relatedness = calculateRelatedness(nodePath1, nodePath2);
+				if (maxRelatedness == 0 || maxRelatedness < relatedness)
+				{
+					maxRelatedness = relatedness;
+				}
+			}
 		}
-
-		return null;
+		return maxRelatedness;
 	}
 
 	/**
@@ -260,17 +286,37 @@ public class OntologyTermRepository
 	 */
 	public int calculateNodePathDistance(String nodePath1, String nodePath2)
 	{
-		String[] nodePathFragment1 = nodePath1.split("\\.");
-		String[] nodePathFragment2 = nodePath2.split("\\.");
+		String[] nodePathFragment1 = isBlank(nodePath1) ? new String[0] : nodePath1.split("\\.");
+		String[] nodePathFragment2 = isBlank(nodePath2) ? new String[0] : nodePath2.split("\\.");
 
+		int overlapBlock = calculateOverlapBlock(nodePathFragment1, nodePathFragment2);
+		return penalize(nodePath1) + penalize(nodePath2) + nodePathFragment1.length + nodePathFragment2.length
+				- overlapBlock * 2;
+	}
+
+	public double calculateRelatedness(String nodePath1, String nodePath2)
+	{
+		String[] nodePathFragment1 = isBlank(nodePath1) ? new String[0] : nodePath1.split("\\.");
+		String[] nodePathFragment2 = isBlank(nodePath2) ? new String[0] : nodePath2.split("\\.");
+
+		int overlapBlock = calculateOverlapBlock(nodePathFragment1, nodePathFragment2);
+		overlapBlock = overlapBlock == 0 ? 1 : overlapBlock;
+
+		int depth1 = nodePathFragment1.length == 0 ? 1 : nodePathFragment1.length;
+		int depth2 = nodePathFragment2.length == 0 ? 1 : nodePathFragment2.length;
+
+		return (double) 2 * overlapBlock / (penalize(nodePath1) + penalize(nodePath2) + depth1 + depth2);
+	}
+
+	public int calculateOverlapBlock(String[] nodePathFragment1, String[] nodePathFragment2)
+	{
 		int overlapBlock = 0;
 		while (overlapBlock < nodePathFragment1.length && overlapBlock < nodePathFragment2.length
 				&& nodePathFragment1[overlapBlock].equals(nodePathFragment2[overlapBlock]))
 		{
 			overlapBlock++;
 		}
-
-		return nodePathFragment1.length + nodePathFragment2.length - overlapBlock * 2;
+		return overlapBlock;
 	}
 
 	/**
@@ -308,7 +354,6 @@ public class OntologyTermRepository
 
 		Iterable<Entity> relatedOntologyTermEntities = new Iterable<Entity>()
 		{
-
 			@Override
 			public Iterator<Entity> iterator()
 			{
@@ -316,7 +361,6 @@ public class OntologyTermRepository
 						new QueryImpl(new QueryRule(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, Operator.FUZZY_MATCH,
 								"\"" + nodePath + "\"")).and().eq(OntologyTermMetaData.ONTOLOGY, ontologyEntity))
 						.iterator();
-
 			}
 		};
 		Iterable<Entity> childOntologyTermEntities = FluentIterable.from(relatedOntologyTermEntities)
@@ -343,19 +387,34 @@ public class OntologyTermRepository
 		}
 
 		// Collect synonyms if there are any
-		List<String> synonyms = new ArrayList<String>();
+		String ontologyTermName = entity.getString(ONTOLOGY_TERM_NAME).toLowerCase();
+		Set<String> synonyms = Sets.newHashSet(ontologyTermName);
 		Iterable<Entity> ontologyTermSynonymEntities = entity.getEntities(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM);
 		if (ontologyTermSynonymEntities != null)
 		{
-			ontologyTermSynonymEntities.forEach(synonymEntity -> synonyms
-					.add(synonymEntity.getString(OntologyTermSynonymMetaData.ONTOLOGY_TERM_SYNONYM)));
-		}
-		if (!synonyms.contains(entity.getString(ONTOLOGY_TERM_NAME)))
-		{
-			synonyms.add(entity.getString(ONTOLOGY_TERM_NAME));
+			synonyms.addAll(StreamSupport.stream(ontologyTermSynonymEntities.spliterator(), false)
+					.map(e -> e.getString(OntologyTermSynonymMetaData.ONTOLOGY_TERM_SYNONYM).toLowerCase())
+					.collect(Collectors.toSet()));
 		}
 
-		return OntologyTerm.create(entity.getString(ONTOLOGY_TERM_IRI), entity.getString(ONTOLOGY_TERM_NAME), null,
-				synonyms);
+		// Collection nodePaths is there are any
+		Set<String> nodePaths = new HashSet<>();
+		Iterable<Entity> ontologyTermNodePathEntities = entity
+				.getEntities(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH);
+		if (ontologyTermNodePathEntities != null)
+		{
+			nodePaths.addAll(StreamSupport.stream(ontologyTermNodePathEntities.spliterator(), false)
+					.map(e -> e.getString(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH))
+					.collect(Collectors.toList()));
+		}
+
+		return OntologyTerm.create(entity.getString(ONTOLOGY_TERM_IRI), ontologyTermName, null,
+				Lists.newArrayList(synonyms), Lists.newArrayList(nodePaths));
+
+	}
+
+	int penalize(String nodePath)
+	{
+		return isBlank(nodePath) ? PENALIZE_EMPTY_PATH : 0;
 	}
 }

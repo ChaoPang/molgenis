@@ -26,24 +26,33 @@ public abstract class OntologyTerm
 
 	public abstract List<String> getSynonyms();
 
+	public abstract List<String> getNodePaths();
+
 	public static OntologyTerm create(String iri, String label)
 	{
-		return new AutoValue_OntologyTerm(iri, label, null, Collections.singletonList(label));
+		return new AutoValue_OntologyTerm(iri, label, null, Collections.singletonList(label), Collections.emptyList());
 	}
 
 	public static OntologyTerm create(String iri, String label, List<String> synonyms)
 	{
-		return new AutoValue_OntologyTerm(iri, label, null, copyOf(synonyms));
+		return new AutoValue_OntologyTerm(iri, label, null, copyOf(synonyms), Collections.emptyList());
 	}
 
 	public static OntologyTerm create(String iri, String label, String description)
 	{
-		return new AutoValue_OntologyTerm(iri, label, description, Collections.singletonList((description)));
+		return new AutoValue_OntologyTerm(iri, label, description, Collections.singletonList((description)),
+				Collections.emptyList());
 	}
 
 	public static OntologyTerm create(String iri, String label, String description, List<String> synonyms)
 	{
-		return new AutoValue_OntologyTerm(iri, label, description, copyOf(synonyms));
+		return new AutoValue_OntologyTerm(iri, label, description, copyOf(synonyms), Collections.emptyList());
+	}
+
+	public static OntologyTerm create(String iri, String label, String description, List<String> synonyms,
+			List<String> nodePaths)
+	{
+		return new AutoValue_OntologyTerm(iri, label, description, copyOf(synonyms), copyOf(nodePaths));
 	}
 
 	/**

@@ -1,7 +1,5 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
-import static java.util.Objects.requireNonNull;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -31,13 +29,14 @@ import org.molgenis.data.MolgenisDataAccessException;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
 import org.molgenis.data.meta.AttributeMetaDataMetaData;
-import org.molgenis.data.meta.MetaDataService;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
 import org.molgenis.data.semanticsearch.explain.service.ElasticSearchExplainService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
+import org.molgenis.data.semanticsearch.service.bean.CandidateOntologyTerm;
 import org.molgenis.data.semanticsearch.string.NGramDistanceAlgorithm;
+import org.molgenis.data.semanticsearch.string.OntologyTermComparator;
 import org.molgenis.data.semanticsearch.string.Stemmer;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.Ontology;
@@ -49,7 +48,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.Ordering;
+
+import static java.util.Objects.requireNonNull;
 
 import autovalue.shaded.com.google.common.common.collect.Sets;
 
@@ -59,7 +59,6 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 	private final DataService dataService;
 	private final OntologyService ontologyService;
-	private final MetaDataService metaDataService;
 	private final SemanticSearchServiceHelper semanticSearchServiceHelper;
 	private final ElasticSearchExplainService elasticSearchExplainService;
 
@@ -74,12 +73,11 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 	@Autowired
 	public SemanticSearchServiceImpl(DataService dataService, OntologyService ontologyService,
-			MetaDataService metaDataService, SemanticSearchServiceHelper semanticSearchServiceHelper,
+			SemanticSearchServiceHelper semanticSearchServiceHelper,
 			ElasticSearchExplainService elasticSearchExplainService)
 	{
 		this.dataService = requireNonNull(dataService);
 		this.ontologyService = requireNonNull(ontologyService);
-		this.metaDataService = requireNonNull(metaDataService);
 		this.semanticSearchServiceHelper = requireNonNull(semanticSearchServiceHelper);
 		this.elasticSearchExplainService = requireNonNull(elasticSearchExplainService);
 	}
@@ -267,7 +265,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	public Map<AttributeMetaData, Hit<OntologyTerm>> findTags(String entity, List<String> ontologyIds)
 	{
 		Map<AttributeMetaData, Hit<OntologyTerm>> result = new LinkedHashMap<AttributeMetaData, Hit<OntologyTerm>>();
-		EntityMetaData emd = metaDataService.getEntityMetaData(entity);
+		EntityMetaData emd = dataService.getEntityMetaData(entity);
 		for (AttributeMetaData amd : emd.getAtomicAttributes())
 		{
 			Hit<OntologyTerm> tag = findTags(amd, ontologyIds);
@@ -298,12 +296,15 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 			LOG.debug("Candidates: {}", candidates);
 		}
 
-		List<Hit<OntologyTerm>> hits = candidates.stream()
+		List<Hit<CandidateOntologyTerm>> hits = candidates.stream()
 				.filter(ontologyTerm -> filterOntologyTerm(splitIntoTerms(stemmer.stemAndJoin(searchTerms)),
 						ontologyTerm, stemmer))
-				.map(ontolgoyTerm -> Hit.<OntologyTerm> create(ontolgoyTerm,
-						bestMatchingSynonym(ontolgoyTerm, searchTerms).getScore()))
-				.sorted(Ordering.natural().reverse()).collect(Collectors.toList());
+				.map(ontologyTerm -> {
+					Hit<String> bestMatchingSynonym = bestMatchingSynonym(ontologyTerm, searchTerms);
+					CandidateOntologyTerm candidate = CandidateOntologyTerm.create(ontologyTerm,
+							bestMatchingSynonym.getResult());
+					return Hit.<CandidateOntologyTerm> create(candidate, bestMatchingSynonym.getScore());
+				}).sorted(new OntologyTermComparator(stemmer)).collect(Collectors.toList());
 
 		if (LOG.isDebugEnabled())
 		{
@@ -312,12 +313,12 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 		Hit<OntologyTerm> result = null;
 		String bestMatchingSynonym = null;
-		for (Hit<OntologyTerm> hit : hits)
+		for (Hit<CandidateOntologyTerm> hit : hits)
 		{
-			String bestMatchingSynonymForHit = bestMatchingSynonym(hit.getResult(), searchTerms).getResult();
+			String bestMatchingSynonymForHit = hit.getResult().getMatchedSynonym();
 			if (result == null)
 			{
-				result = hit;
+				result = Hit.create(hit.getResult().getOntologyTerm(), hit.getScore());
 				bestMatchingSynonym = bestMatchingSynonymForHit;
 			}
 			else
@@ -325,7 +326,8 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 				Set<String> jointTerms = Sets.union(splitIntoTerms(bestMatchingSynonym),
 						splitIntoTerms(bestMatchingSynonymForHit));
 				String joinedSynonyms = termJoiner.join(jointTerms);
-				Hit<OntologyTerm> joinedHit = Hit.create(OntologyTerm.and(result.getResult(), hit.getResult()),
+				Hit<OntologyTerm> joinedHit = Hit.create(
+						OntologyTerm.and(result.getResult(), hit.getResult().getOntologyTerm()),
 						distanceFrom(joinedSynonyms, searchTerms, stemmer));
 				if (joinedHit.compareTo(result) > 0)
 				{
@@ -352,14 +354,15 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 	private boolean filterOntologyTerm(Set<String> keywordsFromAttribute, OntologyTerm ontologyTerm, Stemmer stemmer)
 	{
-		Set<String> ontologyTermSynonyms = semanticSearchServiceHelper.getOtLabelAndSynonyms(ontologyTerm);
-
-		for (String synonym : ontologyTermSynonyms)
+		if (!ontologyTerm.getNodePaths().isEmpty())
 		{
-			Set<String> splitIntoTerms = splitIntoTerms(stemmer.stemAndJoin(splitIntoTerms(synonym)));
-			if (splitIntoTerms.size() != 0 && keywordsFromAttribute.containsAll(splitIntoTerms)) return true;
+			Set<String> ontologyTermSynonyms = semanticSearchServiceHelper.getOtLabelAndSynonyms(ontologyTerm);
+			for (String synonym : ontologyTermSynonyms)
+			{
+				Set<String> splitIntoTerms = splitIntoTerms(stemmer.stemAndJoin(splitIntoTerms(synonym)));
+				if (splitIntoTerms.size() != 0 && keywordsFromAttribute.containsAll(splitIntoTerms)) return true;
+			}
 		}
-
 		return false;
 	}
 

@@ -22,7 +22,7 @@ public class OntologyTermNodePathMetaData extends DefaultEntityMetaData
 		super(SIMPLE_NAME, OntologyPackage.getPackageInstance());
 		addAttributeMetaData(new DefaultAttributeMetaData(ID).setVisible(false), ROLE_ID);
 		addAttributeMetaData(
-				new DefaultAttributeMetaData(ONTOLOGY_TERM_NODE_PATH, FieldTypeEnum.STRING).setNillable(false),
+				new DefaultAttributeMetaData(ONTOLOGY_TERM_NODE_PATH, FieldTypeEnum.TEXT).setNillable(false),
 				ROLE_LABEL);
 		addAttributeMetaData(new DefaultAttributeMetaData(ROOT, FieldTypeEnum.BOOL).setNillable(false));
 	}

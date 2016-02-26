@@ -19,7 +19,6 @@ import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
 import org.molgenis.data.meta.AttributeMetaDataMetaData;
 import org.molgenis.data.meta.EntityMetaDataMetaData;
-import org.molgenis.data.meta.MetaDataService;
 import org.molgenis.data.semantic.Relation;
 import org.molgenis.data.semanticsearch.explain.service.ElasticSearchExplainService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
@@ -277,20 +276,14 @@ public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContext
 		@Bean
 		SemanticSearchService semanticSearchService()
 		{
-			return new SemanticSearchServiceImpl(dataService(), ontologyService(), metaDataService(),
-					semanticSearchServiceHelper(), elasticSearchExplainService());
+			return new SemanticSearchServiceImpl(dataService(), ontologyService(), semanticSearchServiceHelper(),
+					elasticSearchExplainService());
 		}
 
 		@Bean
 		DataService dataService()
 		{
 			return mock(DataService.class);
-		}
-
-		@Bean
-		MetaDataService metaDataService()
-		{
-			return mock(MetaDataService.class);
 		}
 
 		@Bean
