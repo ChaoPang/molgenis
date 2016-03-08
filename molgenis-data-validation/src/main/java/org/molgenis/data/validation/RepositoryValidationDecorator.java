@@ -8,7 +8,6 @@ import static java.util.Collections.singleton;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
-import static java.util.Objects.requireNonNull;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -45,10 +44,13 @@ import org.molgenis.util.EntityUtils;
 import org.molgenis.util.HugeMap;
 import org.molgenis.util.HugeSet;
 
+import static java.util.Objects.requireNonNull;
+
 public class RepositoryValidationDecorator implements Repository
 {
-	private static List<String> ENTITIES_THAT_DO_NOT_NEED_VALIDATION = Arrays
-			.asList(MolgenisTransactionLogMetaData.ENTITY_NAME, MolgenisTransactionLogEntryMetaData.ENTITY_NAME);
+	private static List<String> ENTITIES_THAT_DO_NOT_NEED_VALIDATION = Arrays.asList(
+			MolgenisTransactionLogMetaData.ENTITY_NAME, MolgenisTransactionLogEntryMetaData.ENTITY_NAME,
+			"Ontology_OntologyTerm");
 
 	private enum ValidationMode
 	{
