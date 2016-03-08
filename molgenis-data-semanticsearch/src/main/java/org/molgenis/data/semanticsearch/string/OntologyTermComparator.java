@@ -62,7 +62,7 @@ public class OntologyTermComparator implements Comparator<Hit<CandidateOntologyT
 	{
 		int count = 0;
 		String joinedSynonym = StringUtils.join(synonyms, StringUtils.EMPTY).toLowerCase();
-		Pattern pattern = Pattern.compile(bestMatchingSynonym.toLowerCase());
+		Pattern pattern = Pattern.compile(Pattern.quote(bestMatchingSynonym.toLowerCase()));
 		Matcher matcher = pattern.matcher(joinedSynonym);
 		while (matcher.find())
 		{
