@@ -62,7 +62,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	private final SemanticSearchServiceHelper semanticSearchServiceHelper;
 	private final ElasticSearchExplainService elasticSearchExplainService;
 
-	public static final int MAX_NUM_TAGS = 100;
+	public static final int MAX_NUM_TAGS = 20;
 	private static final float CUTOFF = 0.4f;
 	private Splitter termSplitter = Splitter.onPattern("[^\\p{IsAlphabetic}]+");
 	private Joiner termJoiner = Joiner.on(' ');
@@ -355,7 +355,8 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		Set<String> ontologyTermSynonyms = semanticSearchServiceHelper.getOtLabelAndSynonyms(ontologyTerm);
 		for (String synonym : ontologyTermSynonyms)
 		{
-			Set<String> splitIntoTerms = splitIntoTerms(stemmer.stemAndJoin(splitIntoTerms(synonym)));
+			Set<String> splitIntoTerms = splitIntoTerms(synonym).stream().map(stemmer::stem)
+					.collect(Collectors.toSet());
 			if (splitIntoTerms.size() != 0 && keywordsFromAttribute.containsAll(splitIntoTerms)) return true;
 		}
 		return false;
