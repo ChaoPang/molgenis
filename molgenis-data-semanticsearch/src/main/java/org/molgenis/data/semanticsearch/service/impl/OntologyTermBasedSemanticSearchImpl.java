@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.math3.stat.StatUtils;
@@ -90,8 +91,8 @@ public class OntologyTermBasedSemanticSearchImpl
 	public DistanceMetric getAttrDistance(AttributeMetaData attr1, AttributeMetaData attr2,
 			EntityMetaData entityMetaData1, EntityMetaData entityMetaData2) throws ExecutionException
 	{
-		List<OntologyTerm> ontologyTermsForAttr1 = findOntologyTerms(attr1, entityMetaData1);
-		List<OntologyTerm> ontologyTermsForAttr2 = findOntologyTerms(attr2, entityMetaData2);
+		List<Hit<OntologyTerm>> ontologyTermsForAttr1 = findOntologyTerms(attr1, entityMetaData1);
+		List<Hit<OntologyTerm>> ontologyTermsForAttr2 = findOntologyTerms(attr2, entityMetaData2);
 		double distance = calculateAverageDistance(ontologyTermsForAttr1, ontologyTermsForAttr2);
 		boolean isValid = distance == INVALID_DISTANCE;
 
@@ -108,10 +109,10 @@ public class OntologyTermBasedSemanticSearchImpl
 
 		for (AttributeMetaData attr1 : entityMetaData1.getAtomicAttributes())
 		{
-			List<OntologyTerm> ontologyTermsForAttr1 = findOntologyTerms(attr1, entityMetaData1);
+			List<Hit<OntologyTerm>> ontologyTermsForAttr1 = findOntologyTerms(attr1, entityMetaData1);
 			for (AttributeMetaData attr2 : entityMetaData2.getAtomicAttributes())
 			{
-				List<OntologyTerm> ontologyTermsForAttr2 = findOntologyTerms(attr2, entityMetaData2);
+				List<Hit<OntologyTerm>> ontologyTermsForAttr2 = findOntologyTerms(attr2, entityMetaData2);
 				double distance = calculateAverageDistance(ontologyTermsForAttr1, ontologyTermsForAttr2);
 				boolean isValid = distance == INVALID_DISTANCE;
 
@@ -125,8 +126,8 @@ public class OntologyTermBasedSemanticSearchImpl
 		distanceMatrixReport.setProgress(100.0);
 	}
 
-	double calculateAverageDistance(List<OntologyTerm> ontologyTermsForAttr1, List<OntologyTerm> ontologyTermsForAttr2)
-			throws ExecutionException
+	double calculateAverageDistance(List<Hit<OntologyTerm>> ontologyTermsForAttr1,
+			List<Hit<OntologyTerm>> ontologyTermsForAttr2) throws ExecutionException
 	{
 		int listOneSize = ontologyTermsForAttr1.size();
 		int listTwoSize = ontologyTermsForAttr2.size();
@@ -142,12 +143,14 @@ public class OntologyTermBasedSemanticSearchImpl
 		double[][] distanceMatrix = new double[maxSize][maxSize];
 		for (int i = 0; i < maxSize; i++)
 		{
-			OntologyTerm ot1 = i < listOneSize ? ontologyTermsForAttr1.get(i) : PSEUDO_ONTOLOGY_TERM;
+			OntologyTerm ot1 = i < listOneSize ? ontologyTermsForAttr1.get(i).getResult() : PSEUDO_ONTOLOGY_TERM;
+			float annotationQuality1 = ontologyTermsForAttr1.get(i).getScore();
 			for (int j = 0; j < maxSize; j++)
 			{
-				OntologyTerm ot2 = j < listTwoSize ? ontologyTermsForAttr2.get(j) : PSEUDO_ONTOLOGY_TERM;
+				OntologyTerm ot2 = j < listTwoSize ? ontologyTermsForAttr2.get(j).getResult() : PSEUDO_ONTOLOGY_TERM;
 				Double ontologyTermDistance = cachedOntologyTermRelatedness.get(OntologyTerm.and(ot1, ot2));
-				distanceMatrix[i][j] = ontologyTermDistance;
+				float annotationQuality2 = ontologyTermsForAttr2.get(j).getScore();
+				distanceMatrix[i][j] = ontologyTermDistance * annotationQuality1 * annotationQuality2;
 			}
 			distances[i] = 1;
 		}
@@ -178,16 +181,17 @@ public class OntologyTermBasedSemanticSearchImpl
 		return StatUtils.sum(distances) / maxSize;
 	}
 
-	List<OntologyTerm> findOntologyTerms(AttributeMetaData attr, EntityMetaData entityMetaData)
+	List<Hit<OntologyTerm>> findOntologyTerms(AttributeMetaData attr, EntityMetaData entityMetaData)
 	{
 		Multimap<Relation, OntologyTerm> tagsForAttribute = ontologyTagService.getTagsForAttribute(entityMetaData,
 				attr);
-		List<OntologyTerm> ontologyTerms = new ArrayList<>();
+		List<Hit<OntologyTerm>> ontologyTerms = new ArrayList<>();
 		if (tagsForAttribute.size() > 0)
 		{
 			for (OntologyTerm ot : tagsForAttribute.values())
 			{
-				ontologyTerms.addAll(resolveOntologyTerms(ot));
+				ontologyTerms.addAll(resolveOntologyTerms(ot).stream().map(o -> Hit.create(o, (float) 100))
+						.collect(Collectors.toList()));
 			}
 		}
 		else
@@ -198,7 +202,7 @@ public class OntologyTermBasedSemanticSearchImpl
 				Hit<OntologyTerm> findTags = semanticSearchService.findTags(attr, Arrays.asList(ontology.getId()));
 				if (findTags != null)
 				{
-					ontologyTerms.addAll(resolveOntologyTerms(findTags.getResult()));
+					ontologyTerms.add(findTags);
 				}
 			}
 		}

@@ -109,9 +109,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		// Because the explain-API can be computationally expensive we limit the explanation to the top 10 attributes
 		Map<AttributeMetaData, ExplainedAttributeMetaData> explainedAttributes = new LinkedHashMap<>();
 		AtomicInteger count = new AtomicInteger(0);
-		attributeMetaDataEntities.forEach(attributeEntity ->
-		// for (Entity attributeEntity : attributeMetaDataEntities)
-		{
+		attributeMetaDataEntities.forEach(attributeEntity -> {
 			AttributeMetaData attribute = sourceEntityMetaData
 					.getAttribute(attributeEntity.getString(AttributeMetaDataMetaData.NAME));
 			if (count.get() < MAX_NUMBER_EXPLAINED_ATTRIBUTES)
