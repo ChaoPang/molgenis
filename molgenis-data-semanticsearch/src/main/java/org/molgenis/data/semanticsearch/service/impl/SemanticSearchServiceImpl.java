@@ -278,9 +278,10 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	@Override
 	public Hit<OntologyTerm> findTags(AttributeMetaData attribute, List<String> ontologyIds)
 	{
+		Stemmer stemmer = new Stemmer();
 		String description = attribute.getDescription() == null ? attribute.getLabel() : attribute.getDescription();
 		Set<String> searchTerms = splitIntoTerms(description);
-		Stemmer stemmer = new Stemmer();
+		Set<String> stemmedSearchTerms = searchTerms.stream().map(stemmer::stem).collect(Collectors.toSet());
 
 		if (LOG.isDebugEnabled())
 		{
@@ -295,8 +296,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		}
 
 		List<Hit<CandidateOntologyTerm>> hits = candidates.stream()
-				.filter(ontologyTerm -> filterOntologyTerm(splitIntoTerms(stemmer.stemAndJoin(searchTerms)),
-						ontologyTerm, stemmer))
+				.filter(ontologyTerm -> filterOntologyTerm(stemmedSearchTerms, ontologyTerm, stemmer))
 				.map(ontologyTerm -> {
 					Hit<String> bestMatchingSynonym = bestMatchingSynonym(ontologyTerm, searchTerms);
 					CandidateOntologyTerm candidate = CandidateOntologyTerm.create(ontologyTerm,
@@ -339,6 +339,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 				LOG.debug("result: {}", result);
 			}
 		}
+
 		if (result != null && result.getScore() >= CUTOFF)
 		{
 			if (LOG.isDebugEnabled())
