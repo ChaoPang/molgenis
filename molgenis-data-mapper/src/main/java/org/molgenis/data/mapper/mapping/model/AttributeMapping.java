@@ -16,6 +16,7 @@ public class AttributeMapping
 	private final List<AttributeMetaData> sourceAttributeMetaDatas;
 	private String algorithm;
 	private AlgorithmState algorithmState;
+	private double similarity;
 
 	public enum AlgorithmState
 	{
@@ -44,11 +45,18 @@ public class AttributeMapping
 	public AttributeMapping(String identifier, AttributeMetaData targetAttributeMetaData, String algorithm,
 			List<AttributeMetaData> sourceAttributeMetaDatas, String algorithmState)
 	{
+		this(identifier, targetAttributeMetaData, algorithm, sourceAttributeMetaDatas, null, 0);
+	}
+
+	public AttributeMapping(String identifier, AttributeMetaData targetAttributeMetaData, String algorithm,
+			List<AttributeMetaData> sourceAttributeMetaDatas, String algorithmState, double similarity)
+	{
 		this.identifier = identifier;
 		this.targetAttributeMetaData = targetAttributeMetaData;
 		this.sourceAttributeMetaDatas = sourceAttributeMetaDatas;
 		this.algorithm = algorithm;
 		this.algorithmState = convertToEnum(algorithmState);
+		this.similarity = similarity;
 	}
 
 	/**
@@ -167,5 +175,15 @@ public class AttributeMapping
 			}
 		}
 		return null;
+	}
+
+	public double getSimilarity()
+	{
+		return similarity;
+	}
+
+	public void setSimilarity(double similarity)
+	{
+		this.similarity = similarity;
 	}
 }

@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.molgenis.data.AttributeMetaData;
@@ -44,8 +46,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
 
 /**
  * Service to tag metadata with ontology terms.
@@ -59,8 +61,8 @@ public class OntologyTagServiceImpl implements OntologyTagService
 
 	private static final Logger LOG = LoggerFactory.getLogger(OntologyTagServiceImpl.class);
 
-	public OntologyTagServiceImpl(DataService dataService, OntologyService ontologyService,
-			TagRepository tagRepository, IdGenerator idGenerator)
+	public OntologyTagServiceImpl(DataService dataService, OntologyService ontologyService, TagRepository tagRepository,
+			IdGenerator idGenerator)
 	{
 		this.dataService = dataService;
 		this.tagRepository = tagRepository;
@@ -114,6 +116,36 @@ public class OntologyTagServiceImpl implements OntologyTagService
 		{
 			Tag<AttributeMetaData, OntologyTerm, Ontology> tag = asTag(attributeMetaData, tagEntity);
 			tags.put(tag.getRelation(), tag.getObject());
+		}
+		return tags;
+	}
+
+	@Override
+	@RunAsSystem
+	public Map<String, List<OntologyTerm>> getTagsForAttributes(EntityMetaData entityMetaData,
+			List<AttributeMetaData> attributes)
+	{
+		Map<String, List<OntologyTerm>> tags = new LinkedHashMap<>();
+
+		Map<String, AttributeMetaData> attributeMap = attributes.stream()
+				.collect(Collectors.toMap(AttributeMetaData::getName, Function.identity()));
+
+		List<Entity> attributeEntities = findAttributeEntities(entityMetaData.getName(),
+				Lists.newArrayList(attributeMap.keySet()));
+
+		for (Entity attributeEntity : attributeEntities)
+		{
+			for (Entity tagEntity : attributeEntity.getEntities(AttributeMetaDataMetaData.TAGS))
+			{
+				String attributeName = tagEntity.getString(AttributeMetaDataMetaData.NAME);
+				AttributeMetaData attributeMetaData = attributeMap.get(attributeName);
+				Tag<AttributeMetaData, OntologyTerm, Ontology> tag = asTag(attributeMetaData, tagEntity);
+				if (!tags.containsKey(attributeName))
+				{
+					tags.put(attributeName, new ArrayList<>());
+				}
+				tags.get(attributeName).add(tag.getObject());
+			}
 		}
 		return tags;
 	}
@@ -188,8 +220,8 @@ public class OntologyTagServiceImpl implements OntologyTagService
 
 	public Entity getTagEntity(Tag<?, OntologyTerm, Ontology> tag)
 	{
-		return tagRepository.getTagEntity(tag.getObject().getIRI(), tag.getObject().getLabel(), tag.getRelation(), tag
-				.getCodeSystem().getIRI());
+		return tagRepository.getTagEntity(tag.getObject().getIRI(), tag.getObject().getLabel(), tag.getRelation(),
+				tag.getCodeSystem().getIRI());
 	}
 
 	@Override
@@ -274,9 +306,19 @@ public class OntologyTagServiceImpl implements OntologyTagService
 	private Entity findAttributeEntity(String entityName, String attributeName)
 	{
 		Entity entityMetaDataEntity = dataService.findOne(ENTITY_NAME, entityName);
-		Optional<Entity> result = stream(entityMetaDataEntity.getEntities(ATTRIBUTES).spliterator(), false).filter(
-				att -> attributeName.equals(att.getString(AttributeMetaDataMetaData.NAME))).findFirst();
+		Optional<Entity> result = stream(entityMetaDataEntity.getEntities(ATTRIBUTES).spliterator(), false)
+				.filter(att -> attributeName.equals(att.getString(AttributeMetaDataMetaData.NAME))).findFirst();
 		return result.isPresent() ? result.get() : null;
+	}
+
+	@RunAsSystem
+	private List<Entity> findAttributeEntities(String entityName, List<String> attributeNames)
+	{
+		Entity entityMetaDataEntity = dataService.findOne(ENTITY_NAME, entityName);
+		List<Entity> results = stream(entityMetaDataEntity.getEntities(ATTRIBUTES).spliterator(), false)
+				.filter(att -> attributeNames.contains(att.getString(AttributeMetaDataMetaData.NAME)))
+				.collect(Collectors.toList());
+		return results;
 	}
 
 	private <SubjectType> TagImpl<SubjectType, OntologyTerm, Ontology> asTag(SubjectType subjectType, Entity tagEntity)

@@ -1,11 +1,11 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
 import static java.util.Arrays.stream;
-import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.molgenis.MolgenisFieldTypes;
+import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityMetaData;
@@ -34,6 +35,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.collect.Sets;
 
+import static java.util.Objects.requireNonNull;
+
 public class SemanticSearchServiceHelper
 {
 	private final TermFrequencyService termFrequencyService;
@@ -41,8 +44,6 @@ public class SemanticSearchServiceHelper
 	private final DataService dataService;
 
 	private final OntologyService ontologyService;
-
-	private final Stemmer stemmer = new Stemmer();
 
 	public final static int MAX_NUM_TAGS = 3;
 
@@ -59,6 +60,36 @@ public class SemanticSearchServiceHelper
 		this.dataService = requireNonNull(dataService);
 		this.ontologyService = requireNonNull(ontologyService);
 		this.termFrequencyService = requireNonNull(termFrequencyService);
+	}
+
+	/**
+	 * A helper function to create a list of queryTerms based on the information from the targetAttribute as well as
+	 * user defined searchTerms. If the user defined searchTerms exist, the targetAttribute information will not be
+	 * used.
+	 * 
+	 * @param targetAttribute
+	 * @param userQueries
+	 * @return list of queryTerms
+	 */
+	public Set<String> createLexicalSearchQueryTerms(AttributeMetaData targetAttribute, Set<String> userQueries)
+	{
+		Set<String> queryTerms = new HashSet<>();
+		if (userQueries != null && !userQueries.isEmpty())
+		{
+			queryTerms.addAll(userQueries);
+		}
+		if (queryTerms.size() == 0)
+		{
+			if (StringUtils.isNotBlank(targetAttribute.getLabel()))
+			{
+				queryTerms.add(targetAttribute.getLabel());
+			}
+			if (StringUtils.isNotBlank(targetAttribute.getDescription()))
+			{
+				queryTerms.add(targetAttribute.getDescription());
+			}
+		}
+		return queryTerms;
 	}
 
 	/**
@@ -186,6 +217,8 @@ public class SemanticSearchServiceHelper
 
 	public Map<String, String> collectExpandedQueryMap(Set<String> queryTerms, Collection<OntologyTerm> ontologyTerms)
 	{
+		Stemmer stemmer = new Stemmer();
+
 		Map<String, String> expandedQueryMap = new LinkedHashMap<String, String>();
 
 		queryTerms.stream().filter(StringUtils::isNotBlank)
@@ -210,6 +243,8 @@ public class SemanticSearchServiceHelper
 
 	public void collectOntologyTermQueryMap(Map<String, String> expanedQueryMap, OntologyTerm ontologyTerm)
 	{
+		Stemmer stemmer = new Stemmer();
+
 		if (ontologyTerm != null)
 		{
 			getOtLabelAndSynonyms(ontologyTerm)
@@ -262,6 +297,18 @@ public class SemanticSearchServiceHelper
 				recursivelyCollectAttributeIdentifiers(entities, attributeIdentifiers);
 			}
 		}
+	}
+
+	public AttributeMetaData entityToAttributeMetaData(Entity attributeEntity, EntityMetaData entityMetaData)
+	{
+		String attributeName = attributeEntity.getString(AttributeMetaDataMetaData.NAME);
+		AttributeMetaData attribute = entityMetaData.getAttribute(attributeName);
+		if (attribute == null)
+		{
+			throw new MolgenisDataAccessException("The attributeMetaData : " + attributeName
+					+ " does not exsit in EntityMetaData : " + entityMetaData.getName());
+		}
+		return attribute;
 	}
 
 	public List<OntologyTerm> findTags(String description, List<String> ontologyIds)

@@ -18,7 +18,7 @@ import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.bean.DistanceMatrixReport;
 import org.molgenis.data.semanticsearch.service.bean.DistanceMatrixRequest;
 import org.molgenis.data.semanticsearch.service.bean.DistanceMetric;
-import org.molgenis.data.semanticsearch.service.impl.OntologyTermBasedSemanticSearchImpl;
+import org.molgenis.data.semanticsearch.service.impl.OntologyTermSemanticSearchImpl;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
@@ -50,7 +50,7 @@ public class BiobankAttributeMatrixController extends MolgenisPluginController
 	private SemanticSearchService semanticSearchService;
 
 	@Autowired
-	private OntologyTermBasedSemanticSearchImpl ontologyTermBasedSemanticSearch;
+	private OntologyTermSemanticSearchImpl ontologyTermBasedSemanticSearch;
 
 	public static final String ID = "attributematrix";
 	public static final String URI = MolgenisPluginController.PLUGIN_URI_PREFIX + ID;

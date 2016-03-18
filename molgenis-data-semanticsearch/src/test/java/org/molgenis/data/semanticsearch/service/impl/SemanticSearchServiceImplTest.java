@@ -25,7 +25,7 @@ import org.molgenis.data.QueryRule.Operator;
 import org.molgenis.data.meta.AttributeMetaDataMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
-import org.molgenis.data.semanticsearch.explain.service.ElasticSearchExplainService;
+import org.molgenis.data.semanticsearch.explain.service.ExplainService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
@@ -327,9 +327,9 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 		}
 
 		@Bean
-		ElasticSearchExplainService elasticSearchExplainService()
+		ExplainService elasticSearchExplainService()
 		{
-			return mock(ElasticSearchExplainService.class);
+			return mock(ExplainService.class);
 		}
 
 		@Bean

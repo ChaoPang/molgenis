@@ -6,15 +6,15 @@ import org.molgenis.data.Repository;
 import org.molgenis.data.elasticsearch.factory.EmbeddedElasticSearchServiceFactory;
 import org.molgenis.data.meta.TagMetaData;
 import org.molgenis.data.semantic.LabeledResource;
-import org.molgenis.data.semanticsearch.explain.service.ElasticSearchExplainService;
-import org.molgenis.data.semanticsearch.explain.service.ElasticSearchExplainServiceImpl;
-import org.molgenis.data.semanticsearch.explain.service.ExplainServiceHelper;
+import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
+import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainServiceImpl;
 import org.molgenis.data.semanticsearch.repository.TagRepository;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
+import org.molgenis.data.semanticsearch.service.OntologyTermSemanticSearch;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.TagService;
 import org.molgenis.data.semanticsearch.service.impl.OntologyTagServiceImpl;
-import org.molgenis.data.semanticsearch.service.impl.OntologyTermBasedSemanticSearchImpl;
+import org.molgenis.data.semanticsearch.service.impl.OntologyTermSemanticSearchImpl;
 import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceHelper;
 import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceImpl;
 import org.molgenis.data.semanticsearch.service.impl.UntypedTagService;
@@ -57,20 +57,14 @@ public class SemanticSearchConfig
 	@Bean
 	public SemanticSearchService semanticSearchService()
 	{
-		return new SemanticSearchServiceImpl(dataService, ontologyService, semanticSearchServiceHelper(),
-				elasticSearchExplainService());
+		return new SemanticSearchServiceImpl(dataService, ontologyService, ontologyTagService(),
+				semanticSearchServiceHelper());
 	}
 
 	@Bean
 	public TagService<LabeledResource, LabeledResource> tagService()
 	{
 		return new UntypedTagService(dataService, tagRepository());
-	}
-
-	@Bean
-	public ExplainServiceHelper explainServiceHelper()
-	{
-		return new ExplainServiceHelper();
 	}
 
 	@Bean
@@ -81,15 +75,15 @@ public class SemanticSearchConfig
 	}
 
 	@Bean
-	ElasticSearchExplainService elasticSearchExplainService()
+	AttributeMappingExplainService attributeMappingExplainService()
 	{
-		return new ElasticSearchExplainServiceImpl(embeddedElasticSearchServiceFactory.getClient(),
-				explainServiceHelper());
+		return new AttributeMappingExplainServiceImpl(semanticSearchService(), ontologyService,
+				semanticSearchServiceHelper());
 	}
 
 	@Bean
-	OntologyTermBasedSemanticSearchImpl ontologyTermBasedSemanticSearchImpl()
+	OntologyTermSemanticSearch ontologyTermBasedSemanticSearch()
 	{
-		return new OntologyTermBasedSemanticSearchImpl(semanticSearchService(), ontologyService, ontologyTagService());
+		return new OntologyTermSemanticSearchImpl(semanticSearchService(), ontologyService, ontologyTagService());
 	}
 }

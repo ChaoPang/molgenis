@@ -20,6 +20,7 @@ public class AttributeMappingMetaData extends DefaultEntityMetaData
 	public static final String SOURCEATTRIBUTEMETADATAS = "sourceAttributeMetaDatas";
 	public static final String ALGORITHM = "algorithm";
 	public static final String ALGORITHMSTATE = "algorithmState";
+	public static final String SIMILARITY_SCORE = "similarity";
 
 	public AttributeMappingMetaData()
 	{
@@ -33,5 +34,6 @@ public class AttributeMappingMetaData extends DefaultEntityMetaData
 		enumField.setEnumOptions(Arrays.asList(AlgorithmState.values()).stream().map(STATE -> STATE.toString())
 				.collect(Collectors.toList()));
 		addAttribute(ALGORITHMSTATE).setDataType(enumField);
+		addAttribute(SIMILARITY_SCORE).setDataType(MolgenisFieldTypes.DECIMAL).setNillable(true);
 	}
 }

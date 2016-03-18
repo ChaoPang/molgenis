@@ -8,22 +8,22 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.molgenis.data.semanticsearch.semantic.Hit;
-import org.molgenis.data.semanticsearch.service.bean.CandidateOntologyTerm;
+import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class OntologyTermComparatorTest
 {
-	private OntologyTermComparator ontologyTermComparator = new OntologyTermComparator(new Stemmer());
+	private OntologyTermComparator ontologyTermComparator = new OntologyTermComparator();
 
-	private Hit<CandidateOntologyTerm> hit1;
+	private Hit<OntologyTermHit> hit1;
 
-	private Hit<CandidateOntologyTerm> hit2;
+	private Hit<OntologyTermHit> hit2;
 
-	private Hit<CandidateOntologyTerm> hit3;
+	private Hit<OntologyTermHit> hit3;
 
-	private Hit<CandidateOntologyTerm> hit4;
+	private Hit<OntologyTermHit> hit4;
 
 	@BeforeMethod
 	public void setup()
@@ -50,17 +50,17 @@ public class OntologyTermComparatorTest
 		OntologyTerm ontologyTerm4 = OntologyTerm.create("iri4", "Length", null,
 				Arrays.asList("length", "lengths", "len"));
 
-		hit1 = Hit.<CandidateOntologyTerm> create(CandidateOntologyTerm.create(ontologyTerm1, "cm"), (float) 0.45);
-		hit2 = Hit.<CandidateOntologyTerm> create(CandidateOntologyTerm.create(ontologyTerm2, "cms"), (float) 0.45);
-		hit3 = Hit.<CandidateOntologyTerm> create(CandidateOntologyTerm.create(ontologyTerm3, "length"), (float) 0.55);
-		hit4 = Hit.<CandidateOntologyTerm> create(CandidateOntologyTerm.create(ontologyTerm4, "length"), (float) 0.55);
+		hit1 = Hit.<OntologyTermHit> create(OntologyTermHit.create(ontologyTerm1, "cm"), (float) 0.45);
+		hit2 = Hit.<OntologyTermHit> create(OntologyTermHit.create(ontologyTerm2, "cms"), (float) 0.45);
+		hit3 = Hit.<OntologyTermHit> create(OntologyTermHit.create(ontologyTerm3, "length"), (float) 0.55);
+		hit4 = Hit.<OntologyTermHit> create(OntologyTermHit.create(ontologyTerm4, "length"), (float) 0.55);
 	}
 
 	@Test
 	public void integrationTest()
 	{
-		List<Hit<CandidateOntologyTerm>> hits = Arrays.asList(hit1, hit2, hit3, hit4);
-		hits.sort(new OntologyTermComparator(new Stemmer()));
+		List<Hit<OntologyTermHit>> hits = Arrays.asList(hit1, hit2, hit3, hit4);
+		hits.sort(new OntologyTermComparator());
 		assertEquals(hits, Arrays.asList(hit4, hit3, hit1, hit2));
 	}
 

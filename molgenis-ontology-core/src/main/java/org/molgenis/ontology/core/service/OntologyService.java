@@ -48,6 +48,9 @@ public interface OntologyService
 	 */
 	List<OntologyTerm> findOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize);
 
+	List<OntologyTerm> findAndFilterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
+			List<OntologyTerm> ontologyTerms);
+
 	/**
 	 * Retrieve all ontology terms from the specified ontology
 	 * 

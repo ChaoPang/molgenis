@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 
 public class ElasticSearchExplainServiceImplTest
 {
-	private ElasticSearchExplainService elasticSearchExplainService;
+	private ExplainService elasticSearchExplainService;
 	private ExplainServiceHelper explainServiceHelper;
 
 	@BeforeClass
@@ -27,7 +27,7 @@ public class ElasticSearchExplainServiceImplTest
 	{
 		explainServiceHelper = new ExplainServiceHelper();
 		Client client = mock(Client.class);
-		elasticSearchExplainService = new ElasticSearchExplainServiceImpl(client, explainServiceHelper);
+		elasticSearchExplainService = new AttributeMappingExplainService(client, explainServiceHelper);
 	}
 
 	@Test

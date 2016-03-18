@@ -20,7 +20,7 @@ import org.molgenis.data.QueryRule.Operator;
 import org.molgenis.data.meta.AttributeMetaDataMetaData;
 import org.molgenis.data.meta.EntityMetaDataMetaData;
 import org.molgenis.data.semantic.Relation;
-import org.molgenis.data.semanticsearch.explain.service.ElasticSearchExplainService;
+import org.molgenis.data.semanticsearch.explain.service.ExplainService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.string.NGramDistanceAlgorithm;
 import org.molgenis.data.support.DefaultAttributeMetaData;
@@ -287,9 +287,9 @@ public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContext
 		}
 
 		@Bean
-		ElasticSearchExplainService elasticSearchExplainService()
+		ExplainService elasticSearchExplainService()
 		{
-			return mock(ElasticSearchExplainService.class);
+			return mock(ExplainService.class);
 		}
 
 		@Bean

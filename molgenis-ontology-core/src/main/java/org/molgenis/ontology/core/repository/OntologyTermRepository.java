@@ -163,6 +163,41 @@ public class OntologyTermRepository
 		return Lists.newArrayList(Iterables.transform(termEntities, OntologyTermRepository::toOntologyTerm));
 	}
 
+	public List<OntologyTerm> findAndFilterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
+			List<OntologyTerm> filteredOntologyTerms)
+	{
+		List<QueryRule> rules = new ArrayList<QueryRule>();
+		for (String term : terms)
+		{
+			if (rules.size() > 0)
+			{
+				rules.add(new QueryRule(Operator.OR));
+			}
+			rules.add(new QueryRule(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM, Operator.FUZZY_MATCH, term));
+		}
+		rules = Arrays.asList(new QueryRule(ONTOLOGY, Operator.IN, ontologyIds), new QueryRule(Operator.AND),
+				new QueryRule(rules));
+
+		List<String> filteredOntologyTermIris = filteredOntologyTerms.stream().map(OntologyTerm::getIRI)
+				.collect(Collectors.toList());
+
+		rules = Arrays.asList(
+				new QueryRule(OntologyTermMetaData.ONTOLOGY_TERM_IRI, Operator.IN, filteredOntologyTermIris),
+				new QueryRule(Operator.AND), new QueryRule(rules));
+
+		final List<QueryRule> finalRules = rules;
+		Iterable<Entity> termEntities = new Iterable<Entity>()
+		{
+			@Override
+			public Iterator<Entity> iterator()
+			{
+				return dataService.findAll(ENTITY_NAME, new QueryImpl(finalRules).pageSize(pageSize)).iterator();
+			}
+		};
+
+		return Lists.newArrayList(Iterables.transform(termEntities, OntologyTermRepository::toOntologyTerm));
+	}
+
 	public List<OntologyTerm> getAllOntologyTerms(String ontologyId)
 	{
 		Entity ontologyEntity = dataService.findOne(OntologyMetaData.ENTITY_NAME,
@@ -417,4 +452,5 @@ public class OntologyTermRepository
 	{
 		return isBlank(nodePath) ? PENALIZE_EMPTY_PATH : 0;
 	}
+
 }

@@ -2,7 +2,7 @@ package org.molgenis.data.semanticsearch.service.impl;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.molgenis.data.semanticsearch.service.impl.OntologyTermBasedSemanticSearchImpl.PSEUDO_ONTOLOGY_TERM;
+import static org.molgenis.data.semanticsearch.service.impl.OntologyTermSemanticSearchImpl.PSEUDO_ONTOLOGY_TERM;
 import static org.testng.Assert.assertEquals;
 
 import java.util.Arrays;
@@ -35,14 +35,14 @@ public class OntologyTermBasedSemanticSearchImplTest extends AbstractTestNGSprin
 	@Autowired
 	private OntologyTagServiceImpl tagService;
 
-	private OntologyTermBasedSemanticSearchImpl ontologyTermBasedSemanticSearchImpl;
+	private OntologyTermSemanticSearchImpl ontologyTermBasedSemanticSearchImpl;
 
 	private Ontology ontology;
 
 	@BeforeMethod
 	public void setup()
 	{
-		ontologyTermBasedSemanticSearchImpl = new OntologyTermBasedSemanticSearchImpl(semanticSearchService,
+		ontologyTermBasedSemanticSearchImpl = new OntologyTermSemanticSearchImpl(semanticSearchService,
 				ontologyService, tagService);
 		ontology = Ontology.create("1", "UMLS", "UMLS");
 		when(ontologyService.getOntology("UMLS")).thenReturn(ontology);

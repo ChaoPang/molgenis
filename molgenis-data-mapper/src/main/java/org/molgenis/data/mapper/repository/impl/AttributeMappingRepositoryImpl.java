@@ -7,6 +7,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
@@ -40,29 +41,55 @@ public class AttributeMappingRepositoryImpl implements AttributeMappingRepositor
 	public List<Entity> upsert(Collection<AttributeMapping> attributeMappings)
 	{
 		List<Entity> result = new ArrayList<Entity>();
+		List<Entity> mappingEntitiesToAdd = new ArrayList<>();
+		List<Entity> mappingEntitiesToUpdate = new ArrayList<>();
+
 		for (AttributeMapping attributeMapping : attributeMappings)
 		{
-			result.add(upsert(attributeMapping));
+			Entity entity;
+			if (StringUtils.isBlank(attributeMapping.getIdentifier()))
+			{
+				attributeMapping.setIdentifier(idGenerator.generateId());
+				entity = toAttributeMappingEntity(attributeMapping);
+				mappingEntitiesToAdd.add(entity);
+			}
+			else
+			{
+				entity = toAttributeMappingEntity(attributeMapping);
+				mappingEntitiesToUpdate.add(entity);
+			}
+			result.add(entity);
 		}
+
+		if (mappingEntitiesToAdd.size() > 0)
+		{
+			dataService.add(AttributeMappingRepositoryImpl.META_DATA.getName(), mappingEntitiesToAdd.stream());
+		}
+
+		if (mappingEntitiesToUpdate.size() > 0)
+		{
+			dataService.update(AttributeMappingRepositoryImpl.META_DATA.getName(), mappingEntitiesToUpdate.stream());
+		}
+
 		return result;
 	}
 
-	private Entity upsert(AttributeMapping attributeMapping)
-	{
-		Entity result;
-		if (attributeMapping.getIdentifier() == null)
-		{
-			attributeMapping.setIdentifier(idGenerator.generateId());
-			result = toAttributeMappingEntity(attributeMapping);
-			dataService.add(AttributeMappingRepositoryImpl.META_DATA.getName(), result);
-		}
-		else
-		{
-			result = toAttributeMappingEntity(attributeMapping);
-			dataService.update(AttributeMappingRepositoryImpl.META_DATA.getName(), result);
-		}
-		return result;
-	}
+	// private Entity upsert(AttributeMapping attributeMapping)
+	// {
+	// Entity result;
+	// if (attributeMapping.getIdentifier() == null)
+	// {
+	// attributeMapping.setIdentifier(idGenerator.generateId());
+	// result = toAttributeMappingEntity(attributeMapping);
+	// dataService.add(AttributeMappingRepositoryImpl.META_DATA.getName(), result);
+	// }
+	// else
+	// {
+	// result = toAttributeMappingEntity(attributeMapping);
+	// dataService.update(AttributeMappingRepositoryImpl.META_DATA.getName(), result);
+	// }
+	// return result;
+	// }
 
 	@Override
 	public List<AttributeMapping> getAttributeMappings(List<Entity> attributeMappingEntities,
@@ -108,11 +135,12 @@ public class AttributeMappingRepositoryImpl implements AttributeMappingRepositor
 		AttributeMetaData targetAttributeMetaData = targetEntityMetaData.getAttribute(targetAtributeName);
 		String algorithm = attributeMappingEntity.getString(AttributeMappingMetaData.ALGORITHM);
 		String algorithmState = attributeMappingEntity.getString(AttributeMappingMetaData.ALGORITHMSTATE);
+		Double similarity = attributeMappingEntity.getDouble(AttributeMappingMetaData.SIMILARITY_SCORE);
 		List<AttributeMetaData> sourceAttributeMetaDatas = retrieveAttributeMetaDatasFromAlgorithm(algorithm,
 				sourceEntityMetaData);
 
 		return new AttributeMapping(identifier, targetAttributeMetaData, algorithm, sourceAttributeMetaDatas,
-				algorithmState);
+				algorithmState, similarity == null ? 0 : similarity);
 	}
 
 	private Entity toAttributeMappingEntity(AttributeMapping attributeMapping)
@@ -126,6 +154,7 @@ public class AttributeMappingRepositoryImpl implements AttributeMappingRepositor
 		attributeMappingEntity.set(AttributeMappingMetaData.SOURCEATTRIBUTEMETADATAS, attributeMapping
 				.getSourceAttributeMetaDatas().stream().map(AttributeMetaData::getName).collect(Collectors.toList()));
 		attributeMappingEntity.set(AttributeMappingMetaData.ALGORITHMSTATE, attributeMapping.getAlgorithmState());
+		attributeMappingEntity.set(AttributeMappingMetaData.SIMILARITY_SCORE, attributeMapping.getSimilarity());
 		return attributeMappingEntity;
 	}
 

@@ -8,7 +8,6 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -47,6 +46,7 @@ import org.molgenis.data.mapper.service.MappingService;
 import org.molgenis.data.mapper.service.impl.AlgorithmEvaluation;
 import org.molgenis.data.semantic.Relation;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
+import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.support.AggregateQueryImpl;
@@ -118,6 +118,9 @@ public class MappingServiceController extends MolgenisPluginController
 
 	@Autowired
 	private SemanticSearchService semanticSearchService;
+
+	@Autowired
+	private AttributeMappingExplainService attributeMappingExplainService;
 
 	@Autowired
 	private MenuReaderService menuReaderService;
@@ -526,18 +529,29 @@ public class MappingServiceController extends MolgenisPluginController
 		MappingTarget mappingTarget = project.getMappingTarget(target);
 		EntityMapping entityMapping = mappingTarget.getMappingForSource(source);
 
-		AttributeMetaData targetAttributeMetaData = entityMapping.getTargetEntityMetaData()
-				.getAttribute(targetAttribute);
+		EntityMetaData targetEntityMetaData = entityMapping.getTargetEntityMetaData();
+		EntityMetaData sourceEntityMetaData = entityMapping.getSourceEntityMetaData();
+		AttributeMetaData targetAttributeMetaData = targetEntityMetaData.getAttribute(targetAttribute);
 
 		// Find relevant attributes base on tags
-		Multimap<Relation, OntologyTerm> tagsForAttribute = ontologyTagService
-				.getTagsForAttribute(entityMapping.getTargetEntityMetaData(), targetAttributeMetaData);
+		List<AttributeMetaData> relevantAttributes = semanticSearchService.findAttributes(targetAttributeMetaData,
+				targetEntityMetaData, sourceEntityMetaData, searchTerms);
+		List<ExplainedAttributeMetaData> results = new ArrayList<>();
+		for (int i = 0; i < relevantAttributes.size(); i++)
+		{
+			AttributeMetaData sourceAttribute = relevantAttributes.get(i);
+			if (i < 5)
+			{
+				results.add(attributeMappingExplainService.explainAttributeMapping(searchTerms, targetAttributeMetaData,
+						sourceAttribute, targetEntityMetaData, sourceEntityMetaData));
+			}
+			else
+			{
+				results.add(ExplainedAttributeMetaData.create(sourceAttribute));
+			}
+		}
 
-		Map<AttributeMetaData, ExplainedAttributeMetaData> relevantAttributes = semanticSearchService
-				.decisionTreeToFindRelevantAttributes(entityMapping.getSourceEntityMetaData(), targetAttributeMetaData,
-						tagsForAttribute.values(), searchTerms);
-
-		return Lists.newArrayList(relevantAttributes.values());
+		return results;
 	}
 
 	@RequestMapping(method = RequestMethod.POST, value = "/attributemapping/algorithm", consumes = APPLICATION_JSON_VALUE)
@@ -1007,17 +1021,27 @@ public class MappingServiceController extends MolgenisPluginController
 
 	private Map<String, List<OntologyTerm>> getTagsForAttribute(String target, MappingProject project)
 	{
-		Map<String, List<OntologyTerm>> attributeTagMap = new HashMap<String, List<OntologyTerm>>();
-		for (AttributeMetaData amd : project.getMappingTarget(target).getTarget().getAtomicAttributes())
-		{
-			List<OntologyTerm> ontologyTermsForAttribute = new ArrayList<OntologyTerm>(
-					ontologyTagService.getTagsForAttribute(dataService.getEntityMetaData(target), amd).values());
+		Iterable<AttributeMetaData> atomicAttributes = project.getMappingTarget(target).getTarget()
+				.getAtomicAttributes();
 
-			attributeTagMap.put(amd.getName(), ontologyTermsForAttribute);
-		}
+		Map<String, List<OntologyTerm>> attributeTagMap = ontologyTagService
+				.getTagsForAttributes(dataService.getEntityMetaData(target), Lists.newArrayList(atomicAttributes));
 
 		return attributeTagMap;
 	}
+	// private Map<String, List<OntologyTerm>> getTagsForAttribute(String target, MappingProject project)
+	// {
+	// Map<String, List<OntologyTerm>> attributeTagMap = new HashMap<String, List<OntologyTerm>>();
+	// for (AttributeMetaData amd : project.getMappingTarget(target).getTarget().getAtomicAttributes())
+	// {
+	// List<OntologyTerm> ontologyTermsForAttribute = new ArrayList<OntologyTerm>(
+	// ontologyTagService.getTagsForAttribute(dataService.getEntityMetaData(target), amd).values());
+	//
+	// attributeTagMap.put(amd.getName(), ontologyTermsForAttribute);
+	// }
+	//
+	// return attributeTagMap;
+	// }
 
 	private String getMappingServiceMenuUrl()
 	{

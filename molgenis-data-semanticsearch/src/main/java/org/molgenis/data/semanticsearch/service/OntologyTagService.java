@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.molgenis.data.AttributeMetaData;
+import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.semantic.OntologyTag;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -17,4 +18,7 @@ public interface OntologyTagService extends TagService<OntologyTerm, Ontology>
 	void removeAttributeTag(String entityName, String attributeName, String relationIRI, String ontologyTermIRI);
 
 	public Map<String, OntologyTag> tagAttributesInEntity(String entity, Map<AttributeMetaData, OntologyTerm> tags);
+
+	public Map<String, List<OntologyTerm>> getTagsForAttributes(EntityMetaData entityMetaData,
+			List<AttributeMetaData> attributes);
 }

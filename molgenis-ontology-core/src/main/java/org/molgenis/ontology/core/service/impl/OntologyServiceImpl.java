@@ -82,6 +82,17 @@ public class OntologyServiceImpl implements OntologyService
 	}
 
 	@Override
+	public List<OntologyTerm> findAndFilterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
+			List<OntologyTerm> filteredOntologyTerms)
+	{
+		if (null == terms || terms.size() == 0)
+		{
+			return Lists.<OntologyTerm> newArrayList();
+		}
+		return ontologyTermRepository.findAndFilterOntologyTerms(ontologyIds, terms, pageSize, filteredOntologyTerms);
+	}
+
+	@Override
 	public List<OntologyTerm> getChildren(OntologyTerm ontologyTerm)
 	{
 		return ontologyTermRepository.getChildren(ontologyTerm);

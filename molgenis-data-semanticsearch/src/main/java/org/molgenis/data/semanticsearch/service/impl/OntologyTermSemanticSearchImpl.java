@@ -3,7 +3,6 @@ package org.molgenis.data.semanticsearch.service.impl;
 import static com.google.common.collect.Iterables.size;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -18,15 +17,14 @@ import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semantic.Relation;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
+import org.molgenis.data.semanticsearch.service.OntologyTermSemanticSearch;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.bean.DistanceMatrixReport;
 import org.molgenis.data.semanticsearch.service.bean.DistanceMetric;
-import org.molgenis.ontology.core.model.Ontology;
+import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
-import org.molgenis.security.core.runas.RunAsSystem;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -35,7 +33,7 @@ import com.google.common.collect.Multimap;
 
 import static java.util.Objects.requireNonNull;
 
-public class OntologyTermBasedSemanticSearchImpl
+public class OntologyTermSemanticSearchImpl implements OntologyTermSemanticSearch
 {
 	// A pseudo ontologyterm used to achieve the symmetry of the distance matrix
 	public final static OntologyTerm PSEUDO_ONTOLOGY_TERM = OntologyTerm.create("PSEUDO", StringUtils.EMPTY);
@@ -56,7 +54,6 @@ public class OntologyTermBasedSemanticSearchImpl
 				}
 			});
 
-	private final static String UMLS_ONTOLOGY_IRI = "UMLS";
 	private final static String ONTOLOGY_TERM_IRI_SEPARATOR_CHAR = ",";
 	private final static double INVALID_DISTANCE = -1;
 
@@ -65,8 +62,8 @@ public class OntologyTermBasedSemanticSearchImpl
 	private final OntologyTagService ontologyTagService;
 
 	@Autowired
-	public OntologyTermBasedSemanticSearchImpl(SemanticSearchService semanticSearchService,
-			OntologyService ontologyService, OntologyTagService tagService)
+	public OntologyTermSemanticSearchImpl(SemanticSearchService semanticSearchService, OntologyService ontologyService,
+			OntologyTagService tagService)
 	{
 		this.semanticSearchService = requireNonNull(semanticSearchService);
 		this.ontologyService = requireNonNull(ontologyService);
@@ -88,6 +85,15 @@ public class OntologyTermBasedSemanticSearchImpl
 		return distanceMetrics;
 	}
 
+	@Override
+	public double getDistance(String queryOne, String queryTwo) throws ExecutionException
+	{
+		List<Hit<OntologyTerm>> ontologyTermsForAttr1 = findOntologyTerms(queryOne);
+		List<Hit<OntologyTerm>> ontologyTermsForAttr2 = findOntologyTerms(queryTwo);
+		return calculateAverageDistance(ontologyTermsForAttr1, ontologyTermsForAttr2);
+	}
+
+	@Override
 	public DistanceMetric getAttrDistance(AttributeMetaData attr1, AttributeMetaData attr2,
 			EntityMetaData entityMetaData1, EntityMetaData entityMetaData2) throws ExecutionException
 	{
@@ -99,8 +105,6 @@ public class OntologyTermBasedSemanticSearchImpl
 		return DistanceMetric.create(attr1, attr2, isValid, distance);
 	}
 
-	@Async
-	@RunAsSystem
 	public void getAsyncEntitiesDistance(DistanceMatrixReport distanceMatrixReport, EntityMetaData entityMetaData1,
 			EntityMetaData entityMetaData2) throws ExecutionException
 	{
@@ -126,7 +130,8 @@ public class OntologyTermBasedSemanticSearchImpl
 		distanceMatrixReport.setProgress(100.0);
 	}
 
-	double calculateAverageDistance(List<Hit<OntologyTerm>> ontologyTermsForAttr1,
+	@Override
+	public double calculateAverageDistance(List<Hit<OntologyTerm>> ontologyTermsForAttr1,
 			List<Hit<OntologyTerm>> ontologyTermsForAttr2) throws ExecutionException
 	{
 		int listOneSize = ontologyTermsForAttr1.size();
@@ -181,6 +186,18 @@ public class OntologyTermBasedSemanticSearchImpl
 		return StatUtils.sum(distances) / maxSize;
 	}
 
+	List<Hit<OntologyTerm>> findOntologyTerms(String queryTerm)
+	{
+		DefaultAttributeMetaData attribute = new DefaultAttributeMetaData(queryTerm).setLabel(queryTerm);
+		List<Hit<OntologyTerm>> ontologyTerms = new ArrayList<>();
+		Hit<OntologyTerm> findTags = semanticSearchService.findTags(attribute, ontologyService.getAllOntologiesIds());
+		if (findTags != null)
+		{
+			ontologyTerms.add(findTags);
+		}
+		return ontologyTerms;
+	}
+
 	List<Hit<OntologyTerm>> findOntologyTerms(AttributeMetaData attr, EntityMetaData entityMetaData)
 	{
 		Multimap<Relation, OntologyTerm> tagsForAttribute = ontologyTagService.getTagsForAttribute(entityMetaData,
@@ -196,14 +213,10 @@ public class OntologyTermBasedSemanticSearchImpl
 		}
 		else
 		{
-			Ontology ontology = ontologyService.getOntology(UMLS_ONTOLOGY_IRI);
-			if (ontology != null)
+			Hit<OntologyTerm> findTags = semanticSearchService.findTags(attr, ontologyService.getAllOntologiesIds());
+			if (findTags != null)
 			{
-				Hit<OntologyTerm> findTags = semanticSearchService.findTags(attr, Arrays.asList(ontology.getId()));
-				if (findTags != null)
-				{
-					ontologyTerms.add(findTags);
-				}
+				ontologyTerms.add(findTags);
 			}
 		}
 		return ontologyTerms;

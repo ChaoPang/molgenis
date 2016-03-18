@@ -5,8 +5,6 @@ import static org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmS
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import javax.measure.quantity.Quantity;
@@ -27,6 +25,7 @@ import org.molgenis.data.mapper.service.UnitResolver;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplate;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
+import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static java.util.Objects.requireNonNull;
@@ -38,14 +37,17 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 {
 	private final List<AlgorithmGenerator> generators;
 	private final AlgorithmTemplateService algorithmTemplateService;
+	private final AttributeMappingExplainService attributeMappingExplainService;
 	private final UnitResolver unitResolver;
 	private final MagmaUnitConverter magmaUnitConverter = new MagmaUnitConverter();
 
 	@Autowired
-	public AlgorithmGeneratorServiceImpl(DataService dataService, UnitResolver unitResolver,
+	public AlgorithmGeneratorServiceImpl(DataService dataService,
+			AttributeMappingExplainService attributeMappingExplainService, UnitResolver unitResolver,
 			AlgorithmTemplateService algorithmTemplateService)
 	{
 		this.algorithmTemplateService = requireNonNull(algorithmTemplateService);
+		this.attributeMappingExplainService = requireNonNull(attributeMappingExplainService);
 		this.unitResolver = requireNonNull(unitResolver);
 		this.generators = Arrays.asList(new OneToOneCategoryAlgorithmGenerator(dataService),
 				new OneToManyCategoryAlgorithmGenerator(dataService), new NumericAlgorithmGenerator(unitResolver));
@@ -71,6 +73,45 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 		return StringUtils.EMPTY;
 	}
 
+	@Override
+	public GeneratedAlgorithm autoGenerate(AttributeMetaData targetAttribute, List<AttributeMetaData> sourceAttributes,
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData)
+	{
+		System.out.println(targetAttribute.getName() + " : " + targetAttribute.getLabel());
+		String algorithm = StringUtils.EMPTY;
+		AlgorithmState algorithmState = null;
+		Set<AttributeMetaData> mappedSourceAttributes = null;
+
+		if (sourceAttributes.size() > 0)
+		{
+			AlgorithmTemplate algorithmTemplate = algorithmTemplateService.find(targetAttribute, sourceAttributes)
+					.findFirst().orElse(null);
+			if (algorithmTemplate != null)
+			{
+				algorithm = algorithmTemplate.render();
+				mappedSourceAttributes = AlgorithmGeneratorHelper.extractSourceAttributesFromAlgorithm(algorithm,
+						sourceEntityMetaData);
+				algorithm = convertUnitForTemplateAlgorithm(algorithm, targetAttribute, targetEntityMetaData,
+						mappedSourceAttributes, sourceEntityMetaData);
+				algorithmState = GENERATED_HIGH;
+			}
+			else
+			{
+				AttributeMetaData sourceAttribute = sourceAttributes.stream().findFirst().get();
+				algorithm = generate(targetAttribute, Arrays.asList(sourceAttribute), targetEntityMetaData,
+						sourceEntityMetaData);
+				mappedSourceAttributes = AlgorithmGeneratorHelper.extractSourceAttributesFromAlgorithm(algorithm,
+						sourceEntityMetaData);
+				ExplainedAttributeMetaData explainAttributeMapping = attributeMappingExplainService
+						.explainAttributeMapping(targetAttribute, sourceAttribute, targetEntityMetaData,
+								sourceEntityMetaData);
+				algorithmState = explainAttributeMapping.isHighQuality() ? GENERATED_HIGH : GENERATED_LOW;
+			}
+		}
+
+		return GeneratedAlgorithm.create(algorithm, mappedSourceAttributes, algorithmState);
+	}
+
 	String generateMixedTypes(AttributeMetaData targetAttribute, List<AttributeMetaData> sourceAttributes,
 			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData)
 	{
@@ -90,44 +131,6 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 		}
 
 		return stringBuilder.toString();
-	}
-
-	@Override
-	public GeneratedAlgorithm generate(AttributeMetaData targetAttribute,
-			Map<AttributeMetaData, ExplainedAttributeMetaData> sourceAttributes, EntityMetaData targetEntityMetaData,
-			EntityMetaData sourceEntityMetaData)
-	{
-		String algorithm = StringUtils.EMPTY;
-		AlgorithmState algorithmState = null;
-		Set<AttributeMetaData> mappedSourceAttributes = null;
-
-		if (sourceAttributes.size() > 0)
-		{
-			AlgorithmTemplate algorithmTemplate = algorithmTemplateService.find(sourceAttributes).findFirst()
-					.orElse(null);
-			if (algorithmTemplate != null)
-			{
-				algorithm = algorithmTemplate.render();
-				mappedSourceAttributes = AlgorithmGeneratorHelper.extractSourceAttributesFromAlgorithm(algorithm,
-						sourceEntityMetaData);
-				algorithm = convertUnitForTemplateAlgorithm(algorithm, targetAttribute, targetEntityMetaData,
-						mappedSourceAttributes, sourceEntityMetaData);
-				algorithmState = GENERATED_HIGH;
-			}
-			else
-			{
-				Entry<AttributeMetaData, ExplainedAttributeMetaData> firstEntry = sourceAttributes.entrySet().stream()
-						.findFirst().get();
-				AttributeMetaData sourceAttribute = firstEntry.getKey();
-				algorithm = generate(targetAttribute, Arrays.asList(sourceAttribute), targetEntityMetaData,
-						sourceEntityMetaData);
-				mappedSourceAttributes = AlgorithmGeneratorHelper.extractSourceAttributesFromAlgorithm(algorithm,
-						sourceEntityMetaData);
-				algorithmState = firstEntry.getValue().isHighQuality() ? GENERATED_HIGH : GENERATED_LOW;
-			}
-		}
-
-		return GeneratedAlgorithm.create(algorithm, mappedSourceAttributes, algorithmState);
 	}
 
 	String convertUnitForTemplateAlgorithm(String algorithm, AttributeMetaData targetAttribute,

@@ -7,21 +7,19 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.semanticsearch.semantic.Hit;
-import org.molgenis.data.semanticsearch.service.bean.CandidateOntologyTerm;
+import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 
-import static java.util.Objects.requireNonNull;
-
-public class OntologyTermComparator implements Comparator<Hit<CandidateOntologyTerm>>
+public class OntologyTermComparator implements Comparator<Hit<OntologyTermHit>>
 {
 	private final Stemmer stemmer;
 
-	public OntologyTermComparator(Stemmer stemmer)
+	public OntologyTermComparator()
 	{
-		this.stemmer = requireNonNull(stemmer);
+		this.stemmer = new Stemmer();
 	}
 
 	@Override
-	public int compare(Hit<CandidateOntologyTerm> o2, Hit<CandidateOntologyTerm> o1)
+	public int compare(Hit<OntologyTermHit> o2, Hit<OntologyTermHit> o1)
 	{
 		String synonym1 = o1.getResult().getMatchedSynonym();
 		String synonym2 = o2.getResult().getMatchedSynonym();
@@ -78,7 +76,7 @@ public class OntologyTermComparator implements Comparator<Hit<CandidateOntologyT
 				|| stemmer.cleanStemPhrase(synonym1).equalsIgnoreCase(stemmer.cleanStemPhrase(synonym2));
 	}
 
-	boolean isOntologyTermNameMatched(Hit<CandidateOntologyTerm> hit)
+	boolean isOntologyTermNameMatched(Hit<OntologyTermHit> hit)
 	{
 		return hit.getResult().getOntologyTerm().getLabel().equalsIgnoreCase(hit.getResult().getMatchedSynonym());
 	}
