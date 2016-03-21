@@ -65,7 +65,7 @@ public class AlgorithmTemplateServiceImpl implements AlgorithmTemplateService
 		double calculateAverageDistance = calculateDistance(targetAttribute,
 				createIntermediateAttribute(script.getName()));
 
-		if (DEFAULT_THRESHOLD >= calculateAverageDistance)
+		if (calculateAverageDistance >= DEFAULT_THRESHOLD)
 		{
 			// find attribute for each parameter
 			boolean paramMatch = true;
@@ -90,24 +90,6 @@ public class AlgorithmTemplateServiceImpl implements AlgorithmTemplateService
 		return Stream.empty();
 	}
 
-	private AttributeMetaData mapParamToAttribute(ScriptParameter param, List<AttributeMetaData> attrMatches)
-	{
-		for (AttributeMetaData sourceAttribute : attrMatches)
-		{
-			double calculateDistance = calculateDistance(createIntermediateAttribute(param.getName()), sourceAttribute);
-			if (calculateDistance >= DEFAULT_THRESHOLD)
-			{
-				return sourceAttribute;
-			}
-		}
-		return null;
-	}
-
-	AttributeMetaData createIntermediateAttribute(String name)
-	{
-		return new DefaultAttributeMetaData(name).setLabel(name);
-	}
-
 	double calculateDistance(AttributeMetaData attribute1, AttributeMetaData attribute2)
 	{
 		Hit<OntologyTerm> targetAttributeOts = semanticSearchService.findTags(attribute1,
@@ -125,5 +107,23 @@ public class AlgorithmTemplateServiceImpl implements AlgorithmTemplateService
 		{
 			return -1;
 		}
+	}
+
+	private AttributeMetaData mapParamToAttribute(ScriptParameter param, List<AttributeMetaData> attrMatches)
+	{
+		for (AttributeMetaData sourceAttribute : attrMatches)
+		{
+			double calculateDistance = calculateDistance(createIntermediateAttribute(param.getName()), sourceAttribute);
+			if (calculateDistance >= DEFAULT_THRESHOLD)
+			{
+				return sourceAttribute;
+			}
+		}
+		return null;
+	}
+
+	private AttributeMetaData createIntermediateAttribute(String name)
+	{
+		return new DefaultAttributeMetaData(name).setLabel(name);
 	}
 }

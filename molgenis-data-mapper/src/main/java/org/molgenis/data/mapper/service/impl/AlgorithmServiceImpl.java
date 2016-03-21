@@ -63,8 +63,9 @@ public class AlgorithmServiceImpl implements AlgorithmService
 	public String generateAlgorithm(AttributeMetaData targetAttribute, EntityMetaData targetEntityMetaData,
 			List<AttributeMetaData> sourceAttributes, EntityMetaData sourceEntityMetaData)
 	{
-		return algorithmGeneratorService.generate(targetAttribute, sourceAttributes, targetEntityMetaData,
-				sourceEntityMetaData);
+		return algorithmGeneratorService
+				.autoGenerate(targetAttribute, sourceAttributes, targetEntityMetaData, sourceEntityMetaData)
+				.getAlgorithm();
 	}
 
 	@Override

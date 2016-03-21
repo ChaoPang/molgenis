@@ -69,7 +69,6 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 			}
 			return generateMixedTypes(targetAttribute, sourceAttributes, targetEntityMetaData, sourceEntityMetaData);
 		}
-
 		return StringUtils.EMPTY;
 	}
 
@@ -77,7 +76,6 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 	public GeneratedAlgorithm autoGenerate(AttributeMetaData targetAttribute, List<AttributeMetaData> sourceAttributes,
 			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData)
 	{
-		System.out.println(targetAttribute.getName() + " : " + targetAttribute.getLabel());
 		String algorithm = StringUtils.EMPTY;
 		AlgorithmState algorithmState = null;
 		Set<AttributeMetaData> mappedSourceAttributes = null;
@@ -138,7 +136,6 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 			EntityMetaData sourceEntityMetaData)
 	{
 		Unit<? extends Quantity> targetUnit = unitResolver.resolveUnit(targetAttribute, targetEntityMetaData);
-
 		for (AttributeMetaData sourceAttribute : sourceAttributes)
 		{
 			Unit<? extends Quantity> sourceUnit = unitResolver.resolveUnit(sourceAttribute, sourceEntityMetaData);
@@ -153,7 +150,6 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 				algorithm = StringUtils.replace(algorithm, attrMagamSyntax, unitConvertedMagamSyntax);
 			}
 		}
-
 		return algorithm;
 	}
 }
