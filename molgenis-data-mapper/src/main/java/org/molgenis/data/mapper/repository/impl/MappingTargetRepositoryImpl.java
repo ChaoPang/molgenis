@@ -1,9 +1,11 @@
 package org.molgenis.data.mapper.repository.impl;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
@@ -96,16 +98,29 @@ public class MappingTargetRepositoryImpl implements MappingTargetRepository
 			return null;
 		}
 
-		EntityMetaData target = dataService.getEntityMetaData(mappingTargetEntity
-				.getString(MappingTargetMetaData.TARGET));
+		EntityMetaData target = dataService
+				.getEntityMetaData(mappingTargetEntity.getString(MappingTargetMetaData.TARGET));
 
 		if (mappingTargetEntity.getEntities(MappingTargetMetaData.ENTITYMAPPINGS) != null)
 		{
-			List<Entity> entityMappingEntities = Lists.newArrayList(mappingTargetEntity
-					.getEntities(MappingTargetMetaData.ENTITYMAPPINGS));
+			List<Entity> entityMappingEntities = Lists
+					.newArrayList(mappingTargetEntity.getEntities(MappingTargetMetaData.ENTITYMAPPINGS));
 			entityMappings = entityMappingRepository.toEntityMappings(entityMappingEntities);
 		}
 
 		return new MappingTarget(identifier, target, entityMappings);
+	}
+
+	@Override
+	public void delete(List<MappingTarget> mappingTargets)
+	{
+		List<EntityMapping> entityMappings = new ArrayList<>();
+		mappingTargets.stream().forEach(mappingTarget -> entityMappings.addAll(mappingTarget.getEntityMappings()));
+
+		Stream<Entity> stream = mappingTargets.stream()
+				.map(mappingTarget -> toMappingTargetEntity(mappingTarget, Collections.emptyList()));
+		dataService.delete(META_DATA.getName(), stream);
+
+		entityMappingRepository.delete(entityMappings);
 	}
 }

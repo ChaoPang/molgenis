@@ -51,4 +51,6 @@ public interface AttributeMappingRepository
 	abstract List<AttributeMetaData> retrieveAttributeMetaDatasFromAlgorithm(String algorithm,
 			EntityMetaData sourceEntityMetaData);
 
+	abstract void delete(List<AttributeMapping> attributeMappings);
+
 }

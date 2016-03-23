@@ -1,6 +1,5 @@
 package org.molgenis.data.mapper.service.impl;
 
-import static java.util.Objects.requireNonNull;
 import static org.molgenis.data.mapper.meta.MappingProjectMetaData.NAME;
 
 import java.util.Collections;
@@ -9,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.elasticsearch.common.collect.Lists;
 import org.molgenis.MolgenisFieldTypes;
@@ -21,6 +21,7 @@ import org.molgenis.data.IdGenerator;
 import org.molgenis.data.MolgenisDataException;
 import org.molgenis.data.Repository;
 import org.molgenis.data.UnknownEntityException;
+import org.molgenis.data.mapper.jobs.MappingServiceJobExecution;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping;
 import org.molgenis.data.mapper.mapping.model.EntityMapping;
 import org.molgenis.data.mapper.mapping.model.MappingProject;
@@ -43,6 +44,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.google.common.collect.Maps;
+
+import static java.util.Objects.requireNonNull;
 
 public class MappingServiceImpl implements MappingService
 {
@@ -85,6 +88,9 @@ public class MappingServiceImpl implements MappingService
 	@RunAsSystem
 	public void deleteMappingProject(String mappingProjectId)
 	{
+		Stream<Entity> stream = dataService.findAll(MappingServiceJobExecution.ENTITY_NAME,
+				QueryImpl.EQ(MappingServiceJobExecution.MAPPING_PROJECT, mappingProjectId));
+		dataService.delete(MappingServiceJobExecution.ENTITY_NAME, stream);
 		mappingProjectRepository.delete(mappingProjectId);
 	}
 
@@ -154,7 +160,7 @@ public class MappingServiceImpl implements MappingService
 
 	@Override
 	@RunAsSystem
-	public void updateMappingProject(MappingProject mappingProject)
+	public synchronized void updateMappingProject(MappingProject mappingProject)
 	{
 		mappingProjectRepository.update(mappingProject);
 	}

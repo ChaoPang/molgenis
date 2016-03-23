@@ -27,4 +27,6 @@ public interface MappingTargetRepository
 	 * @return a {@link List} of {@link MappingTarget}s.
 	 */
 	List<MappingTarget> toMappingTargets(List<Entity> mappingTargetEntities);
+
+	void delete(List<MappingTarget> mappingTargets);
 }

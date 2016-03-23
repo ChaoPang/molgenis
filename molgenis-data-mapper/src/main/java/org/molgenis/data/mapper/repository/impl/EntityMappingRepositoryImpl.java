@@ -1,8 +1,12 @@
 package org.molgenis.data.mapper.repository.impl;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
@@ -120,5 +124,19 @@ public class EntityMappingRepositoryImpl implements EntityMappingRepository
 						: null);
 		entityMappingEntity.set(EntityMappingMetaData.ATTRIBUTEMAPPINGS, attributeMappingEntities);
 		return entityMappingEntity;
+	}
+
+	@Override
+	public void delete(List<EntityMapping> entityMappings)
+	{
+		List<AttributeMapping> attributeMappings = new ArrayList<>();
+		entityMappings.stream()
+				.forEach(entityMapping -> attributeMappings.addAll(entityMapping.getAttributeMappings()));
+
+		Stream<Entity> stream = StreamSupport.stream(entityMappings.spliterator(), false)
+				.map(entityMapping -> toEntityMappingEntity(entityMapping, Collections.emptyList()));
+		dataService.delete(META_DATA.getName(), stream);
+
+		attributeMappingRepository.delete(attributeMappings);
 	}
 }

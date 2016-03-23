@@ -29,4 +29,6 @@ public interface EntityMappingRepository
 	 */
 	abstract List<Entity> upsert(Collection<EntityMapping> collection);
 
+	abstract void delete(List<EntityMapping> entityMappings);
+
 }

@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.AttributeMetaData;
@@ -158,4 +160,11 @@ public class AttributeMappingRepositoryImpl implements AttributeMappingRepositor
 		return attributeMappingEntity;
 	}
 
+	@Override
+	public void delete(List<AttributeMapping> attributeMappings)
+	{
+		Stream<Entity> stream = StreamSupport.stream(attributeMappings.spliterator(), false)
+				.map(this::toAttributeMappingEntity);
+		dataService.delete(META_DATA.getName(), stream);
+	}
 }
