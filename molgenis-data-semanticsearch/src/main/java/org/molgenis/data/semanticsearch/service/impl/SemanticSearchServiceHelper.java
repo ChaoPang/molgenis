@@ -6,9 +6,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -25,12 +23,11 @@ import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
 import org.molgenis.data.meta.AttributeMetaDataMetaData;
 import org.molgenis.data.meta.EntityMetaDataMetaData;
-import org.molgenis.data.semanticsearch.string.NGramDistanceAlgorithm;
-import org.molgenis.data.semanticsearch.string.Stemmer;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.ic.TermFrequencyService;
+import org.molgenis.ontology.utils.NGramDistanceAlgorithm;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.collect.Sets;
@@ -213,49 +210,6 @@ public class SemanticSearchServiceHelper
 		Set<String> allTerms = Sets.newLinkedHashSet(ontologyTerm.getSynonyms());
 		allTerms.add(ontologyTerm.getLabel());
 		return allTerms;
-	}
-
-	public Map<String, String> collectExpandedQueryMap(Set<String> queryTerms, Collection<OntologyTerm> ontologyTerms)
-	{
-		Stemmer stemmer = new Stemmer();
-
-		Map<String, String> expandedQueryMap = new LinkedHashMap<String, String>();
-
-		queryTerms.stream().filter(StringUtils::isNotBlank)
-				.forEach(queryTerm -> expandedQueryMap.put(stemmer.cleanStemPhrase(queryTerm), queryTerm));
-
-		for (OntologyTerm ontologyTerm : ontologyTerms)
-		{
-			if (!ontologyTerm.getIRI().contains(COMMA_CHAR))
-			{
-				collectOntologyTermQueryMap(expandedQueryMap, ontologyTerm);
-			}
-			else
-			{
-				for (String ontologyTermIri : ontologyTerm.getIRI().split(COMMA_CHAR))
-				{
-					collectOntologyTermQueryMap(expandedQueryMap, ontologyService.getOntologyTerm(ontologyTermIri));
-				}
-			}
-		}
-		return expandedQueryMap;
-	}
-
-	public void collectOntologyTermQueryMap(Map<String, String> expanedQueryMap, OntologyTerm ontologyTerm)
-	{
-		Stemmer stemmer = new Stemmer();
-
-		if (ontologyTerm != null)
-		{
-			getOtLabelAndSynonyms(ontologyTerm)
-					.forEach(term -> expanedQueryMap.put(stemmer.cleanStemPhrase(term), ontologyTerm.getLabel()));
-
-			for (OntologyTerm childOntologyTerm : ontologyService.getChildren(ontologyTerm))
-			{
-				getOtLabelAndSynonyms(childOntologyTerm)
-						.forEach(term -> expanedQueryMap.put(stemmer.cleanStemPhrase(term), ontologyTerm.getLabel()));
-			}
-		}
 	}
 
 	/**

@@ -2,11 +2,12 @@ package org.molgenis.ontology.core.service.impl;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.elasticsearch.common.collect.Lists;
 import org.molgenis.ontology.core.model.Ontology;
@@ -14,7 +15,10 @@ import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.repository.OntologyRepository;
 import org.molgenis.ontology.core.repository.OntologyTermRepository;
 import org.molgenis.ontology.core.service.OntologyService;
+import org.molgenis.ontology.utils.Stemmer;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import com.google.common.collect.Sets;
 
 import static java.util.Objects.requireNonNull;
 
@@ -116,8 +120,20 @@ public class OntologyServiceImpl implements OntologyService
 	@Override
 	public Double getOntologyTermLexicalSimilarity(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
 	{
-		List<String> synonyms = Lists.newArrayList(ontologyTerm1.getSynonyms());
-		return 0.0;
+		double highestScore = 0.0;
+
+		Set<String> synonyms1 = getUniqueSynonyms(ontologyTerm1);
+		Set<String> synonyms2 = getUniqueSynonyms(ontologyTerm2);
+		if (synonyms1.stream().anyMatch(sys1 -> synonyms2.contains(sys1))) return 100.0;
+		for (String sys1 : synonyms1)
+		{
+			for (String sys2 : synonyms2)
+			{
+				double score = stringMatching(sys1, sys2);
+				highestScore = highestScore > score ? highestScore : score;
+			}
+		}
+		return highestScore;
 	}
 
 	@Override
@@ -138,9 +154,12 @@ public class OntologyServiceImpl implements OntologyService
 		return ontologyTerms;
 	}
 
-	Set<String> getUniqueSynonyms(OntologyTerm ontologyTerm)
+	@Override
+	public Set<String> getUniqueSynonyms(OntologyTerm ontologyTerm)
 	{
-		// ontologyTerm.getSynonyms().stream().map(StringUtils::lowerCase).map
-		return Collections.emptySet();
+		Set<String> synonyms = Sets.newHashSet(
+				ontologyTerm.getSynonyms().stream().map(Stemmer::cleanStemPhrase).collect(Collectors.toSet()));
+		synonyms.add(Stemmer.cleanStemPhrase(ontologyTerm.getLabel()));
+		return synonyms;
 	}
 }

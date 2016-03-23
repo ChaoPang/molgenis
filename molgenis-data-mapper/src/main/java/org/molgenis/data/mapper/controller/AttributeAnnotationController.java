@@ -67,7 +67,7 @@ public class AttributeAnnotationController extends MolgenisPluginController
 		Map<String, Hit<OntologyTerm>> annotationMap = new HashMap<>();
 		for (AttributeMetaData attribute : entityMetaData.getAtomicAttributes())
 		{
-			Hit<OntologyTerm> findTags = semanticSearchService.findTags(attribute,
+			Hit<OntologyTerm> findTags = semanticSearchService.findTagsForAttribute(attribute,
 					ontologyService.getAllOntologiesIds());
 			System.out.format("the attribute is %s; the tagged is %s%n",
 					attribute.getName() + ':' + attribute.getLabel(),

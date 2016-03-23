@@ -81,15 +81,13 @@ public class MappingConfig
 	@Bean
 	public AlgorithmService algorithmServiceImpl()
 	{
-		return new AlgorithmServiceImpl(dataService, ontologyTagService, semanticSearchService,
-				algorithmGeneratorService());
+		return new AlgorithmServiceImpl(dataService, semanticSearchService, algorithmGeneratorService());
 	}
 
 	@Bean
 	public AlgorithmTemplateService algorithmTemplateServiceImpl()
 	{
-		return new AlgorithmTemplateServiceImpl(dataService, ontologyService, semanticSearchService,
-				ontologyTermSemanticSearch);
+		return new AlgorithmTemplateServiceImpl(dataService, ontologyService, semanticSearchService);
 	}
 
 	@Bean

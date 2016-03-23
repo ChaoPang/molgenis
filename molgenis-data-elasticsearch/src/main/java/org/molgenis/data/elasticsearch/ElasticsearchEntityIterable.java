@@ -1,6 +1,5 @@
 package org.molgenis.data.elasticsearch;
 
-import static java.util.Objects.requireNonNull;
 import static org.elasticsearch.index.query.FilterBuilders.queryFilter;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.indicesQuery;
@@ -35,6 +34,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * Retrieve search results in batches. Note: We do not use Elasticsearch scan & scroll, because scrolling is not

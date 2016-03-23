@@ -115,4 +115,6 @@ public interface OntologyService
 	List<String> getAllOntologiesIds();
 
 	Double getOntologyTermLexicalSimilarity(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2);
+
+	Set<String> getUniqueSynonyms(OntologyTerm ontologyTerm);
 }

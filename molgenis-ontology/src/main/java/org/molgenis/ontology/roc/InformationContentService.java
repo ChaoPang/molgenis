@@ -15,11 +15,11 @@ import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
-import org.molgenis.data.semanticsearch.string.NGramDistanceAlgorithm;
-import org.molgenis.data.semanticsearch.string.Stemmer;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.meta.OntologyMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermMetaData;
+import org.molgenis.ontology.utils.NGramDistanceAlgorithm;
+import org.molgenis.ontology.utils.Stemmer;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.cache.CacheBuilder;

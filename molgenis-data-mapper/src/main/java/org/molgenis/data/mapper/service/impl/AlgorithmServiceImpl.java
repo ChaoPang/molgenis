@@ -21,7 +21,6 @@ import org.molgenis.data.mapper.algorithmgenerator.service.AlgorithmGeneratorSer
 import org.molgenis.data.mapper.mapping.model.AttributeMapping;
 import org.molgenis.data.mapper.mapping.model.EntityMapping;
 import org.molgenis.data.mapper.service.AlgorithmService;
-import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.support.MapEntity;
 import org.molgenis.js.RhinoConfig;
@@ -43,16 +42,14 @@ public class AlgorithmServiceImpl implements AlgorithmService
 	private static final Logger LOG = LoggerFactory.getLogger(AlgorithmServiceImpl.class);
 
 	private final DataService dataService;
-	private final OntologyTagService ontologyTagService;
 	private final SemanticSearchService semanticSearchService;
 	private final AlgorithmGeneratorService algorithmGeneratorService;
 
 	@Autowired
-	public AlgorithmServiceImpl(DataService dataService, OntologyTagService ontologyTagService,
-			SemanticSearchService semanticSearchService, AlgorithmGeneratorService algorithmGeneratorService)
+	public AlgorithmServiceImpl(DataService dataService, SemanticSearchService semanticSearchService,
+			AlgorithmGeneratorService algorithmGeneratorService)
 	{
 		this.dataService = requireNonNull(dataService);
-		this.ontologyTagService = requireNonNull(ontologyTagService);
 		this.semanticSearchService = requireNonNull(semanticSearchService);
 		this.algorithmGeneratorService = requireNonNull(algorithmGeneratorService);
 
@@ -63,9 +60,8 @@ public class AlgorithmServiceImpl implements AlgorithmService
 	public String generateAlgorithm(AttributeMetaData targetAttribute, EntityMetaData targetEntityMetaData,
 			List<AttributeMetaData> sourceAttributes, EntityMetaData sourceEntityMetaData)
 	{
-		return algorithmGeneratorService
-				.autoGenerate(targetAttribute, sourceAttributes, targetEntityMetaData, sourceEntityMetaData)
-				.getAlgorithm();
+		return algorithmGeneratorService.generate(targetAttribute, sourceAttributes, targetEntityMetaData,
+				sourceEntityMetaData);
 	}
 
 	@Override

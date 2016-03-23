@@ -2,6 +2,7 @@ package org.molgenis.data.mapper.algorithmgenerator.service.impl;
 
 import static org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState.GENERATED_HIGH;
 import static org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState.GENERATED_LOW;
+import static utils.AlgorithmGeneratorHelper.extractSourceAttributesFromAlgorithm;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,7 +31,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import static java.util.Objects.requireNonNull;
 
-import utils.AlgorithmGeneratorHelper;
 import utils.MagmaUnitConverter;
 
 public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
@@ -57,19 +57,14 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 	public String generate(AttributeMetaData targetAttribute, List<AttributeMetaData> sourceAttributes,
 			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData)
 	{
-		if (sourceAttributes.size() > 0)
+		String algorithm = runAlgorithmTemplate(targetAttribute, sourceAttributes, targetEntityMetaData,
+				sourceEntityMetaData);
+		if (StringUtils.isBlank(algorithm))
 		{
-			for (AlgorithmGenerator generator : generators)
-			{
-				if (generator.isSuitable(targetAttribute, sourceAttributes))
-				{
-					return generator.generate(targetAttribute, sourceAttributes, targetEntityMetaData,
-							sourceEntityMetaData);
-				}
-			}
-			return generateMixedTypes(targetAttribute, sourceAttributes, targetEntityMetaData, sourceEntityMetaData);
+			algorithm = runAlgorithmGenerator(targetAttribute, sourceAttributes, targetEntityMetaData,
+					sourceEntityMetaData);
 		}
-		return StringUtils.EMPTY;
+		return algorithm;
 	}
 
 	@Override
@@ -82,59 +77,79 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 
 		if (sourceAttributes.size() > 0)
 		{
-			AlgorithmTemplate algorithmTemplate = algorithmTemplateService.find(targetAttribute, sourceAttributes)
-					.findFirst().orElse(null);
-			if (algorithmTemplate != null)
+			algorithm = runAlgorithmTemplate(targetAttribute, sourceAttributes, targetEntityMetaData,
+					sourceEntityMetaData);
+			if (StringUtils.isNotBlank(algorithm))
 			{
-				algorithm = algorithmTemplate.render();
-				mappedSourceAttributes = AlgorithmGeneratorHelper.extractSourceAttributesFromAlgorithm(algorithm,
-						sourceEntityMetaData);
-				algorithm = convertUnitForTemplateAlgorithm(algorithm, targetAttribute, targetEntityMetaData,
-						mappedSourceAttributes, sourceEntityMetaData);
 				algorithmState = GENERATED_HIGH;
 			}
 			else
 			{
 				AttributeMetaData sourceAttribute = sourceAttributes.stream().findFirst().get();
-				algorithm = generate(targetAttribute, Arrays.asList(sourceAttribute), targetEntityMetaData,
-						sourceEntityMetaData);
-				mappedSourceAttributes = AlgorithmGeneratorHelper.extractSourceAttributesFromAlgorithm(algorithm,
+				algorithm = runAlgorithmGenerator(targetAttribute, Arrays.asList(sourceAttribute), targetEntityMetaData,
 						sourceEntityMetaData);
 				ExplainedAttributeMetaData explainAttributeMapping = attributeMappingExplainService
 						.explainAttributeMapping(targetAttribute, sourceAttribute, targetEntityMetaData,
 								sourceEntityMetaData);
 				algorithmState = explainAttributeMapping.isHighQuality() ? GENERATED_HIGH : GENERATED_LOW;
 			}
+			mappedSourceAttributes = extractSourceAttributesFromAlgorithm(algorithm, sourceEntityMetaData);
 		}
 
 		return GeneratedAlgorithm.create(algorithm, mappedSourceAttributes, algorithmState);
 	}
 
-	String generateMixedTypes(AttributeMetaData targetAttribute, List<AttributeMetaData> sourceAttributes,
+	String runAlgorithmTemplate(AttributeMetaData targetAttribute, List<AttributeMetaData> sourceAttributes,
 			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData)
 	{
-		StringBuilder stringBuilder = new StringBuilder();
-
-		if (sourceAttributes.size() == 1)
+		String algorithm = null;
+		AlgorithmTemplate algorithmTemplate = algorithmTemplateService.find(targetAttribute, sourceAttributes)
+				.findFirst().orElse(null);
+		if (algorithmTemplate != null)
 		{
-			stringBuilder.append(String.format("$('%s').value();", sourceAttributes.get(0).getName()));
+			algorithm = algorithmTemplate.render();
+			algorithm = convertUnitForTemplateAlgorithm(algorithm, targetAttribute, targetEntityMetaData,
+					sourceEntityMetaData);
 		}
-		else if (sourceAttributes.size() > 1)
+		return algorithm;
+	}
+
+	String runAlgorithmGenerator(AttributeMetaData targetAttribute, List<AttributeMetaData> sourceAttributes,
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData)
+	{
+		if (sourceAttributes.size() > 0)
 		{
-			for (AttributeMetaData sourceAttribute : sourceAttributes)
+			for (AlgorithmGenerator generator : generators)
 			{
-				stringBuilder.append(generate(targetAttribute, Arrays.asList(sourceAttribute), targetEntityMetaData,
-						sourceEntityMetaData));
+				if (generator.isSuitable(targetAttribute, sourceAttributes))
+				{
+					return generator.generate(targetAttribute, sourceAttributes, targetEntityMetaData,
+							sourceEntityMetaData);
+				}
 			}
-		}
 
-		return stringBuilder.toString();
+			StringBuilder stringBuilder = new StringBuilder();
+			if (sourceAttributes.size() == 1)
+			{
+				stringBuilder.append(String.format("$('%s').value();", sourceAttributes.get(0).getName()));
+			}
+			else
+			{
+				for (AttributeMetaData sourceAttribute : sourceAttributes)
+				{
+					stringBuilder.append(runAlgorithmGenerator(targetAttribute, Arrays.asList(sourceAttribute),
+							targetEntityMetaData, sourceEntityMetaData));
+				}
+			}
+			return stringBuilder.toString();
+		}
+		return StringUtils.EMPTY;
 	}
 
 	String convertUnitForTemplateAlgorithm(String algorithm, AttributeMetaData targetAttribute,
-			EntityMetaData targetEntityMetaData, Set<AttributeMetaData> sourceAttributes,
-			EntityMetaData sourceEntityMetaData)
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData)
 	{
+		Set<AttributeMetaData> sourceAttributes = extractSourceAttributesFromAlgorithm(algorithm, sourceEntityMetaData);
 		Unit<? extends Quantity> targetUnit = unitResolver.resolveUnit(targetAttribute, targetEntityMetaData);
 		for (AttributeMetaData sourceAttribute : sourceAttributes)
 		{

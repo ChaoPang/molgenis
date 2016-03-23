@@ -2,6 +2,8 @@ package org.molgenis.ontology.sorta.service.impl;
 
 import static org.molgenis.ontology.sorta.meta.OntologyTermHitEntityMetaData.COMBINED_SCORE;
 import static org.molgenis.ontology.sorta.meta.OntologyTermHitEntityMetaData.SCORE;
+import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
+import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -19,8 +21,6 @@ import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
-import org.molgenis.data.semanticsearch.string.NGramDistanceAlgorithm;
-import org.molgenis.data.semanticsearch.string.Stemmer;
 import org.molgenis.data.support.MapEntity;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.meta.OntologyMetaData;
@@ -31,6 +31,7 @@ import org.molgenis.ontology.roc.InformationContentService;
 import org.molgenis.ontology.sorta.bean.OntologyTermHitEntity;
 import org.molgenis.ontology.sorta.meta.OntologyTermHitEntityMetaData;
 import org.molgenis.ontology.sorta.service.SortaService;
+import org.molgenis.ontology.utils.Stemmer;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.base.Function;
@@ -311,8 +312,7 @@ public class SortaServiceImpl implements SortaService
 					MapEntity mapEntity = new MapEntity(ontologyTermSynonymEntity);
 					String ontologyTermSynonym = removeIllegalCharWithSingleWhiteSpace(
 							ontologyTermSynonymEntity.getString(OntologyTermSynonymMetaData.ONTOLOGY_TERM_SYNONYM));
-					mapEntity.set(SCORE,
-							NGramDistanceAlgorithm.stringMatching(cleanedQueryString, ontologyTermSynonym));
+					mapEntity.set(SCORE, stringMatching(cleanedQueryString, ontologyTermSynonym));
 					return mapEntity;
 				}
 
@@ -352,7 +352,7 @@ public class SortaServiceImpl implements SortaService
 				StringBuilder tempCombinedSynonym = new StringBuilder();
 				tempCombinedSynonym.append(topMatchedSynonym).append(SINGLE_WHITESPACE).append(nextMatchedSynonym);
 
-				double newScore = NGramDistanceAlgorithm.stringMatching(cleanedQueryString,
+				double newScore = stringMatching(cleanedQueryString,
 						removeIllegalCharWithSingleWhiteSpace(tempCombinedSynonym.toString()));
 
 				if (newScore > topNgramScore)
@@ -397,24 +397,13 @@ public class SortaServiceImpl implements SortaService
 	 * @param queryString
 	 * @return
 	 */
-
 	private String stemQuery(String queryString)
 	{
-		StringBuilder stringBuilder = new StringBuilder();
 		Set<String> uniqueTerms = Sets.newHashSet(queryString.toLowerCase().trim().split(NON_WORD_SEPARATOR));
-		uniqueTerms.removeAll(NGramDistanceAlgorithm.STOPWORDSLIST);
-		for (String word : uniqueTerms)
-		{
-			if (StringUtils.isNotEmpty(word.trim()) && !(ELASTICSEARCH_RESERVED_WORDS.contains(word)))
-			{
-				String afterStem = Stemmer.stem(removeIllegalCharWithEmptyString(word));
-				if (StringUtils.isNotEmpty(afterStem))
-				{
-					stringBuilder.append(afterStem).append(SINGLE_WHITESPACE);
-				}
-			}
-		}
-		return stringBuilder.toString().trim();
+		uniqueTerms.removeAll(STOPWORDSLIST);
+		Set<String> collect = uniqueTerms.stream().filter(StringUtils::isNotBlank)
+				.filter(word -> !ELASTICSEARCH_RESERVED_WORDS.contains(word)).collect(Collectors.toSet());
+		return Stemmer.stemAndJoin(collect);
 	}
 
 	private String fuzzyMatchQuerySyntax(String queryString)

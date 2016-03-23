@@ -8,7 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.mapper.algorithmgenerator.bean.Category;
 import org.molgenis.data.mapper.algorithmgenerator.rules.CategoryMatchQuality;
 import org.molgenis.data.mapper.algorithmgenerator.rules.CategoryRule;
-import org.molgenis.data.semanticsearch.string.NGramDistanceAlgorithm;
+import org.molgenis.ontology.utils.NGramDistanceAlgorithm;
 
 public class LexicalCategoryMapper extends CategoryMapper
 {

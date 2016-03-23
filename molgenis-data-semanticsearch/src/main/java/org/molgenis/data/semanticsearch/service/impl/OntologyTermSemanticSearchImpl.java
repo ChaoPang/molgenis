@@ -190,7 +190,8 @@ public class OntologyTermSemanticSearchImpl implements OntologyTermSemanticSearc
 	{
 		DefaultAttributeMetaData attribute = new DefaultAttributeMetaData(queryTerm).setLabel(queryTerm);
 		List<Hit<OntologyTerm>> ontologyTerms = new ArrayList<>();
-		Hit<OntologyTerm> findTags = semanticSearchService.findTags(attribute, ontologyService.getAllOntologiesIds());
+		Hit<OntologyTerm> findTags = semanticSearchService.findTagsForAttribute(attribute,
+				ontologyService.getAllOntologiesIds());
 		if (findTags != null)
 		{
 			ontologyTerms.add(findTags);
@@ -213,7 +214,8 @@ public class OntologyTermSemanticSearchImpl implements OntologyTermSemanticSearc
 		}
 		else
 		{
-			Hit<OntologyTerm> findTags = semanticSearchService.findTags(attr, ontologyService.getAllOntologiesIds());
+			Hit<OntologyTerm> findTags = semanticSearchService.findTagsForAttribute(attr,
+					ontologyService.getAllOntologiesIds());
 			if (findTags != null)
 			{
 				ontologyTerms.add(findTags);

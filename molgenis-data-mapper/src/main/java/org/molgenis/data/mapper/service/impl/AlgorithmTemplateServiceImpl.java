@@ -1,27 +1,31 @@
 package org.molgenis.data.mapper.service.impl;
 
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.js.magma.JsMagmaScriptRegistrator.SCRIPT_TYPE_JAVASCRIPT_MAGMA;
 import static org.molgenis.script.Script.ENTITY_NAME;
 import static org.molgenis.script.Script.TYPE;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
-import org.molgenis.data.semanticsearch.service.OntologyTermSemanticSearch;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
-import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
+import org.molgenis.ontology.utils.Stemmer;
 import org.molgenis.script.Script;
 import org.molgenis.script.ScriptParameter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import com.google.common.collect.Sets;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,18 +35,14 @@ public class AlgorithmTemplateServiceImpl implements AlgorithmTemplateService
 	private final DataService dataService;
 	private final OntologyService ontologySerivce;
 	private final SemanticSearchService semanticSearchService;
-	private final OntologyTermSemanticSearch ontologyTermSemanticSearch;
-
-	private final static double DEFAULT_THRESHOLD = 0.8;
 
 	@Autowired
 	public AlgorithmTemplateServiceImpl(DataService dataService, OntologyService ontologySerivce,
-			SemanticSearchService semanticSearchService, OntologyTermSemanticSearch ontologyTermSemanticSearch)
+			SemanticSearchService semanticSearchService)
 	{
 		this.dataService = requireNonNull(dataService);
 		this.ontologySerivce = requireNonNull(ontologySerivce);
 		this.semanticSearchService = requireNonNull(semanticSearchService);
-		this.ontologyTermSemanticSearch = requireNonNull(ontologyTermSemanticSearch);
 	}
 
 	@Override
@@ -60,14 +60,17 @@ public class AlgorithmTemplateServiceImpl implements AlgorithmTemplateService
 			List<AttributeMetaData> attrMatches)
 	{
 		// Check if the name of the target attribute matches with the the name of the current algorithm template
-		if (satisfyScriptTemplate(targetAttribute, createIntermediateAttribute(script.getName())))
+		if (satisfyScriptTemplate(targetAttribute, script.getName()))
 		{
 			// find attribute for each parameter
 			boolean paramMatch = true;
 			Map<String, String> model = new HashMap<>();
 			for (ScriptParameter param : script.getParameters())
 			{
-				AttributeMetaData attr = mapParamToAttribute(param, attrMatches);
+				AttributeMetaData attr = attrMatches.stream()
+						.filter(sourceAttribute -> satisfyScriptTemplate(sourceAttribute, param.getName())).findFirst()
+						.orElse(null);
+
 				if (attr != null)
 				{
 					model.put(param.getName(), attr.getName());
@@ -85,51 +88,79 @@ public class AlgorithmTemplateServiceImpl implements AlgorithmTemplateService
 		return Stream.empty();
 	}
 
-	boolean satisfyScriptTemplate(AttributeMetaData targetAttr, AttributeMetaData scriptAttr)
+	boolean satisfyScriptTemplate(AttributeMetaData attribute, String scriptParameterName)
 	{
-		Hit<OntologyTerm> targetAttributeOntologyTermHit = semanticSearchService.findTags(targetAttr,
-				ontologySerivce.getAllOntologiesIds());
-
-		Hit<OntologyTerm> scriptOntologyTermHit = semanticSearchService.findTags(scriptAttr,
-				ontologySerivce.getAllOntologiesIds());
-
-		// We want to check if the ontology terms associated with the target attribut contain all the ontology terms
-		// associated with the script
-		List<OntologyTerm> targetAssociatedOts = ontologySerivce
-				.getAtomicOntologyTerms(targetAttributeOntologyTermHit.getResult());
-
-		List<OntologyTerm> scriptAssociatedOts = ontologySerivce
-				.getAtomicOntologyTerms(scriptOntologyTermHit.getResult());
-
-		// If the target associated ontology terms contain all script associated ontology terms, the corresponding
-		// template can be used.
-		if (targetAssociatedOts.containsAll(scriptAssociatedOts)) return true;
-
-		// if the target associated ontology terms are similar to the script associated ontology terms, the
-		// corresponding template can also be used.
-		for (OntologyTerm ot : scriptAssociatedOts)
+		// First of all we should check if the name of the sourceAttribute matches with the script parameter
+		if (containsAllTokens(getAttributeTerms(attribute), Sets.newHashSet(scriptParameterName)))
 		{
-
+			return true;
 		}
+		else
+		{
+			// If the attribute terms cannot be matched with the script parameter, then we use the ontology term based
+			// approach to try to find the sourceAttribute that satisfies the condition
+			Hit<OntologyTerm> attributeOntologyTermHit = semanticSearchService.findTagsForAttribute(attribute,
+					ontologySerivce.getAllOntologiesIds());
 
+			Hit<OntologyTerm> scriptOntologyTermHit = semanticSearchService.findTags(scriptParameterName,
+					ontologySerivce.getAllOntologiesIds());
+
+			if (attributeOntologyTermHit == null || scriptOntologyTermHit == null) return false;
+
+			// We want to check if the ontology terms associated with the target attribut contain all the ontology terms
+			// associated with the script
+			List<OntologyTerm> attributeAssociatedOts = ontologySerivce
+					.getAtomicOntologyTerms(attributeOntologyTermHit.getResult());
+
+			List<OntologyTerm> scriptAssociatedOts = ontologySerivce
+					.getAtomicOntologyTerms(scriptOntologyTermHit.getResult());
+
+			// if the target associated ontology terms are similar to the script associated ontology terms, the
+			// corresponding template can also be used.
+			boolean satisfied = true;
+			for (OntologyTerm scriptOt : scriptAssociatedOts)
+			{
+				satisfied = satisfied && isOntologyTermMatch(attributeAssociatedOts, scriptOt);
+			}
+			return satisfied;
+		}
+	}
+
+	private boolean isOntologyTermMatch(List<OntologyTerm> attributeAssociatedOts, OntologyTerm scriptOt)
+	{
+		if (attributeAssociatedOts.contains(scriptOt)) return true;
+		for (OntologyTerm childOt : ontologySerivce.getChildren(scriptOt))
+		{
+			if (attributeAssociatedOts.contains(childOt)) return true;
+		}
 		return false;
 	}
 
-	private AttributeMetaData mapParamToAttribute(ScriptParameter param, List<AttributeMetaData> attrMatches)
-//	{
-//		for (AttributeMetaData sourceAttribute : attrMatches)
-//		{
-//			double calculateDistance = calculateDistance(createIntermediateAttribute(param.getName()), sourceAttribute);
-//			if (calculateDistance >= DEFAULT_THRESHOLD)
-//			{
-//				return sourceAttribute;
-//			}
-//		}
-		return null;
+	boolean containsAllTokens(Set<String> listOfSynonyms1, Set<String> listOfSynonyms2)
+	{
+		for (String synonym1 : listOfSynonyms1)
+		{
+			for (String synonym2 : listOfSynonyms2)
+			{
+				Set<String> tokens1 = Stemmer.splitAndStem(synonym1);
+				Set<String> tokens2 = Stemmer.splitAndStem(synonym2);
+				if (tokens1.containsAll(tokens2)) return true;
+			}
+		}
+		return false;
 	}
 
-	private AttributeMetaData createIntermediateAttribute(String name)
+	private Set<String> getAttributeTerms(AttributeMetaData attribute)
 	{
-		return new DefaultAttributeMetaData(name).setLabel(name);
+		Set<String> attributeTerms = new HashSet<>();
+		if (isNotBlank(attribute.getLabel()))
+		{
+			attributeTerms.add(attribute.getLabel());
+		}
+		if (isNotBlank(attribute.getDescription()))
+		{
+			attributeTerms.add(attribute.getDescription());
+		}
+		return attributeTerms;
 	}
 }

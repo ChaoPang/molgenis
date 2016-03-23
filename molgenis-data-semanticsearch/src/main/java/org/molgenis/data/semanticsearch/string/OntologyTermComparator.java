@@ -8,16 +8,10 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
+import org.molgenis.ontology.utils.Stemmer;
 
 public class OntologyTermComparator implements Comparator<Hit<OntologyTermHit>>
 {
-	private final Stemmer stemmer;
-
-	public OntologyTermComparator()
-	{
-		this.stemmer = new Stemmer();
-	}
-
 	@Override
 	public int compare(Hit<OntologyTermHit> o2, Hit<OntologyTermHit> o1)
 	{
@@ -73,7 +67,7 @@ public class OntologyTermComparator implements Comparator<Hit<OntologyTermHit>>
 	boolean synonymEquals(String synonym1, String synonym2)
 	{
 		return synonym1.equals(synonym2)
-				|| stemmer.cleanStemPhrase(synonym1).equalsIgnoreCase(stemmer.cleanStemPhrase(synonym2));
+				|| Stemmer.cleanStemPhrase(synonym1).equalsIgnoreCase(Stemmer.cleanStemPhrase(synonym2));
 	}
 
 	boolean isOntologyTermNameMatched(Hit<OntologyTermHit> hit)

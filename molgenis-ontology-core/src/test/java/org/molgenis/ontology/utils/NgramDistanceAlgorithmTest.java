@@ -1,4 +1,4 @@
-package org.molgenis.data.semanticsearch.string;
+package org.molgenis.ontology.utils;
 
 import static org.testng.Assert.assertEquals;
 
@@ -11,7 +11,8 @@ public class NgramDistanceAlgorithmTest
 	{
 		assertEquals(NGramDistanceAlgorithm.stringMatching("hypertensive", "hypertensive"), 100.0);
 
-		assertEquals(NGramDistanceAlgorithm.stringMatching("hypertensive disorder", "hypertensive order"), 72.727);
+		assertEquals(NGramDistanceAlgorithm.stringMatching("hypertensive disorder", "hypertensive order"),
+				72.72727272727273);
 
 		assertEquals(NGramDistanceAlgorithm.stringMatching("hypertensive", "diabetes"), 0.0);
 	}

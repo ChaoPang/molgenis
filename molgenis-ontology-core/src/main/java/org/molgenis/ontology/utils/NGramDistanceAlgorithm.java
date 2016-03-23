@@ -1,4 +1,4 @@
-package org.molgenis.data.semanticsearch.string;
+package org.molgenis.ontology.utils;
 
 import java.util.HashMap;
 import java.util.List;

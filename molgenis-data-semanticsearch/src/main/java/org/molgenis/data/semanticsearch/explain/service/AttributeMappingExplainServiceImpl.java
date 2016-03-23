@@ -1,11 +1,11 @@
 package org.molgenis.data.semanticsearch.explain.service;
 
-import java.util.ArrayList;
+import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.common.base.Joiner;
@@ -17,14 +17,12 @@ import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceHelper;
-import org.molgenis.data.semanticsearch.string.NGramDistanceAlgorithm;
-import org.molgenis.data.semanticsearch.string.Stemmer;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
+import org.molgenis.ontology.utils.Stemmer;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.google.common.base.Splitter;
-import com.google.common.collect.Sets;
+import com.google.common.collect.Lists;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,10 +31,8 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	private final SemanticSearchService semanticSearchService;
 	private final OntologyService ontologyService;
 	private final SemanticSearchServiceHelper semanticSearchServiceHelper;
-	private final Splitter termSplitter = Splitter.onPattern("[^\\p{IsAlphabetic}]+");
 	private final Joiner termJoiner = Joiner.on(' ');
-	private final static float HIGH_QUALITY_THRESHOLD = 70;
-	private final static String COMMA_CHAR = ",";
+	private final static double HIGH_QUALITY_THRESHOLD = 70;
 	private final static OntologyTermHit EMPTY_ONTOLOGYTERMHIT = OntologyTermHit
 			.create(OntologyTerm.create(StringUtils.EMPTY, StringUtils.EMPTY), StringUtils.EMPTY);
 
@@ -84,37 +80,33 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		String queryOrigin = targetQueryTermHit.getScore() > ontologyTermHit.getScore() ? targetQueryTermHit.getResult()
 				: ontologyTermHit.getResult().getOntologyTerm().getLabel();
 
-		float score = targetQueryTermHit.getScore() > ontologyTermHit.getScore() ? targetQueryTermHit.getScore()
-				: ontologyTermHit.getScore();
+		float score = (targetQueryTermHit.getScore() > ontologyTermHit.getScore() ? targetQueryTermHit.getScore()
+				: ontologyTermHit.getScore()) * 100;
+
+		boolean isHighQuality = score >= HIGH_QUALITY_THRESHOLD;
 
 		Set<ExplainedQueryString> explainedQueryStrings = new HashSet<>();
 
 		for (String queryFromSourceAttribute : queriesFromSourceAttribute)
 		{
-			Set<String> labelTokens = splitIntoTermsStem(queryFromSourceAttribute);
-			Set<String> bestMatchingQueryTokens = splitIntoTermsStem(bestMatchingQuery);
+			Set<String> labelTokens = Stemmer.splitAndStem(queryFromSourceAttribute);
+			Set<String> bestMatchingQueryTokens = Stemmer.splitAndStem(bestMatchingQuery);
 			labelTokens.retainAll(bestMatchingQueryTokens);
 			explainedQueryStrings.add(
 					ExplainedQueryString.create(termJoiner.join(labelTokens), bestMatchingQuery, queryOrigin, score));
 			break;
 		}
 
-		return ExplainedAttributeMetaData.create(matchedSourceAttribute, explainedQueryStrings,
-				score >= HIGH_QUALITY_THRESHOLD);
+		return ExplainedAttributeMetaData.create(matchedSourceAttribute, explainedQueryStrings, isHighQuality);
 	}
 
 	List<OntologyTerm> getExpandedOntologyTerms(List<OntologyTerm> ontologyTerms)
 	{
-		List<OntologyTerm> expandedOntologyTerms = new ArrayList<>();
-
+		List<OntologyTerm> expandedOntologyTerms = Lists.newArrayList(ontologyTerms);
 		for (OntologyTerm ot : ontologyTerms)
 		{
-			for (String ontologyTermIri : ot.getIRI().split(COMMA_CHAR))
-			{
-				OntologyTerm atomicOntologyTerm = ontologyService.getOntologyTerm(ontologyTermIri);
-				expandedOntologyTerms.addAll(ontologyService.getChildren(atomicOntologyTerm));
-				expandedOntologyTerms.add(atomicOntologyTerm);
-			}
+			ontologyService.getAtomicOntologyTerms(ot).forEach(atomicOntologyTerm -> expandedOntologyTerms
+					.addAll(ontologyService.getChildren(atomicOntologyTerm)));
 		}
 		return expandedOntologyTerms;
 	}
@@ -128,7 +120,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		{
 			for (String sourceQuery : queriesFromSourceAttribute)
 			{
-				double score = NGramDistanceAlgorithm.stringMatching(targetQuery, sourceQuery);
+				double score = stringMatching(targetQuery, sourceQuery);
 				if (score > highestScore || bestTargetQuery == null)
 				{
 					bestTargetQuery = targetQuery;
@@ -136,17 +128,6 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 				}
 			}
 		}
-		return Hit.<String> create(bestTargetQuery, (float) highestScore);
-	}
-
-	Set<String> splitIntoTermsStem(String string)
-	{
-		Stemmer stemmer = new Stemmer();
-		return Sets.newHashSet(splitIntoTerms(string).stream().map(stemmer::stem).collect(Collectors.toSet()));
-	}
-
-	Set<String> splitIntoTerms(String string)
-	{
-		return Sets.newHashSet(termSplitter.split(string.toLowerCase()));
+		return Hit.<String> create(bestTargetQuery, (float) highestScore / 100);
 	}
 }

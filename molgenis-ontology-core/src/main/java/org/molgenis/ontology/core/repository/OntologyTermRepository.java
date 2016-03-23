@@ -1,10 +1,15 @@
 package org.molgenis.ontology.core.repository;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
+import static org.molgenis.data.QueryRule.Operator.AND;
+import static org.molgenis.data.QueryRule.Operator.FUZZY_MATCH;
+import static org.molgenis.data.QueryRule.Operator.IN;
+import static org.molgenis.data.QueryRule.Operator.OR;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ENTITY_NAME;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM_IRI;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM_NAME;
+import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -143,11 +148,11 @@ public class OntologyTermRepository
 		{
 			if (rules.size() > 0)
 			{
-				rules.add(new QueryRule(Operator.OR));
+				rules.add(new QueryRule(OR));
 			}
-			rules.add(new QueryRule(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM, Operator.FUZZY_MATCH, term));
+			rules.add(new QueryRule(ONTOLOGY_TERM_SYNONYM, FUZZY_MATCH, term));
 		}
-		rules = Arrays.asList(new QueryRule(ONTOLOGY, Operator.IN, ontologyIds), new QueryRule(Operator.AND),
+		rules = Arrays.asList(new QueryRule(ONTOLOGY, IN, ontologyIds), new QueryRule(Operator.AND),
 				new QueryRule(rules));
 
 		final List<QueryRule> finalRules = rules;
@@ -171,19 +176,17 @@ public class OntologyTermRepository
 		{
 			if (rules.size() > 0)
 			{
-				rules.add(new QueryRule(Operator.OR));
+				rules.add(new QueryRule(OR));
 			}
-			rules.add(new QueryRule(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM, Operator.FUZZY_MATCH, term));
+			rules.add(new QueryRule(ONTOLOGY_TERM_SYNONYM, FUZZY_MATCH, term));
 		}
-		rules = Arrays.asList(new QueryRule(ONTOLOGY, Operator.IN, ontologyIds), new QueryRule(Operator.AND),
-				new QueryRule(rules));
+		rules = Arrays.asList(new QueryRule(ONTOLOGY, IN, ontologyIds), new QueryRule(AND), new QueryRule(rules));
 
 		List<String> filteredOntologyTermIris = filteredOntologyTerms.stream().map(OntologyTerm::getIRI)
 				.collect(Collectors.toList());
 
-		rules = Arrays.asList(
-				new QueryRule(OntologyTermMetaData.ONTOLOGY_TERM_IRI, Operator.IN, filteredOntologyTermIris),
-				new QueryRule(Operator.AND), new QueryRule(rules));
+		rules = Arrays.asList(new QueryRule(ONTOLOGY_TERM_IRI, IN, filteredOntologyTermIris), new QueryRule(AND),
+				new QueryRule(rules));
 
 		final List<QueryRule> finalRules = rules;
 		Iterable<Entity> termEntities = new Iterable<Entity>()
