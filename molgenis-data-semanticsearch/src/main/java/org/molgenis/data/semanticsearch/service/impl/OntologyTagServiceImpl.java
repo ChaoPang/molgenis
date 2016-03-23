@@ -239,6 +239,7 @@ public class OntologyTagServiceImpl implements OntologyTagService
 		}
 	}
 
+	@Override
 	public Map<String, OntologyTag> tagAttributesInEntity(String entity, Map<AttributeMetaData, OntologyTerm> tags)
 	{
 		Map<String, OntologyTag> result = new LinkedHashMap<>();
@@ -306,8 +307,15 @@ public class OntologyTagServiceImpl implements OntologyTagService
 	private Entity findAttributeEntity(String entityName, String attributeName)
 	{
 		Entity entityMetaDataEntity = dataService.findOne(ENTITY_NAME, entityName);
+
 		Optional<Entity> result = stream(entityMetaDataEntity.getEntities(ATTRIBUTES).spliterator(), false)
 				.filter(att -> attributeName.equals(att.getString(AttributeMetaDataMetaData.NAME))).findFirst();
+
+		if (!result.isPresent() && entityMetaDataEntity.get(EntityMetaDataMetaData.EXTENDS) != null)
+		{
+			return findAttributeEntity(entityMetaDataEntity.getString(EntityMetaDataMetaData.EXTENDS), attributeName);
+		}
+
 		return result.isPresent() ? result.get() : null;
 	}
 

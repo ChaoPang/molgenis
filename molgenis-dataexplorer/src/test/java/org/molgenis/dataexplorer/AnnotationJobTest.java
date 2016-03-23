@@ -1,6 +1,8 @@
 package org.molgenis.dataexplorer;
 
 import static org.molgenis.data.EntityMetaData.AttributeRole.ROLE_ID;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 import java.io.IOException;
 
@@ -10,6 +12,7 @@ import org.mockito.MockitoAnnotations;
 import org.molgenis.data.Repository;
 import org.molgenis.data.annotation.CrudRepositoryAnnotator;
 import org.molgenis.data.annotation.RepositoryAnnotator;
+import org.molgenis.data.jobs.JobExecutionException;
 import org.molgenis.data.jobs.Progress;
 import org.molgenis.data.mem.InMemoryRepository;
 import org.molgenis.data.support.DefaultEntityMetaData;
@@ -18,6 +21,7 @@ import org.molgenis.dataexplorer.controller.AnnotationJob;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -88,7 +92,15 @@ public class AnnotationJobTest
 
 		IOException exception = new IOException("error");
 		Mockito.when(crudRepositoryAnnotator.annotate(exac, repository)).thenThrow(exception);
-		annotationJob.call();
+		try
+		{
+			annotationJob.call();
+			fail("Should throw exception");
+		}
+		catch (JobExecutionException actual)
+		{
+			assertEquals(actual.getCause(), exception);
+		}
 
 		Mockito.verify(progress).start();
 		Mockito.verify(progress).setProgressMax(2);
@@ -96,6 +108,7 @@ public class AnnotationJobTest
 				"Annotating \"My repo\" with exac (annotator 1 of 2, started by \"fdlk\")");
 		Mockito.verify(progress).progress(1,
 				"Annotating \"My repo\" with cadd (annotator 2 of 2, started by \"fdlk\")");
+		Mockito.verify(progress).status("Failed annotators: exac. Successful annotators: cadd");
 		Mockito.verify(progress).failed(exception);
 	}
 }

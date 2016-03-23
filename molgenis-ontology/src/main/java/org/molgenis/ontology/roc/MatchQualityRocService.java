@@ -25,28 +25,31 @@ import org.molgenis.data.excel.ExcelWriter.FileFormat;
 import org.molgenis.data.support.MapEntity;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.file.FileStore;
-import org.molgenis.ontology.beans.OntologyServiceResult;
 import org.molgenis.ontology.core.meta.OntologyTermMetaData;
-import org.molgenis.ontology.matching.MatchingTaskContentEntityMetaData;
-import org.molgenis.ontology.matching.MatchingTaskEntityMetaData;
-import org.molgenis.ontology.matching.OntologyService;
-import org.molgenis.ontology.matching.OntologyServiceImpl;
-import org.molgenis.ontology.utils.OntologyServiceUtil;
+import org.molgenis.ontology.sorta.meta.MatchingTaskContentEntityMetaData;
+import org.molgenis.ontology.sorta.meta.MatchingTaskEntityMetaData;
+import org.molgenis.ontology.sorta.service.SortaService;
+import org.molgenis.ontology.sorta.service.impl.SortaServiceImpl;
+import org.molgenis.ontology.utils.SortaServiceUtil;
 import org.molgenis.security.user.UserAccountService;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import com.google.common.collect.Iterables;
+
 public class MatchQualityRocService
 {
+	private static final int MAX_NUM = 100;
+
 	@Autowired
 	private FileStore fileStore;
 	@Autowired
 	private UserAccountService userAccountService;
 
 	private final DataService dataService;
-	private final OntologyService ontologyService;
+	private final SortaService ontologyService;
 
 	@Autowired
-	public MatchQualityRocService(DataService dataService, OntologyService ontologyService)
+	public MatchQualityRocService(DataService dataService, SortaService ontologyService)
 	{
 		if (dataService == null) throw new IllegalArgumentException("DataService cannot be null!");
 		if (ontologyService == null) throw new IllegalArgumentException("OntologyMatchingService cannot be null!");
@@ -86,15 +89,15 @@ public class MatchQualityRocService
 							.getString(MatchingTaskContentEntityMetaData.MATCHED_TERM);
 					boolean manualMatchExists = matchedCodeIdentifier != null && !matchedCodeIdentifier.equals("NULL");
 
-					OntologyServiceResult searchResult = ontologyService.search(codeSystem,
+					Iterable<Entity> ontologyTermEntities = ontologyService.findOntologyTermEntities(codeSystem,
 							getInputTerm(validatedMatchEntity, entityName));
 
-					long totalNumber = searchResult.getTotalHitCount();
+					long totalNumber = Iterables.size(ontologyTermEntities);
 					int rank = 0;
 
 					if (manualMatchExists)
 					{
-						for (Map<String, Object> candidateMatch : searchResult.getOntologyTerms())
+						for (Entity candidateMatch : ontologyTermEntities)
 						{
 							rank++;
 							String candidateMatchIdentifier = candidateMatch.get(OntologyTermMetaData.ONTOLOGY_TERM_IRI)
@@ -124,7 +127,7 @@ public class MatchQualityRocService
 				data.put("rocfilePath", file.getAbsolutePath());
 				data.put("totalNumber", totalNumberOfTerms);
 				data.put("validatedNumber", dataService.count(MatchingTaskContentEntityMetaData.ENTITY_NAME, q));
-				data.put("rocEntities", OntologyServiceUtil.getEntityAsMap(excelRepositoryCollection.getSheet(0)));
+				data.put("rocEntities", SortaServiceUtil.getEntityAsMap(excelRepositoryCollection.getSheet(0)));
 			}
 		}
 		return data;
@@ -136,7 +139,7 @@ public class MatchQualityRocService
 		ExcelSheetWriter createWritable = excelWriter.createWritable(entityName, Arrays.asList("Cutoff", "TPR", "FPR"));
 
 		DecimalFormat df = new DecimalFormat("##.###", new DecimalFormatSymbols(Locale.ENGLISH));
-		for (int cutOff = 1; cutOff <= 500; cutOff++)
+		for (int cutOff = 1; cutOff <= MAX_NUM; cutOff++)
 		{
 			int totalPositives = 0;
 			int totalNegatives = 0;
@@ -197,12 +200,12 @@ public class MatchQualityRocService
 		createWritable.close();
 	}
 
-	private String getInputTerm(Entity validatedMatchEntity, String entityName)
+	private Entity getInputTerm(Entity validatedMatchEntity, String entityName)
 	{
 		String termIdentifier = validatedMatchEntity.getString(MatchingTaskContentEntityMetaData.INPUT_TERM);
 		Entity termEntity = dataService.findOne(entityName,
-				new QueryImpl().eq(OntologyServiceImpl.DEFAULT_MATCHING_IDENTIFIER, termIdentifier));
-		return termEntity.getString(OntologyServiceImpl.DEFAULT_MATCHING_NAME_FIELD);
+				new QueryImpl().eq(SortaServiceImpl.DEFAULT_MATCHING_IDENTIFIER, termIdentifier));
+		return termEntity;
 	}
 
 	private String createFileName()

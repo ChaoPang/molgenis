@@ -20,7 +20,6 @@ public class OntologyTermSynonymMetaData extends DefaultEntityMetaData
 	{
 		super(SIMPLE_NAME, OntologyPackage.getPackageInstance());
 		addAttributeMetaData(new DefaultAttributeMetaData(ID).setVisible(false), ROLE_ID);
-
 		DefaultAttributeMetaData ontologyTermSynonymAttr = new DefaultAttributeMetaData(ONTOLOGY_TERM_SYNONYM,
 				FieldTypeEnum.TEXT).setNillable(false);
 		addAttributeMetaData(ontologyTermSynonymAttr, ROLE_LABEL);
