@@ -62,28 +62,35 @@ public class AlgorithmTemplateServiceImpl implements AlgorithmTemplateService
 		// Check if the name of the target attribute matches with the the name of the current algorithm template
 		if (satisfyScriptTemplate(targetAttribute, script.getName()))
 		{
-			// find attribute for each parameter
-			boolean paramMatch = true;
-			Map<String, String> model = new HashMap<>();
-			for (ScriptParameter param : script.getParameters())
+			// The first source attribute needs to match with one of the script parameters otherwise the algorithm
+			// template will not be used, indicating the top source attribute is a direct match for the target
+			// attribute.
+			if (script.getParameters().stream().map(ScriptParameter::getName)
+					.anyMatch(parameterName -> satisfyScriptTemplate(attrMatches.get(0), parameterName)))
 			{
-				AttributeMetaData attr = attrMatches.stream()
-						.filter(sourceAttribute -> satisfyScriptTemplate(sourceAttribute, param.getName())).findFirst()
-						.orElse(null);
+				// find attribute for each parameter
+				boolean paramMatch = true;
+				Map<String, String> model = new HashMap<>();
+				for (ScriptParameter param : script.getParameters())
+				{
+					AttributeMetaData attr = attrMatches.stream()
+							.filter(sourceAttribute -> satisfyScriptTemplate(sourceAttribute, param.getName()))
+							.findFirst().orElse(null);
 
-				if (attr != null)
-				{
-					model.put(param.getName(), attr.getName());
+					if (attr != null)
+					{
+						model.put(param.getName(), attr.getName());
+					}
+					else
+					{
+						paramMatch = false;
+						break;
+					}
 				}
-				else
-				{
-					paramMatch = false;
-					break;
-				}
+				// create algorithm template if an attribute was found for all parameters
+				AlgorithmTemplate algorithmTemplate = new AlgorithmTemplate(script, model);
+				return paramMatch ? Stream.of(algorithmTemplate) : Stream.empty();
 			}
-			// create algorithm template if an attribute was found for all parameters
-			AlgorithmTemplate algorithmTemplate = new AlgorithmTemplate(script, model);
-			return paramMatch ? Stream.of(algorithmTemplate) : Stream.empty();
 		}
 		return Stream.empty();
 	}
