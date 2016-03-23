@@ -74,6 +74,14 @@ public interface OntologyService
 	OntologyTerm getOntologyTerm(String iri);
 
 	/**
+	 * Retrieves a list of atomic ontology terms if the provided ontology term has a composite iri such as "iri1,iri2"
+	 * 
+	 * @param iri
+	 * @return a list of {@link OntologyTerm} as atomic ontology terms
+	 */
+	List<OntologyTerm> getAtomicOntologyTerms(OntologyTerm ontologyTerm);
+
+	/**
 	 * Retrieves all children from the current ontology term
 	 * 
 	 * @param ontologyTerm
@@ -105,4 +113,6 @@ public interface OntologyService
 	 * @return String Ontology Id
 	 */
 	List<String> getAllOntologiesIds();
+
+	Double getOntologyTermLexicalSimilarity(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2);
 }

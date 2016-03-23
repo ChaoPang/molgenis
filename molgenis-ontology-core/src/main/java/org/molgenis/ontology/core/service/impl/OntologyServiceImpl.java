@@ -1,8 +1,10 @@
 package org.molgenis.ontology.core.service.impl;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -18,6 +20,7 @@ import static java.util.Objects.requireNonNull;
 
 public class OntologyServiceImpl implements OntologyService
 {
+	private final static String ONTOLOGY_TERM_IRI_SEPARATOR = ",";
 	private OntologyRepository ontologyRepository;
 	private OntologyTermRepository ontologyTermRepository;
 
@@ -108,5 +111,36 @@ public class OntologyServiceImpl implements OntologyService
 	public Double getOntologyTermSemanticRelatedness(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
 	{
 		return ontologyTermRepository.getOntologyTermSemanticRelatedness(ontologyTerm1, ontologyTerm2);
+	}
+
+	@Override
+	public Double getOntologyTermLexicalSimilarity(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
+	{
+		List<String> synonyms = Lists.newArrayList(ontologyTerm1.getSynonyms());
+		return 0.0;
+	}
+
+	@Override
+	public List<OntologyTerm> getAtomicOntologyTerms(OntologyTerm ontologyTerm)
+	{
+		List<OntologyTerm> ontologyTerms = new ArrayList<>();
+		for (String atomicOntologyTermIri : ontologyTerm.getIRI().split(ONTOLOGY_TERM_IRI_SEPARATOR))
+		{
+			if (isNotBlank(atomicOntologyTermIri))
+			{
+				OntologyTerm atomicOntologyTerm = getOntologyTerm(atomicOntologyTermIri);
+				if (atomicOntologyTerm != null)
+				{
+					ontologyTerms.add(atomicOntologyTerm);
+				}
+			}
+		}
+		return ontologyTerms;
+	}
+
+	Set<String> getUniqueSynonyms(OntologyTerm ontologyTerm)
+	{
+		// ontologyTerm.getSynonyms().stream().map(StringUtils::lowerCase).map
+		return Collections.emptySet();
 	}
 }

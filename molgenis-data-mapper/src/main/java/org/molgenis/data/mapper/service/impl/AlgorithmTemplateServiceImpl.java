@@ -4,11 +4,9 @@ import static org.molgenis.js.magma.JsMagmaScriptRegistrator.SCRIPT_TYPE_JAVASCR
 import static org.molgenis.script.Script.ENTITY_NAME;
 import static org.molgenis.script.Script.TYPE;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 import org.molgenis.data.AttributeMetaData;
@@ -62,10 +60,7 @@ public class AlgorithmTemplateServiceImpl implements AlgorithmTemplateService
 			List<AttributeMetaData> attrMatches)
 	{
 		// Check if the name of the target attribute matches with the the name of the current algorithm template
-		double calculateAverageDistance = calculateDistance(targetAttribute,
-				createIntermediateAttribute(script.getName()));
-
-		if (calculateAverageDistance >= DEFAULT_THRESHOLD)
+		if (satisfyScriptTemplate(targetAttribute, createIntermediateAttribute(script.getName())))
 		{
 			// find attribute for each parameter
 			boolean paramMatch = true;
@@ -90,35 +85,46 @@ public class AlgorithmTemplateServiceImpl implements AlgorithmTemplateService
 		return Stream.empty();
 	}
 
-	double calculateDistance(AttributeMetaData attribute1, AttributeMetaData attribute2)
+	boolean satisfyScriptTemplate(AttributeMetaData targetAttr, AttributeMetaData scriptAttr)
 	{
-		Hit<OntologyTerm> targetAttributeOts = semanticSearchService.findTags(attribute1,
+		Hit<OntologyTerm> targetAttributeOntologyTermHit = semanticSearchService.findTags(targetAttr,
 				ontologySerivce.getAllOntologiesIds());
 
-		Hit<OntologyTerm> scriptNameOts = semanticSearchService.findTags(attribute2,
+		Hit<OntologyTerm> scriptOntologyTermHit = semanticSearchService.findTags(scriptAttr,
 				ontologySerivce.getAllOntologiesIds());
 
-		try
+		// We want to check if the ontology terms associated with the target attribut contain all the ontology terms
+		// associated with the script
+		List<OntologyTerm> targetAssociatedOts = ontologySerivce
+				.getAtomicOntologyTerms(targetAttributeOntologyTermHit.getResult());
+
+		List<OntologyTerm> scriptAssociatedOts = ontologySerivce
+				.getAtomicOntologyTerms(scriptOntologyTermHit.getResult());
+
+		// If the target associated ontology terms contain all script associated ontology terms, the corresponding
+		// template can be used.
+		if (targetAssociatedOts.containsAll(scriptAssociatedOts)) return true;
+
+		// if the target associated ontology terms are similar to the script associated ontology terms, the
+		// corresponding template can also be used.
+		for (OntologyTerm ot : scriptAssociatedOts)
 		{
-			return ontologyTermSemanticSearch.calculateAverageDistance(Arrays.asList(targetAttributeOts),
-					Arrays.asList(scriptNameOts));
+
 		}
-		catch (ExecutionException e)
-		{
-			return -1;
-		}
+
+		return false;
 	}
 
 	private AttributeMetaData mapParamToAttribute(ScriptParameter param, List<AttributeMetaData> attrMatches)
-	{
-		for (AttributeMetaData sourceAttribute : attrMatches)
-		{
-			double calculateDistance = calculateDistance(createIntermediateAttribute(param.getName()), sourceAttribute);
-			if (calculateDistance >= DEFAULT_THRESHOLD)
-			{
-				return sourceAttribute;
-			}
-		}
+//	{
+//		for (AttributeMetaData sourceAttribute : attrMatches)
+//		{
+//			double calculateDistance = calculateDistance(createIntermediateAttribute(param.getName()), sourceAttribute);
+//			if (calculateDistance >= DEFAULT_THRESHOLD)
+//			{
+//				return sourceAttribute;
+//			}
+//		}
 		return null;
 	}
 
