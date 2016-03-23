@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -34,6 +35,9 @@ import org.molgenis.data.UnknownAttributeException;
 import org.molgenis.data.importer.ImportWizardController;
 import org.molgenis.data.mapper.data.request.GenerateAlgorithmRequest;
 import org.molgenis.data.mapper.data.request.MappingServiceRequest;
+import org.molgenis.data.mapper.jobs.MappingServiceJob;
+import org.molgenis.data.mapper.jobs.MappingServiceJobExecution;
+import org.molgenis.data.mapper.jobs.MappingServiceJobFactory;
 import org.molgenis.data.mapper.mapping.model.AlgorithmResult;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState;
@@ -41,9 +45,11 @@ import org.molgenis.data.mapper.mapping.model.CategoryMapping;
 import org.molgenis.data.mapper.mapping.model.EntityMapping;
 import org.molgenis.data.mapper.mapping.model.MappingProject;
 import org.molgenis.data.mapper.mapping.model.MappingTarget;
+import org.molgenis.data.mapper.meta.MappingProjectMetaData;
 import org.molgenis.data.mapper.service.AlgorithmService;
 import org.molgenis.data.mapper.service.MappingService;
 import org.molgenis.data.mapper.service.impl.AlgorithmEvaluation;
+import org.molgenis.data.meta.EntityMetaDataMetaData;
 import org.molgenis.data.semantic.Relation;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
@@ -59,6 +65,7 @@ import org.molgenis.fieldtypes.XrefField;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.security.core.utils.SecurityUtils;
 import org.molgenis.security.user.MolgenisUserService;
+import org.molgenis.security.user.UserAccountService;
 import org.molgenis.ui.MolgenisPluginController;
 import org.molgenis.ui.menu.MenuReaderService;
 import org.molgenis.util.ErrorMessageResponse;
@@ -66,6 +73,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -124,6 +132,15 @@ public class MappingServiceController extends MolgenisPluginController
 
 	@Autowired
 	private MenuReaderService menuReaderService;
+
+	@Autowired
+	private MappingServiceJobFactory mappingServiceJobFactory;
+
+	@Autowired
+	private UserAccountService userAccountService;
+
+	@Autowired
+	private ExecutorService taskExecutor;
 
 	public MappingServiceController()
 	{
@@ -225,18 +242,34 @@ public class MappingServiceController extends MolgenisPluginController
 	@RequestMapping(value = "/addEntityMapping", method = RequestMethod.POST)
 	public String addEntityMapping(@RequestParam String mappingProjectId, String target, String source)
 	{
-		EntityMetaData sourceEntityMetaData = dataService.getEntityMetaData(source);
-		EntityMetaData targetEntityMetaData = dataService.getEntityMetaData(target);
+		MappingProject mappingProject = mappingService.getMappingProject(mappingProjectId);
 
-		Iterable<AttributeMetaData> attributes = targetEntityMetaData.getAtomicAttributes();
-
-		MappingProject project = mappingService.getMappingProject(mappingProjectId);
-
-		if (hasWritePermission(project))
+		if (hasWritePermission(mappingProject))
 		{
-			EntityMapping mapping = project.getMappingTarget(target).addSource(sourceEntityMetaData);
-			mappingService.updateMappingProject(project);
-			autoGenerateAlgorithms(mapping, target, sourceEntityMetaData, targetEntityMetaData, attributes, project);
+			MappingServiceJobExecution mappingServiceJobExecution = new MappingServiceJobExecution(dataService,
+					mappingService);
+
+			mappingProject.getMappingTarget(target).addSource(dataService.getEntityMetaData(source));
+
+			mappingService.updateMappingProject(mappingProject);
+
+			Entity mappingProjectEntity = dataService.findOne(MappingProjectMetaData.ENTITY_NAME,
+					mappingProject.getIdentifier());
+			Entity targetEntityMetaDataEntity = dataService.findOne(EntityMetaDataMetaData.ENTITY_NAME,
+					QueryImpl.EQ(EntityMetaDataMetaData.FULL_NAME, target));
+			Entity sourceEntityMetaDataEntity = dataService.findOne(EntityMetaDataMetaData.ENTITY_NAME,
+					QueryImpl.EQ(EntityMetaDataMetaData.FULL_NAME, source));
+
+			mappingServiceJobExecution.setMappingProject(mappingProjectEntity);
+			mappingServiceJobExecution.setTargetEntity(targetEntityMetaDataEntity);
+			mappingServiceJobExecution.setSourceEntity(sourceEntityMetaDataEntity);
+			mappingServiceJobExecution.setUser(userAccountService.getCurrentUser());
+			mappingServiceJobExecution.setResultUrl(getMappingServiceMenuUrl() + "/mappingproject/" + mappingProjectId);
+
+			MappingServiceJob mappingServiceJob = mappingServiceJobFactory.create(mappingServiceJobExecution,
+					SecurityContextHolder.getContext().getAuthentication());
+
+			taskExecutor.submit(mappingServiceJob);
 		}
 
 		return "redirect:" + getMappingServiceMenuUrl() + "/mappingproject/" + mappingProjectId;
@@ -945,24 +978,6 @@ public class MappingServiceController extends MolgenisPluginController
 		LOG.error(e.getMessage(), e);
 		return new ErrorMessageResponse(new ErrorMessageResponse.ErrorMessage(
 				"An error occurred. Please contact the administrator.<br />Message:" + e.getMessage()));
-	}
-
-	/**
-	 * Generate algorithms based on semantic matches between attribute tags and descriptions
-	 * 
-	 * @param mapping
-	 * @param target
-	 * @param sourceEntityMetaData
-	 * @param targetEntityMetaData
-	 * @param attributes
-	 * @param project
-	 */
-	private void autoGenerateAlgorithms(EntityMapping mapping, String target, EntityMetaData sourceEntityMetaData,
-			EntityMetaData targetEntityMetaData, Iterable<AttributeMetaData> attributes, MappingProject project)
-	{
-		attributes.forEach(attribute -> algorithmService.autoGenerateAlgorithm(sourceEntityMetaData,
-				targetEntityMetaData, mapping, attribute));
-		mappingService.updateMappingProject(project);
 	}
 
 	/**

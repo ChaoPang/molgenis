@@ -5,8 +5,8 @@ import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.jobs.JobExecutionUpdater;
 import org.molgenis.data.jobs.Progress;
 import org.molgenis.data.jobs.ProgressImpl;
+import org.molgenis.data.mapper.repository.EntityMappingRepository;
 import org.molgenis.data.mapper.service.AlgorithmService;
-import org.molgenis.data.mapper.service.MappingService;
 import org.molgenis.data.meta.EntityMetaDataMetaData;
 import org.molgenis.security.core.runas.RunAsSystem;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,19 +22,19 @@ import static java.util.Objects.requireNonNull;
 public class MappingServiceJobFactory
 {
 	private final DataService dataService;
-	private final MappingService mappingService;
+	private final EntityMappingRepository entityMappingRepository;
 	private final AlgorithmService algorithmService;
 	private PlatformTransactionManager transactionManager;
 	private final JobExecutionUpdater jobExecutionUpdater;
 	private final MailSender mailSender;
 
 	@Autowired
-	public MappingServiceJobFactory(DataService dataService, MappingService mappingService,
+	public MappingServiceJobFactory(DataService dataService, EntityMappingRepository entityMappingRepository,
 			AlgorithmService algorithmService, PlatformTransactionManager transactionManager,
 			JobExecutionUpdater jobExecutionUpdater, MailSender mailSender)
 	{
 		this.dataService = requireNonNull(dataService);
-		this.mappingService = requireNonNull(mappingService);
+		this.entityMappingRepository = requireNonNull(entityMappingRepository);
 		this.algorithmService = requireNonNull(algorithmService);
 		this.transactionManager = requireNonNull(transactionManager);
 		this.jobExecutionUpdater = requireNonNull(jobExecutionUpdater);
@@ -58,7 +58,7 @@ public class MappingServiceJobFactory
 		Progress progress = new ProgressImpl(mappingServiceJobExecution, jobExecutionUpdater, mailSender);
 
 		return new MappingServiceJob(mappingServiceJobExecution.getMappingProject(), targetEntityMetaData,
-				sourceEntityMetaData, mappingService, algorithmService, progress,
+				sourceEntityMetaData, entityMappingRepository, algorithmService, progress,
 				new TransactionTemplate(transactionManager), authentication);
 	}
 }
