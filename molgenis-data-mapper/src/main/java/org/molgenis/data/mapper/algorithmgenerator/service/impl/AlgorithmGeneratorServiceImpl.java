@@ -103,13 +103,16 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData)
 	{
 		String algorithm = null;
-		AlgorithmTemplate algorithmTemplate = algorithmTemplateService.find(targetAttribute, sourceAttributes)
-				.findFirst().orElse(null);
-		if (algorithmTemplate != null)
+		if (sourceAttributes.size() > 0)
 		{
-			algorithm = algorithmTemplate.render();
-			algorithm = convertUnitForTemplateAlgorithm(algorithm, targetAttribute, targetEntityMetaData,
-					sourceEntityMetaData);
+			AlgorithmTemplate algorithmTemplate = algorithmTemplateService.find(targetAttribute, sourceAttributes)
+					.findFirst().orElse(null);
+			if (algorithmTemplate != null)
+			{
+				algorithm = algorithmTemplate.render();
+				algorithm = convertUnitForTemplateAlgorithm(algorithm, targetAttribute, targetEntityMetaData,
+						sourceEntityMetaData);
+			}
 		}
 		return algorithm;
 	}

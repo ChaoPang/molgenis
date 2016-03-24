@@ -114,13 +114,15 @@ public class MappingTargetRepositoryImpl implements MappingTargetRepository
 	@Override
 	public void delete(List<MappingTarget> mappingTargets)
 	{
-		List<EntityMapping> entityMappings = new ArrayList<>();
-		mappingTargets.stream().forEach(mappingTarget -> entityMappings.addAll(mappingTarget.getEntityMappings()));
+		if (mappingTargets.size() > 0)
+		{
+			List<EntityMapping> entityMappings = new ArrayList<>();
+			mappingTargets.stream().forEach(mappingTarget -> entityMappings.addAll(mappingTarget.getEntityMappings()));
 
-		Stream<Entity> stream = mappingTargets.stream()
-				.map(mappingTarget -> toMappingTargetEntity(mappingTarget, Collections.emptyList()));
-		dataService.delete(META_DATA.getName(), stream);
-
-		entityMappingRepository.delete(entityMappings);
+			Stream<Entity> stream = mappingTargets.stream()
+					.map(mappingTarget -> toMappingTargetEntity(mappingTarget, Collections.emptyList()));
+			dataService.delete(META_DATA.getName(), stream);
+			entityMappingRepository.delete(entityMappings);
+		}
 	}
 }

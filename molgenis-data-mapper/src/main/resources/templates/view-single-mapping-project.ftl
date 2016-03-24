@@ -138,11 +138,6 @@
 		</table>
 		
 	</div>
-	<#if entityMetaDatas?has_content && hasWritePermission>
-		<div class="col-md-2">
-			<a id="add-new-attr-mapping-btn" href="#" class="btn btn-primary btn-xs" data-toggle="modal" data-target="#create-new-source-column-modal"><span class="glyphicon glyphicon-plus"></span>Add source</a>
-		</div>
-	</#if>
 </div>
 
 <div class="row">		
@@ -153,37 +148,6 @@
 			</a>
 		</div>
 	</#if>
-</div>
-
-<!--Create new source dialog-->
-<div class="modal" id="create-new-source-column-modal" tabindex="-1" role="dialog">
-	<div class="modal-dialog">
-    	<div class="modal-content">
-        	<div class="modal-header">
-        		<button type="button" class="close" data-dismiss="modal">&times;</button>
-        		<h4 class="modal-title" id="create-new-source-column-modal-label">Add new source</h4>
-        	</div>
-        	<div class="modal-body">	
-        		<form id="create-new-source-form" method="post" action="${context_url}/addEntityMapping">	
-					<div class="form-group">
-	            		<label>Select a new source to map against the target attribute</label>
-  						<select name="source" id="source-entity-select" class="form-control" required="required" placeholder="Select source entity">
-	    					<#list entityMetaDatas as entityMetaData>
-    							<option value="${entityMetaData.name?html}">${entityMetaData.name?html}</option>
-	    					</#list>
-						</select>
-					</div>
-					<input type="hidden" name="mappingProjectId" value="${mappingProject.identifier}">
-					<input type="hidden" name="target" value="${selectedTarget}">
-				</form>
-    		</div>
-    		
-        	<div class="modal-footer">
-        		<button type="button" id="submit-new-source-column-btn" class="btn btn-primary">Add source</button>
-                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-    		</div>	    				
-		</div>
-	</div>
 </div>
 
 <!--Create integrated entity dialog-->

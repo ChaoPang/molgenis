@@ -31,4 +31,5 @@ public interface EntityMappingRepository
 
 	abstract void delete(List<EntityMapping> entityMappings);
 
+	abstract EntityMapping getEntityMapping(String identifier);
 }

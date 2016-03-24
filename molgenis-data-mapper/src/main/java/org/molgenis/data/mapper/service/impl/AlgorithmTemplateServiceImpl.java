@@ -77,7 +77,9 @@ public class AlgorithmTemplateServiceImpl implements AlgorithmTemplateService
 							.filter(sourceAttribute -> satisfyScriptTemplate(sourceAttribute, param.getName()))
 							.findFirst().orElse(null);
 
-					if (attr != null)
+					// Check if a suitable attribute has been found and additionally this attribute is not matched to
+					// the previous script parameter
+					if (attr != null && !model.containsValue(attr.getName()))
 					{
 						model.put(param.getName(), attr.getName());
 					}

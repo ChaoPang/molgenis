@@ -163,8 +163,11 @@ public class AttributeMappingRepositoryImpl implements AttributeMappingRepositor
 	@Override
 	public void delete(List<AttributeMapping> attributeMappings)
 	{
-		Stream<Entity> stream = StreamSupport.stream(attributeMappings.spliterator(), false)
-				.map(this::toAttributeMappingEntity);
-		dataService.delete(META_DATA.getName(), stream);
+		if (attributeMappings.size() > 0)
+		{
+			Stream<Entity> stream = StreamSupport.stream(attributeMappings.spliterator(), false)
+					.map(this::toAttributeMappingEntity);
+			dataService.delete(META_DATA.getName(), stream);
+		}
 	}
 }

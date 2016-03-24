@@ -12,6 +12,7 @@ import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.IdGenerator;
+import org.molgenis.data.MolgenisDataException;
 import org.molgenis.data.UnknownEntityException;
 import org.molgenis.data.mapper.controller.MappingServiceController;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping;
@@ -46,6 +47,17 @@ public class EntityMappingRepositoryImpl implements EntityMappingRepository
 	public EntityMappingRepositoryImpl(AttributeMappingRepository attributeMappingRepository)
 	{
 		this.attributeMappingRepository = attributeMappingRepository;
+	}
+
+	@Override
+	public EntityMapping getEntityMapping(String identifier)
+	{
+		Entity entityMappingEntity = dataService.findOne(EntityMappingRepositoryImpl.META_DATA.getName(), identifier);
+		if (entityMappingEntity == null)
+		{
+			return null;
+		}
+		return toEntityMapping(entityMappingEntity);
 	}
 
 	@Override
@@ -98,6 +110,7 @@ public class EntityMappingRepositoryImpl implements EntityMappingRepository
 
 	private Entity upsert(EntityMapping entityMapping)
 	{
+		// add or update the new list of attribute mappings
 		List<Entity> attributeMappingEntities = attributeMappingRepository.upsert(entityMapping.getAttributeMappings());
 		Entity entityMappingEntity;
 		if (entityMapping.getIdentifier() == null)
@@ -108,6 +121,19 @@ public class EntityMappingRepositoryImpl implements EntityMappingRepository
 		}
 		else
 		{
+			// Delete the attribute mappings does not exist in the new list of attribute mappings any more
+			EntityMapping existing = getEntityMapping(entityMapping.getIdentifier());
+			if (existing == null)
+			{
+				throw new MolgenisDataException("EntityMapping " + existing + " does not exist");
+			}
+			List<AttributeMapping> attributeMappings = new ArrayList<>(entityMapping.getAttributeMappings());
+			List<AttributeMapping> attributeMappingsToRemove = StreamSupport
+					.stream(existing.getAttributeMappings().spliterator(), false)
+					.filter(attributeMapping -> !attributeMappings.contains(attributeMapping))
+					.collect(Collectors.toList());
+			attributeMappingRepository.delete(attributeMappingsToRemove);
+
 			entityMappingEntity = toEntityMappingEntity(entityMapping, attributeMappingEntities);
 			dataService.update(EntityMappingRepositoryImpl.META_DATA.getName(), entityMappingEntity);
 		}
@@ -129,14 +155,17 @@ public class EntityMappingRepositoryImpl implements EntityMappingRepository
 	@Override
 	public void delete(List<EntityMapping> entityMappings)
 	{
-		List<AttributeMapping> attributeMappings = new ArrayList<>();
-		entityMappings.stream()
-				.forEach(entityMapping -> attributeMappings.addAll(entityMapping.getAttributeMappings()));
+		if (entityMappings.size() > 0)
+		{
+			List<AttributeMapping> attributeMappings = new ArrayList<>();
+			entityMappings.stream()
+					.forEach(entityMapping -> attributeMappings.addAll(entityMapping.getAttributeMappings()));
 
-		Stream<Entity> stream = StreamSupport.stream(entityMappings.spliterator(), false)
-				.map(entityMapping -> toEntityMappingEntity(entityMapping, Collections.emptyList()));
-		dataService.delete(META_DATA.getName(), stream);
+			Stream<Entity> stream = StreamSupport.stream(entityMappings.spliterator(), false)
+					.map(entityMapping -> toEntityMappingEntity(entityMapping, Collections.emptyList()));
+			dataService.delete(META_DATA.getName(), stream);
 
-		attributeMappingRepository.delete(attributeMappings);
+			attributeMappingRepository.delete(attributeMappings);
+		}
 	}
 }

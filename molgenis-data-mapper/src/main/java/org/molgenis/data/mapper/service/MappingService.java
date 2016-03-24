@@ -87,4 +87,10 @@ public interface MappingService
 	MappingProject cloneMappingProject(String mappingProjectId, String clonedMappingProjectName);
 
 	String generateId(FieldType dataType, Long count);
+
+	abstract void updateMappingEntity(EntityMapping mappingForSource);
+
+	abstract void updateAttributeMapping(AttributeMapping attributeMapping);
+
+	abstract void removeEntityMapping(MappingTarget mappingTarget, EntityMapping entityMapping);
 }

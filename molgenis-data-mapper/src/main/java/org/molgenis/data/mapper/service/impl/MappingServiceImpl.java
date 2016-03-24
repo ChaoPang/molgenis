@@ -2,6 +2,7 @@ package org.molgenis.data.mapper.service.impl;
 
 import static org.molgenis.data.mapper.meta.MappingProjectMetaData.NAME;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -26,7 +27,10 @@ import org.molgenis.data.mapper.mapping.model.AttributeMapping;
 import org.molgenis.data.mapper.mapping.model.EntityMapping;
 import org.molgenis.data.mapper.mapping.model.MappingProject;
 import org.molgenis.data.mapper.mapping.model.MappingTarget;
+import org.molgenis.data.mapper.repository.AttributeMappingRepository;
+import org.molgenis.data.mapper.repository.EntityMappingRepository;
 import org.molgenis.data.mapper.repository.MappingProjectRepository;
+import org.molgenis.data.mapper.repository.MappingTargetRepository;
 import org.molgenis.data.mapper.service.AlgorithmService;
 import org.molgenis.data.mapper.service.MappingService;
 import org.molgenis.data.meta.PackageImpl;
@@ -60,17 +64,25 @@ public class MappingServiceImpl implements MappingService
 	private final IdGenerator idGenerator;
 
 	private final MappingProjectRepository mappingProjectRepository;
+	private final MappingTargetRepository mappingTargetRepository;
+	private final EntityMappingRepository entityMappingRepository;
+	private final AttributeMappingRepository attributeMappingRepository;
 
 	private final PermissionSystemService permissionSystemService;
 
 	@Autowired
 	public MappingServiceImpl(DataService dataService, AlgorithmService algorithmService, IdGenerator idGenerator,
-			MappingProjectRepository mappingProjectRepository, PermissionSystemService permissionSystemService)
+			MappingProjectRepository mappingProjectRepository, MappingTargetRepository mappingTargetRepository,
+			EntityMappingRepository entityMappingRepository, AttributeMappingRepository attributeMappingRepository,
+			PermissionSystemService permissionSystemService)
 	{
 		this.dataService = requireNonNull(dataService);
 		this.algorithmService = requireNonNull(algorithmService);
 		this.idGenerator = requireNonNull(idGenerator);
 		this.mappingProjectRepository = requireNonNull(mappingProjectRepository);
+		this.mappingTargetRepository = requireNonNull(mappingTargetRepository);
+		this.entityMappingRepository = requireNonNull(entityMappingRepository);
+		this.attributeMappingRepository = requireNonNull(attributeMappingRepository);
 		this.permissionSystemService = requireNonNull(permissionSystemService);
 	}
 
@@ -160,9 +172,23 @@ public class MappingServiceImpl implements MappingService
 
 	@Override
 	@RunAsSystem
-	public synchronized void updateMappingProject(MappingProject mappingProject)
+	public void updateMappingProject(MappingProject mappingProject)
 	{
 		mappingProjectRepository.update(mappingProject);
+	}
+
+	@Override
+	@RunAsSystem
+	public void updateMappingEntity(EntityMapping entityMapping)
+	{
+		entityMappingRepository.upsert(Arrays.asList(entityMapping));
+	}
+
+	@Override
+	@RunAsSystem
+	public void updateAttributeMapping(AttributeMapping attributeMapping)
+	{
+		attributeMappingRepository.upsert(Arrays.asList(attributeMapping));
 	}
 
 	@Override
@@ -314,5 +340,13 @@ public class MappingServiceImpl implements MappingService
 	{
 		target.set(attributeMapping.getTargetAttributeMetaData().getName(),
 				algorithmService.apply(attributeMapping, sourceEntity, entityMetaData));
+	}
+
+	@Override
+	public void removeEntityMapping(MappingTarget mappingTarget, EntityMapping entityMapping)
+	{
+		mappingTarget.removeSource(entityMapping.getName());
+		mappingTargetRepository.upsert(Arrays.asList(mappingTarget));
+		entityMappingRepository.delete(Arrays.asList(entityMapping));
 	}
 }

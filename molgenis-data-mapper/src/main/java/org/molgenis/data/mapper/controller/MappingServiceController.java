@@ -178,8 +178,8 @@ public class MappingServiceController extends MolgenisPluginController
 	public String addMappingProject(@RequestParam("mapping-project-name") String name,
 			@RequestParam("target-entity") String targetEntity)
 	{
-		MappingProject newMappingProject = mappingService.addMappingProject(name, getCurrentUser(), targetEntity);
-		return "redirect:" + getMappingServiceMenuUrl() + "/mappingproject/" + newMappingProject.getIdentifier();
+		mappingService.addMappingProject(name, getCurrentUser(), targetEntity);
+		return "redirect:" + getMappingServiceMenuUrl();
 	}
 
 	/**
@@ -223,7 +223,7 @@ public class MappingServiceController extends MolgenisPluginController
 		if (hasWritePermission(project))
 		{
 			project.getMappingTarget(target).getMappingForSource(source).deleteAttributeMapping(attribute);
-			mappingService.updateMappingProject(project);
+			mappingService.updateMappingEntity(project.getMappingTarget(target).getMappingForSource(source));
 		}
 		return "redirect:" + getMappingServiceMenuUrl() + "/mappingproject/" + project.getIdentifier();
 	}
@@ -272,7 +272,7 @@ public class MappingServiceController extends MolgenisPluginController
 			taskExecutor.submit(mappingServiceJob);
 		}
 
-		return "redirect:" + getMappingServiceMenuUrl() + "/mappingproject/" + mappingProjectId;
+		return "redirect:" + getMappingServiceMenuUrl();
 	}
 
 	/**
@@ -289,11 +289,12 @@ public class MappingServiceController extends MolgenisPluginController
 	@RequestMapping(value = "/removeEntityMapping", method = RequestMethod.POST)
 	public String removeEntityMapping(@RequestParam String mappingProjectId, String target, String source)
 	{
-		MappingProject project = mappingService.getMappingProject(mappingProjectId);
-		if (hasWritePermission(project))
+		MappingProject mappingProject = mappingService.getMappingProject(mappingProjectId);
+		if (hasWritePermission(mappingProject))
 		{
-			project.getMappingTarget(target).removeSource(source);
-			mappingService.updateMappingProject(project);
+			MappingTarget mappingTarget = mappingProject.getMappingTarget(target);
+			EntityMapping entityMapping = mappingTarget.getMappingForSource(source);
+			mappingService.removeEntityMapping(mappingTarget, entityMapping);
 		}
 		return "redirect:" + getMappingServiceMenuUrl() + "/mappingproject/" + mappingProjectId;
 	}
@@ -412,22 +413,23 @@ public class MappingServiceController extends MolgenisPluginController
 		if (hasWritePermission(mappingProject))
 		{
 			MappingTarget mappingTarget = mappingProject.getMappingTarget(target);
-			EntityMapping mappingForSource = mappingTarget.getMappingForSource(source);
+			EntityMapping entityMapping = mappingTarget.getMappingForSource(source);
 			if (algorithm.isEmpty())
 			{
-				mappingForSource.deleteAttributeMapping(targetAttribute);
+				entityMapping.deleteAttributeMapping(targetAttribute);
+				mappingService.updateMappingEntity(entityMapping);
 			}
 			else
 			{
-				AttributeMapping attributeMapping = mappingForSource.getAttributeMapping(targetAttribute);
+				AttributeMapping attributeMapping = entityMapping.getAttributeMapping(targetAttribute);
 				if (attributeMapping == null)
 				{
-					attributeMapping = mappingForSource.addAttributeMapping(targetAttribute);
+					attributeMapping = entityMapping.addAttributeMapping(targetAttribute);
 				}
 				attributeMapping.setAlgorithm(algorithm);
 				attributeMapping.setAlgorithmState(algorithmState);
+				mappingService.updateAttributeMapping(attributeMapping);
 			}
-			mappingService.updateMappingProject(mappingProject);
 		}
 		return "redirect:" + getMappingServiceMenuUrl() + "/mappingproject/" + mappingProject.getIdentifier();
 	}

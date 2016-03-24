@@ -68,6 +68,7 @@ public class MappingConfig
 	public MappingService mappingService()
 	{
 		return new MappingServiceImpl(dataService, algorithmServiceImpl(), idGenerator, mappingProjectRepository(),
+				mappingTargetRepository(), entityMappingRepository(), attributeMappingRepository(),
 				permissionSystemService);
 	}
 
