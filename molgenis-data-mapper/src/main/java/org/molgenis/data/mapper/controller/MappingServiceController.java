@@ -33,6 +33,7 @@ import org.molgenis.data.Repository;
 import org.molgenis.data.RepositoryCapability;
 import org.molgenis.data.UnknownAttributeException;
 import org.molgenis.data.importer.ImportWizardController;
+import org.molgenis.data.jobs.JobExecution.Status;
 import org.molgenis.data.mapper.data.request.GenerateAlgorithmRequest;
 import org.molgenis.data.mapper.data.request.MappingServiceRequest;
 import org.molgenis.data.mapper.jobs.MappingServiceJob;
@@ -456,8 +457,14 @@ public class MappingServiceController extends MolgenisPluginController
 		if (hasWritePermission(mappingProject))
 		{
 			MappingTarget mappingTarget = mappingProject.getMappingTarget(target);
+
+			List<String> sourceInvolvedInRunningJobs = getRunningJobs(mappingProjectId).stream()
+					.map(entity -> entity.getString(MappingServiceJobExecution.SOURCE_ENTITY))
+					.collect(Collectors.toList());
+
 			List<String> sourceNames = mappingTarget.getEntityMappings().stream()
-					.map(i -> i.getSourceEntityMetaData().getName()).collect(Collectors.toList());
+					.map(i -> i.getSourceEntityMetaData().getName())
+					.filter(source -> !sourceInvolvedInRunningJobs.contains(source)).collect(Collectors.toList());
 
 			EntityMetaData targetEntityMeta = mappingTarget.getTarget();
 			for (AttributeMetaData attributeMetaData : targetEntityMeta.getAtomicAttributes())
@@ -491,6 +498,15 @@ public class MappingServiceController extends MolgenisPluginController
 		}
 
 		return null;
+	}
+
+	private List<Entity> getRunningJobs(String mappingProjectIdentifier)
+	{
+		Entity mappingProjectEntity = dataService.findOne(MappingProjectMetaData.ENTITY_NAME, mappingProjectIdentifier);
+		Stream<Entity> mappingServiceJobs = dataService.findAll(MappingServiceJobExecution.ENTITY_NAME,
+				QueryImpl.EQ(MappingServiceJobExecution.MAPPING_PROJECT, mappingProjectEntity).and()
+						.eq(MappingServiceJobExecution.STATUS, Status.RUNNING.toString().toUpperCase()));
+		return mappingServiceJobs.collect(Collectors.toList());
 	}
 
 	/**

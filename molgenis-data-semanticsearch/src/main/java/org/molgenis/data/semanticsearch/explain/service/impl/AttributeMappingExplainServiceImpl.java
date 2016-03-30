@@ -1,4 +1,4 @@
-package org.molgenis.data.semanticsearch.explain.service;
+package org.molgenis.data.semanticsearch.explain.service.impl;
 
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 
@@ -13,6 +13,7 @@ import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
+import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;

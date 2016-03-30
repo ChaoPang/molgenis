@@ -7,7 +7,7 @@ import org.molgenis.data.elasticsearch.factory.EmbeddedElasticSearchServiceFacto
 import org.molgenis.data.meta.TagMetaData;
 import org.molgenis.data.semantic.LabeledResource;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
-import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainServiceImpl;
+import org.molgenis.data.semanticsearch.explain.service.impl.AttributeMappingExplainServiceImpl;
 import org.molgenis.data.semanticsearch.repository.TagRepository;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.OntologyTermSemanticSearch;
