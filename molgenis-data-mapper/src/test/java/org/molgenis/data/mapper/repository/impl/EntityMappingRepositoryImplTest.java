@@ -14,20 +14,16 @@ import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.IdGenerator;
-import org.molgenis.data.mapper.config.MappingConfig;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping;
 import org.molgenis.data.mapper.mapping.model.EntityMapping;
 import org.molgenis.data.mapper.meta.AttributeMappingMetaData;
 import org.molgenis.data.mapper.meta.EntityMappingMetaData;
-import org.molgenis.data.semanticsearch.service.OntologyTagService;
-import org.molgenis.data.semanticsearch.service.SemanticSearchService;
+import org.molgenis.data.mapper.repository.AttributeMappingRepository;
 import org.molgenis.data.support.DataServiceImpl;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.molgenis.data.support.MapEntity;
 import org.molgenis.data.support.UuidGenerator;
-import org.molgenis.security.permission.PermissionSystemService;
-import org.molgenis.security.user.MolgenisUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,14 +32,11 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
 @ContextConfiguration(classes =
-{ EntityMappingRepositoryImplTest.Config.class, MappingConfig.class })
+{ EntityMappingRepositoryImplTest.Config.class })
 public class EntityMappingRepositoryImplTest extends AbstractTestNGSpringContextTests
 {
 	@Autowired
 	private DataService dataService;
-
-	@Autowired
-	private AttributeMappingRepositoryImpl attributeMappingRepository;
 
 	@Autowired
 	private EntityMappingRepositoryImpl entityMappingRepository;
@@ -61,10 +54,10 @@ public class EntityMappingRepositoryImplTest extends AbstractTestNGSpringContext
 
 		List<AttributeMapping> attributeMappings = new ArrayList<AttributeMapping>();
 		attributeMappings
-				.add(new AttributeMapping("1", targetAttributeMetaData, "algorithm", sourceAttributeMetaDatas));
+				.add(new AttributeMapping(AUTO_ID, targetAttributeMetaData, "algorithm", sourceAttributeMetaDatas));
 
-		List<EntityMapping> entityMappings = Arrays.asList(new EntityMapping(AUTO_ID, sourceEntityMetaData,
-				targetEntityMetaData, attributeMappings));
+		List<EntityMapping> entityMappings = Arrays
+				.asList(new EntityMapping(AUTO_ID, sourceEntityMetaData, targetEntityMetaData, attributeMappings));
 
 		Entity attributeMappingEntity = new MapEntity(new AttributeMappingMetaData());
 		attributeMappingEntity.set(EntityMappingMetaData.IDENTIFIER, AUTO_ID);
@@ -103,10 +96,10 @@ public class EntityMappingRepositoryImplTest extends AbstractTestNGSpringContext
 
 		List<AttributeMapping> attributeMappings = new ArrayList<AttributeMapping>();
 		attributeMappings
-				.add(new AttributeMapping("1", targetAttributeMetaData, "algorithm", sourceAttributeMetaDatas));
+				.add(new AttributeMapping(AUTO_ID, targetAttributeMetaData, "algorithm", sourceAttributeMetaDatas));
 
-		Collection<EntityMapping> entityMappings = Arrays.asList(new EntityMapping(AUTO_ID, sourceEntityMetaData,
-				targetEntityMetaData, attributeMappings));
+		Collection<EntityMapping> entityMappings = Arrays
+				.asList(new EntityMapping(AUTO_ID, sourceEntityMetaData, targetEntityMetaData, attributeMappings));
 
 		Entity attributeMappingEntity = new MapEntity(new AttributeMappingMetaData());
 		attributeMappingEntity.set(EntityMappingMetaData.IDENTIFIER, AUTO_ID);
@@ -114,6 +107,7 @@ public class EntityMappingRepositoryImplTest extends AbstractTestNGSpringContext
 		attributeMappingEntity.set(AttributeMappingMetaData.SOURCEATTRIBUTEMETADATAS, sourceAttributeMetaDatas);
 		attributeMappingEntity.set(AttributeMappingMetaData.ALGORITHM, "algorithm");
 		attributeMappingEntity.set(AttributeMappingMetaData.ALGORITHMSTATE, null);
+		attributeMappingEntity.set(AttributeMappingMetaData.SIMILARITY_SCORE, 0.0);
 
 		List<Entity> attributeMappingEntities = new ArrayList<Entity>();
 		attributeMappingEntities.add(attributeMappingEntity);
@@ -125,6 +119,13 @@ public class EntityMappingRepositoryImplTest extends AbstractTestNGSpringContext
 		entityMappingEntity.set(EntityMappingMetaData.TARGETENTITYMETADATA, "target");
 		entityMappingEntity.set(EntityMappingMetaData.ATTRIBUTEMAPPINGS, attributeMappingEntities);
 		entityMappingEntities.add(entityMappingEntity);
+
+		when(dataService.findOne(EntityMappingRepositoryImpl.META_DATA.getName(), AUTO_ID))
+				.thenReturn(entityMappingEntity);
+		when(dataService.getEntityMetaData(entityMappingEntity.getString(EntityMappingMetaData.TARGETENTITYMETADATA)))
+				.thenReturn(targetEntityMetaData);
+		when(dataService.getEntityMetaData(entityMappingEntity.getString(EntityMappingMetaData.SOURCEENTITYMETADATA)))
+				.thenReturn(sourceEntityMetaData);
 
 		assertEquals(entityMappingRepository.upsert(entityMappings).get(0), entityMappingEntities.get(0));
 
@@ -141,45 +142,21 @@ public class EntityMappingRepositoryImplTest extends AbstractTestNGSpringContext
 		}
 
 		@Bean
-		SemanticSearchService semanticSearchService()
+		AttributeMappingRepository attributeMappingRepository()
 		{
-			return mock(SemanticSearchService.class);
-		}
-
-		@Bean
-		AttributeMappingRepositoryImpl attributeMappingRepository()
-		{
-			return new AttributeMappingRepositoryImpl(dataService());
+			return new AttributeMappingRepositoryImpl(dataService(), idGenerator());
 		}
 
 		@Bean
 		EntityMappingRepositoryImpl entityMappingRepository()
 		{
-			return new EntityMappingRepositoryImpl(attributeMappingRepository());
-		}
-
-		@Bean
-		MolgenisUserService userService()
-		{
-			return mock(MolgenisUserService.class);
-		}
-
-		@Bean
-		PermissionSystemService permissionSystemService()
-		{
-			return mock(PermissionSystemService.class);
+			return new EntityMappingRepositoryImpl(attributeMappingRepository(), dataService(), idGenerator());
 		}
 
 		@Bean
 		IdGenerator idGenerator()
 		{
 			return new UuidGenerator();
-		}
-
-		@Bean
-		public OntologyTagService ontologyTagService()
-		{
-			return mock(OntologyTagService.class);
 		}
 	}
 }

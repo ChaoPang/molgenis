@@ -1,7 +1,11 @@
 package org.molgenis.data.mapper.service.impl;
 
-import static java.util.Collections.emptyMap;
+import static com.google.common.collect.Sets.newHashSet;
+import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
+import static org.apache.commons.lang3.StringUtils.EMPTY;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -13,6 +17,7 @@ import static org.molgenis.MolgenisFieldTypes.STRING;
 import static org.molgenis.MolgenisFieldTypes.XREF;
 import static org.molgenis.data.EntityMetaData.AttributeRole.ROLE_ID;
 import static org.molgenis.data.EntityMetaData.AttributeRole.ROLE_LABEL;
+import static org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState.GENERATED_HIGH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
@@ -20,47 +25,34 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Map;
 import java.util.stream.Stream;
 
 import org.mockito.ArgumentMatcher;
-import org.mockito.Matchers;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.molgenis.auth.MolgenisUser;
-import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.IdGenerator;
+import org.molgenis.data.mapper.algorithmgenerator.bean.GeneratedAlgorithm;
 import org.molgenis.data.mapper.algorithmgenerator.service.AlgorithmGeneratorService;
-import org.molgenis.data.mapper.algorithmgenerator.service.impl.AlgorithmGeneratorServiceImpl;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping;
+import org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState;
 import org.molgenis.data.mapper.mapping.model.EntityMapping;
 import org.molgenis.data.mapper.mapping.model.MappingProject;
 import org.molgenis.data.mapper.service.AlgorithmService;
-import org.molgenis.data.mapper.service.UnitResolver;
-import org.molgenis.data.semantic.Relation;
-import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
-import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
-import org.molgenis.data.semanticsearch.repository.TagRepository;
-import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.molgenis.data.support.MapEntity;
-import org.molgenis.ontology.core.model.OntologyTerm;
-import org.molgenis.ontology.core.service.OntologyService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Sets;
 
 @ContextConfiguration(classes = AlgorithmServiceImplTest.Config.class)
@@ -73,20 +65,10 @@ public class AlgorithmServiceImplTest extends AbstractTestNGSpringContextTests
 	private DataService dataService;
 
 	@Autowired
-	private OntologyTagService ontologyTagService;
-
-	@Autowired
 	private SemanticSearchService semanticSearchService;
 
 	@Autowired
-	private AlgorithmTemplateService algorithmTemplateService;
-
-	@BeforeMethod
-	public void setUpBeforeMethod()
-	{
-		when(algorithmTemplateService.find(Matchers.<Map<AttributeMetaData, ExplainedAttributeMetaData>> any()))
-				.thenReturn(Stream.empty());
-	}
+	private AlgorithmGeneratorService algorithmGeneratorService;
 
 	@Test
 	public void testGetSourceAttributeNames()
@@ -299,17 +281,13 @@ public class AlgorithmServiceImplTest extends AbstractTestNGSpringContextTests
 
 		EntityMapping mapping = project.getMappingTarget("target").addSource(sourceEntityMetaData);
 
-		Map<AttributeMetaData, ExplainedAttributeMetaData> matches = ImmutableMap.of(sourceAttribute,
-				ExplainedAttributeMetaData.create(sourceAttribute,
-						Arrays.asList(ExplainedQueryString.create("height", "height", "height", 100)), true));
+		when(semanticSearchService.findAttributes(targetAttribute, targetEntityMetaData, sourceEntityMetaData, null))
+				.thenReturn(Arrays.asList(sourceAttribute));
 
-		LinkedHashMultimap<Relation, OntologyTerm> ontologyTermTags = LinkedHashMultimap.create();
-
-		when(semanticSearchService.decisionTreeToFindRelevantAttributes(sourceEntityMetaData, targetAttribute,
-				ontologyTermTags.values(), null)).thenReturn(matches);
-
-		when(ontologyTagService.getTagsForAttribute(targetEntityMetaData, targetAttribute))
-				.thenReturn(ontologyTermTags);
+		when(algorithmGeneratorService.autoGenerate(targetAttribute, Arrays.asList(sourceAttribute),
+				targetEntityMetaData, sourceEntityMetaData))
+						.thenReturn(GeneratedAlgorithm.create("$('sourceHeight').value();",
+								Sets.newHashSet(sourceAttribute), AlgorithmState.GENERATED_HIGH));
 
 		algorithmService.autoGenerateAlgorithm(sourceEntityMetaData, targetEntityMetaData, mapping, targetAttribute);
 
@@ -343,11 +321,11 @@ public class AlgorithmServiceImplTest extends AbstractTestNGSpringContextTests
 
 		EntityMapping mapping = project.getMappingTarget("target").addSource(sourceEntityMetaData);
 
-		when(semanticSearchService.findAttributes(sourceEntityMetaData, Sets.newHashSet("targetHeight", "height"),
-				Collections.emptyList())).thenReturn(emptyMap());
+		when(semanticSearchService.findAttributes(targetAttribute, targetEntityMetaData, sourceEntityMetaData, null))
+				.thenReturn(emptyList());
 
-		when(ontologyTagService.getTagsForAttribute(targetEntityMetaData, targetAttribute))
-				.thenReturn(LinkedHashMultimap.create());
+		when(algorithmGeneratorService.autoGenerate(targetAttribute, emptyList(), targetEntityMetaData,
+				sourceEntityMetaData)).thenReturn(GeneratedAlgorithm.create(EMPTY, emptySet(), null));
 
 		algorithmService.autoGenerateAlgorithm(sourceEntityMetaData, targetEntityMetaData, mapping, targetAttribute);
 
@@ -384,19 +362,13 @@ public class AlgorithmServiceImplTest extends AbstractTestNGSpringContextTests
 
 		EntityMapping mapping = project.getMappingTarget("target").addSource(sourceEntityMetaData);
 
-		Map<AttributeMetaData, ExplainedAttributeMetaData> mappings = ImmutableMap
-				.<AttributeMetaData, ExplainedAttributeMetaData> of(sourceAttribute1,
-						ExplainedAttributeMetaData.create(sourceAttribute1), sourceAttribute2,
-						ExplainedAttributeMetaData.create(sourceAttribute2));
+		when(semanticSearchService.findAttributes(targetAttribute, targetEntityMetaData, sourceEntityMetaData, null))
+				.thenReturn(Arrays.asList(sourceAttribute1, sourceAttribute2));
 
-		LinkedHashMultimap<Relation, OntologyTerm> ontologyTermTags = LinkedHashMultimap
-				.<Relation, OntologyTerm> create();
-
-		when(semanticSearchService.decisionTreeToFindRelevantAttributes(sourceEntityMetaData, targetAttribute,
-				ontologyTermTags.values(), null)).thenReturn(mappings);
-
-		when(ontologyTagService.getTagsForAttribute(targetEntityMetaData, targetAttribute))
-				.thenReturn(ontologyTermTags);
+		when(algorithmGeneratorService.autoGenerate(targetAttribute, asList(sourceAttribute1, sourceAttribute2),
+				targetEntityMetaData, sourceEntityMetaData))
+						.thenReturn(GeneratedAlgorithm.create("$('" + sourceAttribute1.getName() + "').value();",
+								newHashSet(sourceAttribute1), GENERATED_HIGH));
 
 		algorithmService.autoGenerateAlgorithm(sourceEntityMetaData, targetEntityMetaData, mapping, targetAttribute);
 
@@ -420,16 +392,9 @@ public class AlgorithmServiceImplTest extends AbstractTestNGSpringContextTests
 		}
 
 		@Bean
-		public UnitResolver unitResolver()
-		{
-			return new UnitResolverImpl(ontologyService());
-		}
-
-		@Bean
 		public AlgorithmService algorithmService()
 		{
-			return new AlgorithmServiceImpl(dataService(), ontologyTagService(), semanticSearchService(),
-					algorithmGeneratorService());
+			return new AlgorithmServiceImpl(dataService(), semanticSearchService(), algorithmGeneratorService());
 		}
 
 		@Bean
@@ -439,34 +404,15 @@ public class AlgorithmServiceImplTest extends AbstractTestNGSpringContextTests
 		}
 
 		@Bean
-		public OntologyService ontologyService()
-		{
-			return mock(OntologyService.class);
-		}
-
-		@Bean
-		public TagRepository tagRepository()
-		{
-			return mock(TagRepository.class);
-		}
-
-		@Bean
 		IdGenerator idGenerator()
 		{
-			IdGenerator idGenerator = mock(IdGenerator.class);
-			return idGenerator;
-		}
-
-		@Bean
-		public OntologyTagService ontologyTagService()
-		{
-			return mock(OntologyTagService.class);
+			return mock(IdGenerator.class);
 		}
 
 		@Bean
 		public AlgorithmGeneratorService algorithmGeneratorService()
 		{
-			return new AlgorithmGeneratorServiceImpl(dataService(), unitResolver(), algorithmTemplateService());
+			return mock(AlgorithmGeneratorService.class);
 		}
 	}
 }

@@ -32,7 +32,6 @@ import org.molgenis.data.mapper.mapping.model.AttributeMapping;
 import org.molgenis.data.mapper.mapping.model.EntityMapping;
 import org.molgenis.data.mapper.mapping.model.MappingProject;
 import org.molgenis.data.mapper.mapping.model.MappingTarget;
-import org.molgenis.data.mapper.repository.MappingProjectRepository;
 import org.molgenis.data.mapper.repository.impl.AttributeMappingRepositoryImpl;
 import org.molgenis.data.mapper.repository.impl.EntityMappingRepositoryImpl;
 import org.molgenis.data.mapper.repository.impl.MappingProjectRepositoryImpl;
@@ -42,6 +41,7 @@ import org.molgenis.data.mem.InMemoryRepositoryCollection;
 import org.molgenis.data.meta.MetaDataService;
 import org.molgenis.data.meta.MetaDataServiceImpl;
 import org.molgenis.data.meta.PackageImpl;
+import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.support.DataServiceImpl;
@@ -70,8 +70,6 @@ import com.google.common.collect.Sets;
 { MappingServiceImplTest.Config.class, MappingConfig.class })
 public class MappingServiceImplTest extends AbstractTestNGSpringContextTests
 {
-	@Autowired
-	private ManageableRepositoryCollection repoCollection;
 
 	@Autowired
 	private DataServiceImpl dataService;
@@ -87,9 +85,6 @@ public class MappingServiceImplTest extends AbstractTestNGSpringContextTests
 
 	@Autowired
 	private IdGenerator idGenerator;
-
-	@Autowired
-	private MappingProjectRepository mappingProjectRepository;
 
 	private MolgenisUser user;
 
@@ -576,6 +571,12 @@ public class MappingServiceImplTest extends AbstractTestNGSpringContextTests
 		public OntologyTagService ontologyTagService()
 		{
 			return mock(OntologyTagService.class);
+		}
+
+		@Bean
+		public AttributeMappingExplainService attributeMappingExplainService()
+		{
+			return mock(AttributeMappingExplainService.class);
 		}
 
 		@Bean

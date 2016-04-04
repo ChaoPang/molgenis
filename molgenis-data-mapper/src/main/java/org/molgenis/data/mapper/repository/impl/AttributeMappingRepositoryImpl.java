@@ -25,18 +25,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 
+import static java.util.Objects.requireNonNull;
+
 public class AttributeMappingRepositoryImpl implements AttributeMappingRepository
 {
-	public static final EntityMetaData META_DATA = new AttributeMappingMetaData();
+	public static final AttributeMappingMetaData META_DATA = new AttributeMappingMetaData();
 
-	@Autowired
-	private IdGenerator idGenerator;
-
+	private final IdGenerator idGenerator;
 	private final DataService dataService;
 
-	public AttributeMappingRepositoryImpl(DataService dataService)
+	@Autowired
+	public AttributeMappingRepositoryImpl(DataService dataService, IdGenerator idGenerator)
 	{
-		this.dataService = dataService;
+		this.dataService = requireNonNull(dataService);
+		this.idGenerator = requireNonNull(idGenerator);
 	}
 
 	@Override
@@ -75,23 +77,6 @@ public class AttributeMappingRepositoryImpl implements AttributeMappingRepositor
 
 		return result;
 	}
-
-	// private Entity upsert(AttributeMapping attributeMapping)
-	// {
-	// Entity result;
-	// if (attributeMapping.getIdentifier() == null)
-	// {
-	// attributeMapping.setIdentifier(idGenerator.generateId());
-	// result = toAttributeMappingEntity(attributeMapping);
-	// dataService.add(AttributeMappingRepositoryImpl.META_DATA.getName(), result);
-	// }
-	// else
-	// {
-	// result = toAttributeMappingEntity(attributeMapping);
-	// dataService.update(AttributeMappingRepositoryImpl.META_DATA.getName(), result);
-	// }
-	// return result;
-	// }
 
 	@Override
 	public List<AttributeMapping> getAttributeMappings(List<Entity> attributeMappingEntities,

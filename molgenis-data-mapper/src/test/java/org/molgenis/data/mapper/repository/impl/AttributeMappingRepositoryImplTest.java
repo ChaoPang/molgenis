@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verify;
 import static org.molgenis.data.mapper.meta.AttributeMappingMetaData.ALGORITHM;
 import static org.molgenis.data.mapper.meta.AttributeMappingMetaData.ALGORITHMSTATE;
 import static org.molgenis.data.mapper.meta.AttributeMappingMetaData.IDENTIFIER;
+import static org.molgenis.data.mapper.meta.AttributeMappingMetaData.SIMILARITY_SCORE;
 import static org.molgenis.data.mapper.meta.AttributeMappingMetaData.SOURCEATTRIBUTEMETADATAS;
 import static org.molgenis.data.mapper.meta.AttributeMappingMetaData.TARGETATTRIBUTEMETADATA;
 import static org.molgenis.data.mapper.repository.impl.AttributeMappingRepositoryImpl.META_DATA;
@@ -14,14 +15,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.molgenis.MolgenisFieldTypes;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.IdGenerator;
-import org.molgenis.data.mapper.config.MappingConfig;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping;
 import org.molgenis.data.mapper.meta.AttributeMappingMetaData;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
@@ -29,7 +32,6 @@ import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.molgenis.data.support.MapEntity;
-import org.molgenis.ontology.core.config.OntologyConfig;
 import org.molgenis.security.permission.PermissionSystemService;
 import org.molgenis.security.user.MolgenisUserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,8 +41,10 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
+import com.google.common.collect.Lists;
+
 @ContextConfiguration(classes =
-{ AttributeMappingRepositoryImplTest.Config.class, MappingConfig.class, OntologyConfig.class })
+{ AttributeMappingRepositoryImplTest.Config.class })
 public class AttributeMappingRepositoryImplTest extends AbstractTestNGSpringContextTests
 {
 	@Autowired
@@ -97,12 +101,18 @@ public class AttributeMappingRepositoryImplTest extends AbstractTestNGSpringCont
 		attributeMappingEntity.set(SOURCEATTRIBUTEMETADATAS, sourceAttributeMetaDatas);
 		attributeMappingEntity.set(ALGORITHM, "algorithm");
 		attributeMappingEntity.set(ALGORITHMSTATE, null);
+		attributeMappingEntity.set(SIMILARITY_SCORE, 0.0);
 
 		result.add(attributeMappingEntity);
 
 		assertEquals(attributeMappingRepository.upsert(attributeMappings), result);
 
-		verify(dataService).update(AttributeMappingRepositoryImpl.META_DATA.getName(), attributeMappingEntity);
+		ArgumentCaptor<Stream> argumentCaptor = ArgumentCaptor.forClass(Stream.class);
+		// verify that the dataService mock's update method got called with a stream
+		verify(dataService).update(Mockito.eq(META_DATA.getName()), argumentCaptor.capture());
+		// verify that the stream contained exactly one element, the attributeMappingEntity
+		assertEquals(argumentCaptor.getValue().collect(Collectors.toList()),
+				Lists.newArrayList(attributeMappingEntity));
 	}
 
 	@Test
@@ -124,12 +134,18 @@ public class AttributeMappingRepositoryImplTest extends AbstractTestNGSpringCont
 		attributeMappingEntity.set(SOURCEATTRIBUTEMETADATAS, sourceAttributeMetaDatas);
 		attributeMappingEntity.set(ALGORITHM, "algorithm");
 		attributeMappingEntity.set(ALGORITHMSTATE, null);
+		attributeMappingEntity.set(SIMILARITY_SCORE, 0.0);
 
 		result.add(attributeMappingEntity);
 
 		assertEquals(attributeMappingRepository.upsert(attributeMappings), result);
 
-		verify(dataService).add(META_DATA.getName(), attributeMappingEntity);
+		ArgumentCaptor<Stream> argumentCaptor = ArgumentCaptor.forClass(Stream.class);
+		// verify that the dataService mock's add method got called with a stream
+		verify(dataService).add(Mockito.eq(META_DATA.getName()), argumentCaptor.capture());
+		// verify that the stream contained exactly one element, the attributeMappingEntity
+		assertEquals(argumentCaptor.getValue().collect(Collectors.toList()),
+				Lists.newArrayList(attributeMappingEntity));
 	}
 
 	@Test
@@ -171,7 +187,7 @@ public class AttributeMappingRepositoryImplTest extends AbstractTestNGSpringCont
 		@Bean
 		AttributeMappingRepositoryImpl attributeMappingRepository()
 		{
-			return new AttributeMappingRepositoryImpl(dataService());
+			return new AttributeMappingRepositoryImpl(dataService(), idGenerator());
 		}
 
 		@Bean
@@ -189,8 +205,7 @@ public class AttributeMappingRepositoryImplTest extends AbstractTestNGSpringCont
 		@Bean
 		IdGenerator idGenerator()
 		{
-			IdGenerator idGenerator = mock(IdGenerator.class);
-			return idGenerator;
+			return mock(IdGenerator.class);
 		}
 
 		@Bean

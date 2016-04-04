@@ -21,20 +21,25 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.google.common.collect.Lists;
 
+import static java.util.Objects.requireNonNull;
+
 public class MappingProjectRepositoryImpl implements MappingProjectRepository
 {
 	public static final MappingProjectMetaData META_DATA = new MappingProjectMetaData();
-	private final DataService dataService;
-	@Autowired
-	private MolgenisUserService molgenisUserService;
-	@Autowired
-	private IdGenerator idGenerator;
-	private final MappingTargetRepository mappingTargetRepository;
 
-	public MappingProjectRepositoryImpl(DataService dataService, MappingTargetRepository mappingTargetRepository)
+	private final MappingTargetRepository mappingTargetRepository;
+	private final DataService dataService;
+	private final IdGenerator idGenerator;
+	private final MolgenisUserService molgenisUserService;
+
+	@Autowired
+	public MappingProjectRepositoryImpl(MappingTargetRepository mappingTargetRepository, DataService dataService,
+			IdGenerator idGenerator, MolgenisUserService molgenisUserService)
 	{
-		this.dataService = dataService;
-		this.mappingTargetRepository = mappingTargetRepository;
+		this.mappingTargetRepository = requireNonNull(mappingTargetRepository);
+		this.dataService = requireNonNull(dataService);
+		this.idGenerator = requireNonNull(idGenerator);
+		this.molgenisUserService = requireNonNull(molgenisUserService);
 	}
 
 	@Override

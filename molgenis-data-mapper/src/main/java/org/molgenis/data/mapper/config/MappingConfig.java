@@ -18,7 +18,6 @@ import org.molgenis.data.mapper.service.impl.MappingServiceImpl;
 import org.molgenis.data.mapper.service.impl.UnitResolverImpl;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
-import org.molgenis.data.semanticsearch.service.OntologyTermSemanticSearch;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.ontology.core.config.OntologyConfig;
 import org.molgenis.ontology.core.repository.OntologyTermRepository;
@@ -62,7 +61,7 @@ public class MappingConfig
 	OntologyTermRepository ontologyTermRepository;
 
 	@Autowired
-	OntologyTermSemanticSearch ontologyTermSemanticSearch;
+	MolgenisUserService molgenisUserService;
 
 	@Bean
 	public MappingService mappingService()
@@ -94,25 +93,26 @@ public class MappingConfig
 	@Bean
 	public MappingProjectRepositoryImpl mappingProjectRepository()
 	{
-		return new MappingProjectRepositoryImpl(dataService, mappingTargetRepository());
+		return new MappingProjectRepositoryImpl(mappingTargetRepository(), dataService, idGenerator,
+				molgenisUserService);
 	}
 
 	@Bean
 	public MappingTargetRepositoryImpl mappingTargetRepository()
 	{
-		return new MappingTargetRepositoryImpl(entityMappingRepository());
+		return new MappingTargetRepositoryImpl(entityMappingRepository(), dataService, idGenerator);
 	}
 
 	@Bean
 	public EntityMappingRepositoryImpl entityMappingRepository()
 	{
-		return new EntityMappingRepositoryImpl(attributeMappingRepository());
+		return new EntityMappingRepositoryImpl(attributeMappingRepository(), dataService, idGenerator);
 	}
 
 	@Bean
 	public AttributeMappingRepositoryImpl attributeMappingRepository()
 	{
-		return new AttributeMappingRepositoryImpl(dataService);
+		return new AttributeMappingRepositoryImpl(dataService, idGenerator);
 	}
 
 	@Bean

@@ -138,8 +138,11 @@ public class MappingProjectRepositoryImplTest extends AbstractTestNGSpringContex
 	@Test
 	public void testDelete()
 	{
-		mappingProjectRepositoryImpl.delete("abc");
-		verify(dataService).delete(ENTITY_NAME, "abc");
+		String identifier = mappingProject.getIdentifier();
+		when(dataService.findOne(MappingProjectRepositoryImpl.META_DATA.getName(), identifier))
+				.thenReturn(mappingProjectEntity);
+		mappingProjectRepositoryImpl.delete(identifier);
+		verify(dataService).delete(ENTITY_NAME, identifier);
 	}
 
 	@Test
@@ -216,7 +219,8 @@ public class MappingProjectRepositoryImplTest extends AbstractTestNGSpringContex
 		@Bean
 		public MappingProjectRepositoryImpl mappingProjectRepositoryImpl()
 		{
-			return new MappingProjectRepositoryImpl(dataService(), mappingTargetRepository());
+			return new MappingProjectRepositoryImpl(mappingTargetRepository(), dataService(), idGenerator(),
+					molgenisUserService());
 		}
 
 	}

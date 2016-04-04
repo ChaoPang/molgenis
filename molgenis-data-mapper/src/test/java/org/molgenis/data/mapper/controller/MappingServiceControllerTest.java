@@ -3,9 +3,13 @@ package org.molgenis.data.mapper.controller;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.initMocks;
+import static org.molgenis.data.mapper.meta.MappingProjectMetaData.IDENTIFIER;
+import static org.molgenis.data.mapper.meta.MappingProjectMetaData.OWNER;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.testng.Assert.assertEquals;
+
+import java.util.stream.Stream;
 
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -13,17 +17,23 @@ import org.mockito.Mockito;
 import org.molgenis.MolgenisFieldTypes.FieldTypeEnum;
 import org.molgenis.auth.MolgenisUser;
 import org.molgenis.data.DataService;
+import org.molgenis.data.Entity;
+import org.molgenis.data.jobs.JobExecution.Status;
+import org.molgenis.data.mapper.jobs.MappingServiceJobExecution;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState;
 import org.molgenis.data.mapper.mapping.model.EntityMapping;
 import org.molgenis.data.mapper.mapping.model.MappingProject;
 import org.molgenis.data.mapper.mapping.model.MappingTarget;
+import org.molgenis.data.mapper.meta.MappingProjectMetaData;
 import org.molgenis.data.mapper.service.AlgorithmService;
 import org.molgenis.data.mapper.service.MappingService;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
+import org.molgenis.data.support.MapEntity;
+import org.molgenis.data.support.QueryImpl;
 import org.molgenis.security.user.MolgenisUserService;
 import org.molgenis.ui.menu.Menu;
 import org.molgenis.ui.menu.MenuReaderService;
@@ -79,6 +89,7 @@ public class MappingServiceControllerTest extends AbstractTestNGSpringContextTes
 	private DefaultEntityMetaData lifeLines;
 	private DefaultEntityMetaData hop;
 	private MappingProject mappingProject;
+	private Entity mappingProjectEntity;
 	private static final String ID = "mappingservice";
 
 	private MockMvc mockMvc;
@@ -102,6 +113,10 @@ public class MappingServiceControllerTest extends AbstractTestNGSpringContextTes
 		EntityMapping entityMapping = mappingTarget.addSource(lifeLines);
 		AttributeMapping attributeMapping = entityMapping.addAttributeMapping("age");
 		attributeMapping.setAlgorithm("$('dob').age()");
+
+		mappingProjectEntity = new MapEntity(new MappingProjectMetaData());
+		mappingProjectEntity.set(IDENTIFIER, mappingProject.getIdentifier());
+		mappingProjectEntity.set(OWNER, me);
 
 		initMocks(this);
 
@@ -128,7 +143,7 @@ public class MappingServiceControllerTest extends AbstractTestNGSpringContextTes
 		ageMapping.setAlgorithm("$('length').value()");
 		ageMapping.setAlgorithmState(AlgorithmState.CURATED);
 
-		Mockito.verify(mappingService).updateMappingProject(expected);
+		Mockito.verify(mappingService).updateAttributeMapping(ageMapping);
 	}
 
 	@Test
@@ -155,7 +170,7 @@ public class MappingServiceControllerTest extends AbstractTestNGSpringContextTes
 		heightMapping.setAlgorithm("$('length').value()");
 		heightMapping.setAlgorithmState(AlgorithmState.CURATED);
 
-		Mockito.verify(mappingService).updateMappingProject(expected);
+		Mockito.verify(mappingService).updateAttributeMapping(heightMapping);
 	}
 
 	@Test
@@ -174,8 +189,9 @@ public class MappingServiceControllerTest extends AbstractTestNGSpringContextTes
 		MappingProject expected = new MappingProject("hop hop hop", me);
 		expected.setIdentifier("asdf");
 		MappingTarget mappingTarget = expected.addTarget(hop);
-		mappingTarget.addSource(lifeLines);
-		Mockito.verify(mappingService).updateMappingProject(expected);
+		EntityMapping entityMapping = mappingTarget.addSource(lifeLines);
+		entityMapping.deleteAttributeMapping("age");
+		Mockito.verify(mappingService).updateMappingEntity(entityMapping);
 	}
 
 	@Test
@@ -185,6 +201,14 @@ public class MappingServiceControllerTest extends AbstractTestNGSpringContextTes
 		Menu menu = mock(Menu.class);
 		when(menuReaderService.getMenu()).thenReturn(menu);
 		when(menu.findMenuItemPath(ID)).thenReturn("/menu/main/mappingservice");
+
+		when(dataService.findOne(MappingProjectMetaData.ENTITY_NAME, mappingProject.getIdentifier()))
+				.thenReturn(mappingProjectEntity);
+
+		when(dataService.findAll(MappingServiceJobExecution.ENTITY_NAME,
+				QueryImpl.EQ(MappingServiceJobExecution.MAPPING_PROJECT, mappingProjectEntity).and()
+						.eq(MappingServiceJobExecution.STATUS, Status.RUNNING.toString().toUpperCase())))
+								.thenReturn(Stream.empty());
 
 		MvcResult result = mockMvc
 				.perform(MockMvcRequestBuilders.post(MappingServiceController.URI + "/firstattributemapping")
@@ -205,6 +229,14 @@ public class MappingServiceControllerTest extends AbstractTestNGSpringContextTes
 		Menu menu = mock(Menu.class);
 		when(menuReaderService.getMenu()).thenReturn(menu);
 		when(menu.findMenuItemPath(ID)).thenReturn("/menu/main/mappingservice");
+
+		when(dataService.findOne(MappingProjectMetaData.ENTITY_NAME, mappingProject.getIdentifier()))
+				.thenReturn(mappingProjectEntity);
+
+		when(dataService.findAll(MappingServiceJobExecution.ENTITY_NAME,
+				QueryImpl.EQ(MappingServiceJobExecution.MAPPING_PROJECT, mappingProjectEntity).and()
+						.eq(MappingServiceJobExecution.STATUS, Status.RUNNING.toString().toUpperCase())))
+								.thenReturn(Stream.empty());
 
 		mappingProject.getMappingTarget("HOP").getMappingForSource("LifeLines").getAttributeMapping("age")
 				.setAlgorithmState(AlgorithmState.CURATED);
@@ -228,6 +260,14 @@ public class MappingServiceControllerTest extends AbstractTestNGSpringContextTes
 		Menu menu = mock(Menu.class);
 		when(menuReaderService.getMenu()).thenReturn(menu);
 		when(menu.findMenuItemPath(ID)).thenReturn("/menu/main/mappingservice");
+
+		when(dataService.findOne(MappingProjectMetaData.ENTITY_NAME, mappingProject.getIdentifier()))
+				.thenReturn(mappingProjectEntity);
+
+		when(dataService.findAll(MappingServiceJobExecution.ENTITY_NAME,
+				QueryImpl.EQ(MappingServiceJobExecution.MAPPING_PROJECT, mappingProjectEntity).and()
+						.eq(MappingServiceJobExecution.STATUS, Status.RUNNING.toString().toUpperCase())))
+								.thenReturn(Stream.empty());
 
 		mappingProject.getMappingTarget("HOP").getMappingForSource("LifeLines").getAttributeMapping("age")
 				.setAlgorithmState(AlgorithmState.DISCUSS);

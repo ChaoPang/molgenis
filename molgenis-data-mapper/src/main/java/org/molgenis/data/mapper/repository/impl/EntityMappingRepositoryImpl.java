@@ -27,6 +27,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.collect.Lists;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * O/R mapping between EntityMapping Entity and EntityMapping POJO
  */
@@ -36,17 +38,17 @@ public class EntityMappingRepositoryImpl implements EntityMappingRepository
 
 	public static final EntityMetaData META_DATA = new EntityMappingMetaData();
 
-	@Autowired
-	private DataService dataService;
-
-	@Autowired
-	private IdGenerator idGenerator;
-
+	private final DataService dataService;
+	private final IdGenerator idGenerator;
 	private final AttributeMappingRepository attributeMappingRepository;
 
-	public EntityMappingRepositoryImpl(AttributeMappingRepository attributeMappingRepository)
+	@Autowired
+	public EntityMappingRepositoryImpl(AttributeMappingRepository attributeMappingRepository, DataService dataService,
+			IdGenerator idGenerator)
 	{
-		this.attributeMappingRepository = attributeMappingRepository;
+		this.attributeMappingRepository = requireNonNull(attributeMappingRepository);
+		this.dataService = requireNonNull(dataService);
+		this.idGenerator = requireNonNull(idGenerator);
 	}
 
 	@Override

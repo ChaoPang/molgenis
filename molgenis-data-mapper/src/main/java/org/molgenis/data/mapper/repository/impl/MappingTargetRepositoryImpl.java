@@ -18,25 +18,25 @@ import org.molgenis.data.mapper.meta.MappingTargetMetaData;
 import org.molgenis.data.mapper.repository.EntityMappingRepository;
 import org.molgenis.data.mapper.repository.MappingTargetRepository;
 import org.molgenis.data.support.MapEntity;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.collect.Lists;
+
+import static java.util.Objects.requireNonNull;
 
 public class MappingTargetRepositoryImpl implements MappingTargetRepository
 {
 	public static final EntityMetaData META_DATA = new MappingTargetMetaData();
 
-	@Autowired
-	private IdGenerator idGenerator;
-
 	private final EntityMappingRepository entityMappingRepository;
+	private final DataService dataService;
+	private final IdGenerator idGenerator;
 
-	@Autowired
-	private DataService dataService;
-
-	public MappingTargetRepositoryImpl(EntityMappingRepository entityMappingRepository)
+	public MappingTargetRepositoryImpl(EntityMappingRepository entityMappingRepository, DataService dataService,
+			IdGenerator idGenerator)
 	{
-		this.entityMappingRepository = entityMappingRepository;
+		this.entityMappingRepository = requireNonNull(entityMappingRepository);
+		this.dataService = requireNonNull(dataService);
+		this.idGenerator = requireNonNull(idGenerator);
 	}
 
 	@Override

@@ -27,8 +27,6 @@ import org.molgenis.data.support.DataServiceImpl;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.molgenis.data.support.MapEntity;
-import org.molgenis.security.permission.PermissionSystemService;
-import org.molgenis.security.user.MolgenisUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -79,8 +77,8 @@ public class MappingTargetRepositoryImplTest extends AbstractTestNGSpringContext
 		targetEntityMetaData = new DefaultEntityMetaData("target");
 		DefaultAttributeMetaData targetAttributeMetaData = new DefaultAttributeMetaData("targetAttribute");
 		targetEntityMetaData.addAttributeMetaData(targetAttributeMetaData);
-		entityMappings = Arrays.asList(new EntityMapping("entityMappingID", sourceEntityMetaData, targetEntityMetaData,
-				emptyList()));
+		entityMappings = Arrays
+				.asList(new EntityMapping("entityMappingID", sourceEntityMetaData, targetEntityMetaData, emptyList()));
 		mappingTargets = Arrays.asList(new MappingTarget("mappingTargetID", targetEntityMetaData, entityMappings));
 
 		// Entities
@@ -146,19 +144,7 @@ public class MappingTargetRepositoryImplTest extends AbstractTestNGSpringContext
 		@Bean
 		MappingTargetRepositoryImpl mappingTargetRepository()
 		{
-			return new MappingTargetRepositoryImpl(entityMappingRepository());
-		}
-
-		@Bean
-		MolgenisUserService userService()
-		{
-			return mock(MolgenisUserService.class);
-		}
-
-		@Bean
-		PermissionSystemService permissionSystemService()
-		{
-			return mock(PermissionSystemService.class);
+			return new MappingTargetRepositoryImpl(entityMappingRepository(), dataService(), idGenerator());
 		}
 
 		@Bean

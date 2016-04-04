@@ -2,13 +2,10 @@ package org.molgenis.data.mapper.algorithmgenerator.service.impl;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.molgenis.js.magma.JsMagmaScriptRegistrator.SCRIPT_TYPE_JAVASCRIPT_MAGMA;
-import static org.molgenis.script.Script.ENTITY_NAME;
-import static org.molgenis.script.Script.TYPE;
 import static org.testng.Assert.assertEquals;
 
 import java.util.Arrays;
-import java.util.Map;
+import java.util.List;
 import java.util.stream.Stream;
 
 import org.molgenis.MolgenisFieldTypes;
@@ -18,14 +15,12 @@ import org.molgenis.data.mapper.algorithmgenerator.bean.GeneratedAlgorithm;
 import org.molgenis.data.mapper.algorithmgenerator.service.AlgorithmGeneratorService;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState;
 import org.molgenis.data.mapper.service.UnitResolver;
+import org.molgenis.data.mapper.service.impl.AlgorithmTemplate;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
-import org.molgenis.data.mapper.service.impl.AlgorithmTemplateServiceImpl;
 import org.molgenis.data.mapper.service.impl.UnitResolverImpl;
-import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
-import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
+import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
-import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.script.Script;
@@ -84,12 +79,7 @@ public class AlgorithmGeneratorServiceImplTest extends AbstractTestNGSpringConte
 
 		sourceEntityMetaData.addAttributeMetaData(heightSourceAttribute);
 		sourceEntityMetaData.addAttributeMetaData(weightSourceAttribute);
-
-		Map<AttributeMetaData, ExplainedAttributeMetaData> sourceAttributes = ImmutableMap.of(heightSourceAttribute,
-				ExplainedAttributeMetaData.create(heightSourceAttribute,
-						Arrays.asList(ExplainedQueryString.create("height", "height", "height", 100)), true),
-				weightSourceAttribute, ExplainedAttributeMetaData.create(heightSourceAttribute,
-						Arrays.asList(ExplainedQueryString.create("weight", "weight", "weight", 100)), true));
+		List<AttributeMetaData> sourceAttributes = Arrays.asList(heightSourceAttribute, weightSourceAttribute);
 
 		Script script = mock(Script.class);
 		ScriptParameter heightParameter = mock(ScriptParameter.class);
@@ -99,8 +89,11 @@ public class AlgorithmGeneratorServiceImplTest extends AbstractTestNGSpringConte
 		when(script.getParameters()).thenReturn(Arrays.asList(heightParameter, weightParameter));
 		when(script.getContent()).thenReturn("$('weight').div($('height').pow(2)).value()");
 
-		when(dataService.findAll(ENTITY_NAME, new QueryImpl().eq(TYPE, SCRIPT_TYPE_JAVASCRIPT_MAGMA), Script.class))
-				.thenReturn(Stream.of(script));
+		AlgorithmTemplate template = new AlgorithmTemplate(script,
+				ImmutableMap.of("height", "sourceHeight", "weight", "sourceWeight"));
+
+		when(algorithmTemplateService.find(targetBMIAttribute,
+				Arrays.asList(heightSourceAttribute, weightSourceAttribute))).thenReturn(Stream.of(template));
 
 		GeneratedAlgorithm generate = algorithmGeneratorService.autoGenerate(targetBMIAttribute, sourceAttributes,
 				targetEntityMetaData, sourceEntityMetaData);
@@ -123,6 +116,8 @@ public class AlgorithmGeneratorServiceImplTest extends AbstractTestNGSpringConte
 		sourceAttribute.setDataType(MolgenisFieldTypes.DECIMAL);
 		sourceAttribute.setLabel("body length in cm");
 		sourceEntityMetaData.addAttributeMetaData(sourceAttribute);
+
+		when(algorithmTemplateService.find(targetAttribute, Arrays.asList(sourceAttribute))).thenReturn(Stream.empty());
 
 		String actualAlgorithm = algorithmGeneratorService.generate(targetAttribute,
 				Lists.newArrayList(sourceAttribute), targetEntityMetaData, sourceEntityMetaData);
@@ -156,13 +151,20 @@ public class AlgorithmGeneratorServiceImplTest extends AbstractTestNGSpringConte
 		@Bean
 		public AlgorithmTemplateService algorithmTemplateService()
 		{
-			return new AlgorithmTemplateServiceImpl(dataService());
+			return mock(AlgorithmTemplateService.class);
+		}
+
+		@Bean
+		public AttributeMappingExplainService attributeMappingExplainService()
+		{
+			return mock(AttributeMappingExplainService.class);
 		}
 
 		@Bean
 		public AlgorithmGeneratorService algorithmGeneratorService()
 		{
-			return new AlgorithmGeneratorServiceImpl(dataService(), unitResolver(), algorithmTemplateService());
+			return new AlgorithmGeneratorServiceImpl(dataService(), attributeMappingExplainService(), unitResolver(),
+					algorithmTemplateService());
 		}
 	}
 }
