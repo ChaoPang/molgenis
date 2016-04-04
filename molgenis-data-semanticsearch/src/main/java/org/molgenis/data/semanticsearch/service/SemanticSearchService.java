@@ -24,7 +24,7 @@ public interface SemanticSearchService
 	List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute, EntityMetaData targetEntityMetaData,
 			EntityMetaData sourceEntityMetaData, Set<String> searchTerms);
 
-	List<OntologyTerm> getOntologyTermsForAttr(AttributeMetaData attribute, EntityMetaData entityMetadata,
+	List<OntologyTerm> findOntologyTermsForAttr(AttributeMetaData attribute, EntityMetaData entityMetadata,
 			Set<String> searchTerms);
 
 	/**
@@ -51,7 +51,18 @@ public interface SemanticSearchService
 
 	Hit<OntologyTerm> findTags(String description, List<String> ontologyIds);
 
-	Hit<OntologyTermHit> findAndFilterTags(AttributeMetaData attribute, List<String> ontologyIds,
-			List<OntologyTerm> ontologyTerms);
+	/**
+	 * Finds an {@link OntologyTermHit} for an attribute within the given scope of the ontology terms.
+	 * {@link OntologyTermHit} contains the best combination of ontology terms that yields the highest lexical
+	 * similarity score.
+	 * 
+	 * @param attribute
+	 * @param ontologyIds
+	 * @param ontologyTermScope
+	 *            defines a scope of ontology terms in which the search is performed.
+	 * @return
+	 */
+	Hit<OntologyTermHit> findTagForAttribute(AttributeMetaData attribute, List<String> ontologyIds,
+			List<OntologyTerm> ontologyTermScope);
 
 }

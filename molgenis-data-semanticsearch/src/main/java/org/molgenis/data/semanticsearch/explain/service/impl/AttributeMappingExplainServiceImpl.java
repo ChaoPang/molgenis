@@ -2,6 +2,7 @@ package org.molgenis.data.semanticsearch.explain.service.impl;
 
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -22,8 +23,6 @@ import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.utils.Stemmer;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import com.google.common.collect.Lists;
 
 import static java.util.Objects.requireNonNull;
 
@@ -68,9 +67,9 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		Hit<String> targetQueryTermHit = findBestQueryTerm(queriesFromTargetAttribute, queriesFromSourceAttribute);
 
 		List<OntologyTerm> ontologyTerms = getExpandedOntologyTerms(
-				semanticSearchService.getOntologyTermsForAttr(targetAttribute, targetEntityMetaData, userQueries));
+				semanticSearchService.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, userQueries));
 
-		Hit<OntologyTermHit> ontologyTermHit = semanticSearchService.findAndFilterTags(matchedSourceAttribute,
+		Hit<OntologyTermHit> ontologyTermHit = semanticSearchService.findTagForAttribute(matchedSourceAttribute,
 				ontologyService.getAllOntologiesIds(), ontologyTerms);
 
 		if (ontologyTermHit == null) ontologyTermHit = Hit.<OntologyTermHit> create(EMPTY_ONTOLOGYTERMHIT, (float) 0);
@@ -103,11 +102,14 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 
 	List<OntologyTerm> getExpandedOntologyTerms(List<OntologyTerm> ontologyTerms)
 	{
-		List<OntologyTerm> expandedOntologyTerms = Lists.newArrayList(ontologyTerms);
+		List<OntologyTerm> expandedOntologyTerms = new ArrayList<>();
 		for (OntologyTerm ot : ontologyTerms)
 		{
-			ontologyService.getAtomicOntologyTerms(ot).forEach(atomicOntologyTerm -> expandedOntologyTerms
-					.addAll(ontologyService.getChildren(atomicOntologyTerm)));
+			for (OntologyTerm atomicOntologyTerm : ontologyService.getAtomicOntologyTerms(ot))
+			{
+				expandedOntologyTerms.add(atomicOntologyTerm);
+				expandedOntologyTerms.addAll(ontologyService.getChildren(atomicOntologyTerm));
+			}
 		}
 		return expandedOntologyTerms;
 	}

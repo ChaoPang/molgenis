@@ -81,7 +81,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		Set<String> queryTerms = semanticSearchServiceHelper.createLexicalSearchQueryTerms(targetAttribute,
 				searchTerms);
 
-		List<OntologyTerm> ontologyTerms = getOntologyTermsForAttr(targetAttribute, targetEntityMetaData, searchTerms);
+		List<OntologyTerm> ontologyTerms = findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, searchTerms);
 
 		QueryRule disMaxQueryRule = semanticSearchServiceHelper.createDisMaxQueryRuleForAttribute(queryTerms,
 				ontologyTerms);
@@ -108,7 +108,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	}
 
 	@Override
-	public List<OntologyTerm> getOntologyTermsForAttr(AttributeMetaData attribute, EntityMetaData entityMetadata,
+	public List<OntologyTerm> findOntologyTermsForAttr(AttributeMetaData attribute, EntityMetaData entityMetadata,
 			Set<String> searchTerms)
 	{
 		List<OntologyTerm> ontologyTerms = new ArrayList<>();
@@ -195,7 +195,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	}
 
 	@Override
-	public Hit<OntologyTermHit> findAndFilterTags(AttributeMetaData attribute, List<String> ontologyIds,
+	public Hit<OntologyTermHit> findTagForAttribute(AttributeMetaData attribute, List<String> ontologyIds,
 			List<OntologyTerm> filteredOntologyTerms)
 	{
 		String description = attribute.getDescription() == null ? attribute.getLabel() : attribute.getDescription();
