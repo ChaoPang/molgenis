@@ -194,7 +194,7 @@ public class BiobankAttributeMatrixController extends MolgenisPluginController
 
 		if (ontology == null) return null;
 
-		Hit<OntologyTerm> findTags = semanticSearchService.findTagsForAttribute(attribute,
+		Hit<OntologyTerm> findTags = semanticSearchService.findTagForAttr(attribute,
 				Arrays.asList(ontology.getId()));
 
 		return findTags.getResult();

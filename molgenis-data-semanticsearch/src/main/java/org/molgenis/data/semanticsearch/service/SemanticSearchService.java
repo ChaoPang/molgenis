@@ -38,8 +38,6 @@ public interface SemanticSearchService
 	 */
 	Map<AttributeMetaData, Hit<OntologyTerm>> findTagsForEntity(String entity, List<String> ontologyIDs);
 
-	Hit<OntologyTerm> findTags(String description, List<String> ontologyIds);
-
 	/**
 	 * Finds {@link OntologyTerm}s for an attribute.
 	 * 
@@ -49,19 +47,34 @@ public interface SemanticSearchService
 	 *            IDs of ontologies to take the {@link OntologyTerm}s from.
 	 * @return {@link List} of {@link Hit}s for {@link OntologyTerm}s found, most relevant first
 	 */
-	Hit<OntologyTerm> findTagsForAttribute(AttributeMetaData attribute, List<String> ontologyIds);
+	Hit<OntologyTerm> findTagForAttr(AttributeMetaData attribute, List<String> ontologyIds);
+
+	Hit<OntologyTerm> findTag(String description, List<String> ontologyIds);
 
 	/**
-	 * * Finds all {@link OntologyTermHit}s for an attribute within the given scope of the ontology terms.
+	 * Finds all {@link OntologyTermHit}s for an attribute with in all ontology terms for the specified ontologies.
 	 * {@link OntologyTermHit} contains the best combination of ontology terms that yields the highest lexical
 	 * similarity score.
 	 * 
 	 * @param attribute
 	 * @param ontologyIds
-	 * @param ontologyTermScope
+	 * @return
+	 */
+	List<Hit<OntologyTermHit>> findAllTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds);
+
+	List<Hit<OntologyTermHit>> findAllTags(String description, List<String> ontologyIds);
+
+	/**
+	 * Filters all the relevant {@link OntologyTerm}s and creates the {@link OntologyTermHit}s for the attribute.
+	 * {@link OntologyTermHit} contains the best combination of ontology terms that yields the highest lexical
+	 * similarity score.
+	 * 
+	 * @param attribute
+	 * @param ontologyIds
+	 * @param scope
 	 *            defines a scope of ontology terms in which the search is performed.
 	 * @return
 	 */
-	List<Hit<OntologyTermHit>> findAllTagsForAttribute(AttributeMetaData attribute, List<String> ontologyIds,
-			List<OntologyTerm> ontologyTermScope);
+	List<Hit<OntologyTermHit>> filterTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds,
+			List<OntologyTerm> scope);
 }

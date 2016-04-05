@@ -108,10 +108,10 @@ public class AlgorithmTemplateServiceImpl implements AlgorithmTemplateService
 		{
 			// If the attribute terms cannot be matched with the script parameter, then we use the ontology term based
 			// approach to try to find the sourceAttribute that satisfies the condition
-			Hit<OntologyTerm> attributeOntologyTermHit = semanticSearchService.findTagsForAttribute(attribute,
+			Hit<OntologyTerm> attributeOntologyTermHit = semanticSearchService.findTagForAttr(attribute,
 					ontologySerivce.getAllOntologiesIds());
 
-			Hit<OntologyTerm> scriptOntologyTermHit = semanticSearchService.findTags(scriptParameterName,
+			Hit<OntologyTerm> scriptOntologyTermHit = semanticSearchService.findTag(scriptParameterName,
 					ontologySerivce.getAllOntologiesIds());
 
 			if (attributeOntologyTermHit == null || scriptOntologyTermHit == null) return false;

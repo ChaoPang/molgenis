@@ -3,6 +3,7 @@ package org.molgenis.data.semanticsearch.service.impl;
 import static com.google.common.collect.ImmutableMap.of;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptySet;
+import static java.util.Collections.shuffle;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.of;
 import static org.elasticsearch.common.collect.Sets.newHashSet;
@@ -133,7 +134,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 		attribute.setDescription("History of Hypertension");
 		when(ontologyService.findOntologyTerms(ontologyIds, ImmutableSet.<String> of("history", "hypertens"), 100))
 				.thenReturn(ontologyTerms);
-		Hit<OntologyTerm> result = semanticSearchService.findTagsForAttribute(attribute, ontologyIds);
+		Hit<OntologyTerm> result = semanticSearchService.findTagForAttr(attribute, ontologyIds);
 		assertEquals(result, null);
 	}
 
@@ -157,7 +158,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 		attribute.setDescription("Standing height in meters.");
 		when(ontologyService.findOntologyTerms(ontologyIds, ImmutableSet.<String> of("standing", "height", "meters"),
 				20)).thenReturn(ontologyTerms);
-		Hit<OntologyTerm> result = semanticSearchService.findTagsForAttribute(attribute, ontologyIds);
+		Hit<OntologyTerm> result = semanticSearchService.findTagForAttr(attribute, ontologyIds);
 		assertEquals(result, Hit.<OntologyTerm> create(standingHeight, 0.81250f));
 	}
 
@@ -169,7 +170,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 
 		when(ontologyService.findOntologyTerms(ontologyIds, ImmutableSet.<String> of("standing", "height", "m"), 20))
 				.thenReturn(ontologyTerms);
-		Hit<OntologyTerm> result = semanticSearchService.findTagsForAttribute(attribute, ontologyIds);
+		Hit<OntologyTerm> result = semanticSearchService.findTagForAttr(attribute, ontologyIds);
 		assertEquals(result, Hit.<OntologyTerm> create(standingHeight, 0.92857f));
 	}
 
@@ -259,7 +260,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 
 		when(ontologyService.findOntologyTerms(ontologyIds, ImmutableSet.of("standing", "height", "ångstrøm"), 20))
 				.thenReturn(ontologyTerms);
-		Hit<OntologyTerm> result = semanticSearchService.findTagsForAttribute(attribute, ontologyIds);
+		Hit<OntologyTerm> result = semanticSearchService.findTagForAttr(attribute, ontologyIds);
 		assertEquals(result, Hit.<OntologyTerm> create(standingHeight, 0.76471f));
 	}
 
@@ -271,7 +272,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 
 		when(ontologyService.findOntologyTerms(ontologyIds, ImmutableSet.of("əˈnædrəməs"), 20))
 				.thenReturn(ontologyTerms);
-		Hit<OntologyTerm> result = semanticSearchService.findTagsForAttribute(attribute, ontologyIds);
+		Hit<OntologyTerm> result = semanticSearchService.findTagForAttr(attribute, ontologyIds);
 		assertEquals(result, null);
 	}
 
@@ -283,7 +284,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 
 		when(ontologyService.findOntologyTerms(ontologyIds, ImmutableSet.of("body", "mass", "index"), 20))
 				.thenReturn(ontologyTerms);
-		Hit<OntologyTerm> result = semanticSearchService.findTagsForAttribute(attribute, ontologyIds);
+		Hit<OntologyTerm> result = semanticSearchService.findTagForAttr(attribute, ontologyIds);
 		assertEquals(result, null);
 	}
 
@@ -336,7 +337,11 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 		when(semanticSearchServiceHelper.getOtLabelAndSynonyms(ot6)).thenReturn(newHashSet("Activity", "ACT"));
 
 		Set<String> searchTerms = splitAndStem("NSA has an activity on SEPT4");
+
 		List<OntologyTerm> relevantOntologyTerms = Lists.newArrayList(ot, ot0, ot1, ot2, ot3, ot4, ot5, ot6);
+		// Randomize the order of the ontology terms
+		shuffle(ontologyTerms);
+
 		List<Hit<OntologyTermHit>> combineOntologyTerms = semanticSearchService.combineOntologyTerms(searchTerms,
 				relevantOntologyTerms);
 

@@ -83,11 +83,11 @@ public class AlgorithmTemplateServiceImplTest extends AbstractTestNGSpringContex
 		Hit<OntologyTerm> bmiOntologyTermHit = Hit
 				.<OntologyTerm> create(OntologyTerm.and(heightOntologyTerm, weightOntologyTerm), (float) 1);
 
-		when(semanticSearchService.findTagsForAttribute(targetAttribute, ontologyIds)).thenReturn(bmiOntologyTermHit);
-		when(semanticSearchService.findTagsForAttribute(sourceAttr0, ontologyIds)).thenReturn(heightOntologyTermHit);
-		when(semanticSearchService.findTagsForAttribute(sourceAttr1, ontologyIds)).thenReturn(weightOntologyTermHit);
-		when(semanticSearchService.findTags(param0Name, ontologyIds)).thenReturn(heightOntologyTermHit);
-		when(semanticSearchService.findTags(param1Name, ontologyIds)).thenReturn(weightOntologyTermHit);
+		when(semanticSearchService.findTagForAttr(targetAttribute, ontologyIds)).thenReturn(bmiOntologyTermHit);
+		when(semanticSearchService.findTagForAttr(sourceAttr0, ontologyIds)).thenReturn(heightOntologyTermHit);
+		when(semanticSearchService.findTagForAttr(sourceAttr1, ontologyIds)).thenReturn(weightOntologyTermHit);
+		when(semanticSearchService.findTag(param0Name, ontologyIds)).thenReturn(heightOntologyTermHit);
+		when(semanticSearchService.findTag(param1Name, ontologyIds)).thenReturn(weightOntologyTermHit);
 		when(ontologyService.getAtomicOntologyTerms(bmiOntologyTermHit.getResult()))
 				.thenReturn(asList(heightOntologyTerm, weightOntologyTerm));
 		when(ontologyService.getAtomicOntologyTerms(heightOntologyTermHit.getResult()))

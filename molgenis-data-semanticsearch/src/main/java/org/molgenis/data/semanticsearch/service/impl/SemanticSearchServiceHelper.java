@@ -1,6 +1,7 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
 import static java.util.Arrays.stream;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -77,11 +78,11 @@ public class SemanticSearchServiceHelper
 		}
 		if (queryTerms.size() == 0)
 		{
-			if (StringUtils.isNotBlank(targetAttribute.getLabel()))
+			if (isNotBlank(targetAttribute.getLabel()))
 			{
 				queryTerms.add(targetAttribute.getLabel());
 			}
-			if (StringUtils.isNotBlank(targetAttribute.getDescription()))
+			if (isNotBlank(targetAttribute.getDescription()))
 			{
 				queryTerms.add(targetAttribute.getDescription());
 			}

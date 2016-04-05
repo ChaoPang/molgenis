@@ -77,8 +77,8 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 
 		List<OntologyTerm> ontologyTerms = Arrays.asList(
 				OntologyTerm.create("iri1", "hypertension", Lists.newArrayList("high blood pressure", "HBP")),
-				OntologyTerm.create("iri3", "systolic hypertension"),
-				OntologyTerm.create("iri4", "distolic hypertension"), OntologyTerm.create("iri2", "medication"));
+				OntologyTerm.create("iri2", "medication"), OntologyTerm.create("iri3", "systolic hypertension"),
+				OntologyTerm.create("iri4", "distolic hypertension"));
 
 		List<String> allOntologyIds = Arrays.asList("1");
 
@@ -96,8 +96,8 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		OntologyTermHit ontologyTermHit = OntologyTermHit
 				.create(OntologyTerm.create("iri1,iri2", "hypertension,medication"), "high blood pressure medication");
 
-		when(semanticSearchService.findAllTagsForAttribute(matchedSourceAttribute, allOntologyIds, ontologyTerms))
-				.thenReturn(Arrays.asList(Hit.<OntologyTermHit> create(ontologyTermHit, (float) 1)));
+		when(semanticSearchService.filterTagsForAttr(matchedSourceAttribute, allOntologyIds, ontologyTerms))
+				.thenReturn(asList(Hit.<OntologyTermHit> create(ontologyTermHit, (float) 1)));
 
 		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl.explainAttributeMapping(targetAttribute,
 				matchedSourceAttribute, targetEntityMetaData, sourceEntityMetaData);
@@ -124,8 +124,8 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		List<OntologyTerm> actual = attributeMappingExplainServiceImpl.getExpandedOntologyTerms(Arrays.asList(ot));
 		List<OntologyTerm> expected = Arrays.asList(
 				OntologyTerm.create("iri1", "hypertension", Lists.newArrayList("high blood pressure", "HBP")),
-				OntologyTerm.create("iri3", "systolic hypertension"),
-				OntologyTerm.create("iri4", "distolic hypertension"), OntologyTerm.create("iri2", "medication"));
+				OntologyTerm.create("iri2", "medication"), OntologyTerm.create("iri3", "systolic hypertension"),
+				OntologyTerm.create("iri4", "distolic hypertension"));
 		assertEquals(actual, expected);
 	}
 

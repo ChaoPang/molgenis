@@ -139,7 +139,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 				{
 					allOntologiesIds.remove(unitOntology.getId());
 				}
-				Hit<OntologyTerm> ontologyTermHit = findTagsForAttribute(attribute, allOntologiesIds);
+				Hit<OntologyTerm> ontologyTermHit = findTagForAttr(attribute, allOntologiesIds);
 				if (ontologyTermHit != null)
 				{
 					ontologyTerms.add(ontologyTermHit.getResult());
@@ -160,7 +160,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		EntityMetaData emd = dataService.getEntityMetaData(entity);
 		for (AttributeMetaData amd : emd.getAtomicAttributes())
 		{
-			Hit<OntologyTerm> tag = findTagsForAttribute(amd, ontologyIds);
+			Hit<OntologyTerm> tag = findTagForAttr(amd, ontologyIds);
 			if (tag != null)
 			{
 				result.put(amd, tag);
@@ -170,14 +170,30 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	}
 
 	@Override
-	public Hit<OntologyTerm> findTagsForAttribute(AttributeMetaData attribute, List<String> ontologyIds)
+	public Hit<OntologyTerm> findTagForAttr(AttributeMetaData attribute, List<String> ontologyIds)
 	{
-		String description = attribute.getDescription() == null ? attribute.getLabel() : attribute.getDescription();
-		return findTags(description, ontologyIds);
+		List<Hit<OntologyTermHit>> ontologyTermHits = findAllTagsForAttr(attribute, ontologyIds);
+		return ontologyTermHits.stream().findFirst()
+				.map(otHit -> create(otHit.getResult().getOntologyTerm(), otHit.getScore())).orElse(null);
 	}
 
 	@Override
-	public Hit<OntologyTerm> findTags(String description, List<String> ontologyIds)
+	public Hit<OntologyTerm> findTag(String description, List<String> ontologyIds)
+	{
+		List<Hit<OntologyTermHit>> ontologyTermHits = findAllTags(description, ontologyIds);
+		return ontologyTermHits.stream().findFirst()
+				.map(otHit -> create(otHit.getResult().getOntologyTerm(), otHit.getScore())).orElse(null);
+	}
+
+	@Override
+	public List<Hit<OntologyTermHit>> findAllTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds)
+	{
+		String description = attribute.getDescription() == null ? attribute.getLabel() : attribute.getDescription();
+		return findAllTags(description, ontologyIds);
+	}
+
+	@Override
+	public List<Hit<OntologyTermHit>> findAllTags(String description, List<String> ontologyIds)
 	{
 		Set<String> searchTerms = splitIntoTerms(description);
 
@@ -193,15 +209,12 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 			LOG.debug("Candidates: {}", candidates);
 		}
 
-		List<Hit<OntologyTermHit>> ontologyTermHits = combineOntologyTerms(searchTerms, candidates);
-
-		return ontologyTermHits.stream().findFirst()
-				.map(otHit -> create(otHit.getResult().getOntologyTerm(), otHit.getScore())).orElse(null);
+		return combineOntologyTerms(searchTerms, candidates);
 	}
 
 	@Override
-	public List<Hit<OntologyTermHit>> findAllTagsForAttribute(AttributeMetaData attribute, List<String> ontologyIds,
-			List<OntologyTerm> filteredOntologyTerms)
+	public List<Hit<OntologyTermHit>> filterTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds,
+			List<OntologyTerm> scope)
 	{
 		String description = attribute.getDescription() == null ? attribute.getLabel() : attribute.getDescription();
 		Set<String> searchTerms = splitIntoTerms(description);
@@ -212,7 +225,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		}
 
 		List<OntologyTerm> candidates = ontologyService.findAndFilterOntologyTerms(ontologyIds, searchTerms,
-				MAX_NUM_TAGS, filteredOntologyTerms);
+				MAX_NUM_TAGS, scope);
 
 		if (LOG.isDebugEnabled())
 		{
