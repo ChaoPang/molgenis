@@ -1,6 +1,9 @@
 package org.molgenis.data.semanticsearch.explain.service.impl;
 
+import static org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString.create;
+import static org.molgenis.data.semanticsearch.semantic.Hit.create;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
+import static org.molgenis.ontology.utils.Stemmer.splitAndStem;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -21,7 +24,6 @@ import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceHelper;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
-import org.molgenis.ontology.utils.Stemmer;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static java.util.Objects.requireNonNull;
@@ -69,13 +71,14 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		List<OntologyTerm> ontologyTerms = getExpandedOntologyTerms(
 				semanticSearchService.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, userQueries));
 
-		Hit<OntologyTermHit> ontologyTermHit = semanticSearchService.findTagForAttribute(matchedSourceAttribute,
-				ontologyService.getAllOntologiesIds(), ontologyTerms);
+		Hit<OntologyTermHit> ontologyTermHit = semanticSearchService
+				.findAllTagsForAttribute(matchedSourceAttribute, ontologyService.getAllOntologiesIds(), ontologyTerms)
+				.stream().findFirst().orElse(null);
 
-		if (ontologyTermHit == null) ontologyTermHit = Hit.<OntologyTermHit> create(EMPTY_ONTOLOGYTERMHIT, (float) 0);
+		ontologyTermHit = ontologyTermHit == null ? create(EMPTY_ONTOLOGYTERMHIT, (float) 0) : ontologyTermHit;
 
 		String bestMatchingQuery = targetQueryTermHit.getScore() >= ontologyTermHit.getScore()
-				? targetQueryTermHit.getResult() : ontologyTermHit.getResult().getMatchedSynonym();
+				? targetQueryTermHit.getResult() : ontologyTermHit.getResult().getJoinedSynonym();
 
 		String queryOrigin = targetQueryTermHit.getScore() > ontologyTermHit.getScore() ? targetQueryTermHit.getResult()
 				: ontologyTermHit.getResult().getOntologyTerm().getLabel();
@@ -89,11 +92,10 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 
 		for (String queryFromSourceAttribute : queriesFromSourceAttribute)
 		{
-			Set<String> labelTokens = Stemmer.splitAndStem(queryFromSourceAttribute);
-			Set<String> bestMatchingQueryTokens = Stemmer.splitAndStem(bestMatchingQuery);
+			Set<String> labelTokens = splitAndStem(queryFromSourceAttribute);
+			Set<String> bestMatchingQueryTokens = splitAndStem(bestMatchingQuery);
 			labelTokens.retainAll(bestMatchingQueryTokens);
-			explainedQueryStrings.add(
-					ExplainedQueryString.create(termJoiner.join(labelTokens), bestMatchingQuery, queryOrigin, score));
+			explainedQueryStrings.add(create(termJoiner.join(labelTokens), bestMatchingQuery, queryOrigin, score));
 			break;
 		}
 

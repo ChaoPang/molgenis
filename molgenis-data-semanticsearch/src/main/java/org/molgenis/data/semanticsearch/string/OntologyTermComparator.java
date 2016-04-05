@@ -15,8 +15,8 @@ public class OntologyTermComparator implements Comparator<Hit<OntologyTermHit>>
 	@Override
 	public int compare(Hit<OntologyTermHit> o2, Hit<OntologyTermHit> o1)
 	{
-		String synonym1 = o1.getResult().getMatchedSynonym();
-		String synonym2 = o2.getResult().getMatchedSynonym();
+		String synonym1 = o1.getResult().getJoinedSynonym();
+		String synonym2 = o2.getResult().getJoinedSynonym();
 
 		float score1 = o1.getScore();
 		float score2 = o2.getScore();
@@ -72,6 +72,6 @@ public class OntologyTermComparator implements Comparator<Hit<OntologyTermHit>>
 
 	boolean isOntologyTermNameMatched(Hit<OntologyTermHit> hit)
 	{
-		return hit.getResult().getOntologyTerm().getLabel().equalsIgnoreCase(hit.getResult().getMatchedSynonym());
+		return hit.getResult().getOntologyTerm().getLabel().equalsIgnoreCase(hit.getResult().getJoinedSynonym());
 	}
 }

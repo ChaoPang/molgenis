@@ -38,6 +38,8 @@ public interface SemanticSearchService
 	 */
 	Map<AttributeMetaData, Hit<OntologyTerm>> findTagsForEntity(String entity, List<String> ontologyIDs);
 
+	Hit<OntologyTerm> findTags(String description, List<String> ontologyIds);
+
 	/**
 	 * Finds {@link OntologyTerm}s for an attribute.
 	 * 
@@ -49,10 +51,8 @@ public interface SemanticSearchService
 	 */
 	Hit<OntologyTerm> findTagsForAttribute(AttributeMetaData attribute, List<String> ontologyIds);
 
-	Hit<OntologyTerm> findTags(String description, List<String> ontologyIds);
-
 	/**
-	 * Finds an {@link OntologyTermHit} for an attribute within the given scope of the ontology terms.
+	 * * Finds all {@link OntologyTermHit}s for an attribute within the given scope of the ontology terms.
 	 * {@link OntologyTermHit} contains the best combination of ontology terms that yields the highest lexical
 	 * similarity score.
 	 * 
@@ -62,7 +62,6 @@ public interface SemanticSearchService
 	 *            defines a scope of ontology terms in which the search is performed.
 	 * @return
 	 */
-	Hit<OntologyTermHit> findTagForAttribute(AttributeMetaData attribute, List<String> ontologyIds,
+	List<Hit<OntologyTermHit>> findAllTagsForAttribute(AttributeMetaData attribute, List<String> ontologyIds,
 			List<OntologyTerm> ontologyTermScope);
-
 }

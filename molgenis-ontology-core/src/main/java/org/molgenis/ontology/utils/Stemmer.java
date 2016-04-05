@@ -1,16 +1,19 @@
 package org.molgenis.ontology.utils;
 
+import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Sets.newHashSet;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toSet;
+import static java.util.stream.StreamSupport.stream;
+import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
+
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 import org.apache.commons.lang3.StringUtils;
 import org.tartarus.snowball.ext.PorterStemmer;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 
 public class Stemmer
 {
@@ -26,7 +29,7 @@ public class Stemmer
 	 */
 	public static String cleanStemPhrase(String phrase)
 	{
-		List<String> stemmedWords = Lists.newArrayList(replaceIllegalCharacter(phrase).split(SINGLE_SPACE_CHAR));
+		List<String> stemmedWords = newArrayList(replaceIllegalCharacter(phrase).split(SINGLE_SPACE_CHAR));
 		return stemAndJoin(stemmedWords);
 	}
 
@@ -40,14 +43,15 @@ public class Stemmer
 
 	public static String stemAndJoin(Iterable<String> terms)
 	{
-		return StreamSupport.stream(terms.spliterator(), false).map(Stemmer::stem).filter(StringUtils::isNotBlank)
-				.collect(Collectors.joining(SINGLE_SPACE_CHAR));
+		return stream(terms.spliterator(), false).filter(w -> !STOPWORDSLIST.contains(w.toLowerCase()))
+				.map(Stemmer::stem).filter(StringUtils::isNotBlank).collect(joining(SINGLE_SPACE_CHAR));
 	}
 
 	public static Set<String> splitAndStem(String phrase)
 	{
-		return Sets.newHashSet(StreamSupport.stream(SPLITTER.split(phrase.toLowerCase()).spliterator(), false)
-				.map(Stemmer::stem).collect(Collectors.toSet()));
+		return newHashSet(stream(SPLITTER.split(phrase.toLowerCase()).spliterator(), false)
+				.filter(w -> !STOPWORDSLIST.contains(w)).map(Stemmer::stem).filter(StringUtils::isNotBlank)
+				.collect(toSet()));
 	}
 
 	public static String replaceIllegalCharacter(String string)

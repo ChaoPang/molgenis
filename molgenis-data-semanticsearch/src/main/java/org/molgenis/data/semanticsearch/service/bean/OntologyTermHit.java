@@ -9,34 +9,12 @@ import com.google.auto.value.AutoValue;
 @AutoGson(autoValueClass = AutoValue_OntologyTermHit.class)
 public abstract class OntologyTermHit
 {
-	public static OntologyTermHit create(OntologyTerm ontologyTerm, String matchedSynonym)
+	public static OntologyTermHit create(OntologyTerm ontologyTerm, String joinedSynonym)
 	{
-		return new AutoValue_OntologyTermHit(ontologyTerm, matchedSynonym);
+		return new AutoValue_OntologyTermHit(ontologyTerm, joinedSynonym);
 	}
 
 	public abstract OntologyTerm getOntologyTerm();
 
-	public abstract String getMatchedSynonym();
-	//
-	// public static OntologyTermHit and(OntologyTermHit... terms)
-	// {
-	// if (terms == null || terms.length == 0)
-	// {
-	// return null;
-	// }
-	// if (terms.length == 1)
-	// {
-	// return terms[0];
-	// }
-	//
-	// OntologyTerm ontologyTerm =
-	// OntologyTerm.and(stream(terms).map(OntologyTermHit::getOntologyTerm).toArray(OntologyTerm[]::new));
-	//
-	// OntologyTerm.create(join(stream(terms).map(OntologyTermHit::getOntologyTerm).map(OntologyTerm::getIRI).toArray(),
-	// ','),
-	// "(" + join(stream(terms).map(OntologyTermHit::getOntologyTerm).map(OntologyTerm::getLabel).toArray(), " and ") +
-	// ")");
-	//
-	// return
-	// }
+	public abstract String getJoinedSynonym();
 }

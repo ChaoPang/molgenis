@@ -1,13 +1,21 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
+import static java.util.stream.StreamSupport.stream;
+import static org.molgenis.data.semanticsearch.semantic.Hit.create;
+import static org.molgenis.data.semanticsearch.service.bean.OntologyTermHit.create;
+import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -35,19 +43,17 @@ import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
-import org.molgenis.ontology.utils.NGramDistanceAlgorithm;
 import org.molgenis.ontology.utils.Stemmer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.FluentIterable;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 
 import static java.util.Objects.requireNonNull;
-
-import autovalue.shaded.com.google.common.common.collect.Sets;
 
 public class SemanticSearchServiceImpl implements SemanticSearchService
 {
@@ -187,15 +193,14 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 			LOG.debug("Candidates: {}", candidates);
 		}
 
-		Hit<OntologyTermHit> findBestOntologyTermCombination = findBestOntologyTermCombination(searchTerms, candidates);
+		List<Hit<OntologyTermHit>> ontologyTermHits = combineOntologyTerms(searchTerms, candidates);
 
-		return findBestOntologyTermCombination == null ? null
-				: Hit.<OntologyTerm> create(findBestOntologyTermCombination.getResult().getOntologyTerm(),
-						findBestOntologyTermCombination.getScore());
+		return ontologyTermHits.stream().findFirst()
+				.map(otHit -> create(otHit.getResult().getOntologyTerm(), otHit.getScore())).orElse(null);
 	}
 
 	@Override
-	public Hit<OntologyTermHit> findTagForAttribute(AttributeMetaData attribute, List<String> ontologyIds,
+	public List<Hit<OntologyTermHit>> findAllTagsForAttribute(AttributeMetaData attribute, List<String> ontologyIds,
 			List<OntologyTerm> filteredOntologyTerms)
 	{
 		String description = attribute.getDescription() == null ? attribute.getLabel() : attribute.getDescription();
@@ -214,57 +219,109 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 			LOG.debug("Candidates: {}", candidates);
 		}
 
-		return findBestOntologyTermCombination(searchTerms, candidates);
+		return combineOntologyTerms(searchTerms, candidates);
 	}
 
-	private Hit<OntologyTermHit> findBestOntologyTermCombination(Set<String> searchTerms, List<OntologyTerm> candidates)
+	List<Hit<OntologyTermHit>> combineOntologyTerms(Set<String> searchTerms, List<OntologyTerm> relevantOntologyTerms)
 	{
-		Set<String> stemmedSearchTerms = searchTerms.stream().map(Stemmer::stem).collect(Collectors.toSet());
+		Set<String> stemmedSearchTerms = searchTerms.stream().map(Stemmer::stem).filter(StringUtils::isNotBlank)
+				.collect(toSet());
 
-		List<Hit<OntologyTermHit>> hits = candidates.stream()
-				.filter(ontologyTerm -> filterOntologyTerm(stemmedSearchTerms, ontologyTerm)).map(ontologyTerm -> {
-					Hit<String> bestMatchingSynonym = bestMatchingSynonym(ontologyTerm, searchTerms);
-					OntologyTermHit candidate = OntologyTermHit.create(ontologyTerm, bestMatchingSynonym.getResult());
-					return Hit.<OntologyTermHit> create(candidate, bestMatchingSynonym.getScore());
-				}).sorted(new OntologyTermComparator()).collect(Collectors.toList());
+		List<Hit<OntologyTermHit>> hits = relevantOntologyTerms.stream()
+				.filter(ontologyTerm -> filterOntologyTerm(stemmedSearchTerms, ontologyTerm))
+				.map(ontologyTerm -> createOntologyTermHit(searchTerms, ontologyTerm))
+				.sorted(new OntologyTermComparator()).collect(Collectors.toList());
 
 		if (LOG.isDebugEnabled())
 		{
 			LOG.debug("Hits: {}", hits);
 		}
 
-		Hit<OntologyTermHit> result = null;
-		String bestMatchingSynonym = null;
+		// 1. Create a list of ontology term candidates with the best matching synonym known
+		// 2. Loop through the list of candidates and collect all the possible candidates (all best combinations of
+		// ontology terms)
+		// 3. Compute a list of possible ontology terms.
+		Multimap<String, OntologyTerm> candidates = LinkedHashMultimap.create();
+
 		for (Hit<OntologyTermHit> hit : hits)
 		{
-			String bestMatchingSynonymForHit = hit.getResult().getMatchedSynonym();
-			if (result == null)
+			OntologyTermHit ontologyTermHit = hit.getResult();
+
+			if (candidates.size() == 0)
 			{
-				result = hit;
-				bestMatchingSynonym = bestMatchingSynonymForHit;
+				candidates.put(ontologyTermHit.getJoinedSynonym(), ontologyTermHit.getOntologyTerm());
 			}
 			else
 			{
-				Set<String> jointTerms = Sets.union(splitIntoTerms(bestMatchingSynonym),
-						splitIntoTerms(bestMatchingSynonymForHit));
-				String joinedSynonyms = termJoiner.join(jointTerms);
-				float joinedScore = round(distanceFrom(joinedSynonyms, searchTerms));
-				if (joinedScore > result.getScore())
+				if (candidates.containsKey(ontologyTermHit.getJoinedSynonym()))
 				{
-					bestMatchingSynonym = bestMatchingSynonym + " " + bestMatchingSynonymForHit;
-					result = Hit.create(
-							OntologyTermHit.create(OntologyTerm.and(result.getResult().getOntologyTerm(),
-									hit.getResult().getOntologyTerm()), bestMatchingSynonym),
-							distanceFrom(joinedSynonyms, searchTerms));
+					candidates.put(ontologyTermHit.getJoinedSynonym(), ontologyTermHit.getOntologyTerm());
+				}
+				else
+				{
+					Set<String> involvedSynonyms = candidates.keys().elementSet();
+					Set<String> jointTerms = Sets.union(involvedSynonyms,
+							splitIntoTerms(ontologyTermHit.getJoinedSynonym()));
+					float previousScore = round(distanceFrom(termJoiner.join(involvedSynonyms), searchTerms));
+					float joinedScore = round(distanceFrom(termJoiner.join(jointTerms), searchTerms));
+					if (joinedScore > previousScore)
+					{
+						candidates.put(ontologyTermHit.getJoinedSynonym(), ontologyTermHit.getOntologyTerm());
+					}
 				}
 			}
+		}
 
-			if (LOG.isDebugEnabled())
+		String joinedSynonym = termJoiner.join(candidates.keySet());
+
+		List<Hit<OntologyTermHit>> ontologyTermHits = getOntologyTerms(candidates).stream().map(
+				ontologyTerm -> create(create(ontologyTerm, joinedSynonym), distanceFrom(joinedSynonym, searchTerms)))
+				.collect(toList());
+
+		if (LOG.isDebugEnabled())
+		{
+			LOG.debug("result: {}", ontologyTermHits);
+		}
+
+		return ontologyTermHits;
+	}
+
+	List<OntologyTerm> getOntologyTerms(Multimap<String, OntologyTerm> candidates)
+	{
+		List<OntologyTerm> ontologyTerms = new ArrayList<>();
+		for (Entry<String, Collection<OntologyTerm>> entry : candidates.asMap().entrySet())
+		{
+			if (ontologyTerms.size() == 0)
 			{
-				LOG.debug("result: {}", result);
+				ontologyTerms.addAll(entry.getValue());
+			}
+			else
+			{
+				// the pairwise combinations of any sets of ontology terms
+				ontologyTerms = ontologyTermUnion(ontologyTerms, entry.getValue());
 			}
 		}
-		return result;
+		return ontologyTerms;
+	}
+
+	private List<OntologyTerm> ontologyTermUnion(Collection<OntologyTerm> listOne, Collection<OntologyTerm> listTwo)
+	{
+		List<OntologyTerm> newList = new ArrayList<>(listOne.size() * listTwo.size());
+		for (OntologyTerm ot1 : listOne)
+		{
+			for (OntologyTerm ot2 : listTwo)
+			{
+				newList.add(OntologyTerm.and(ot1, ot2));
+			}
+		}
+		return newList;
+	}
+
+	private Hit<OntologyTermHit> createOntologyTermHit(Set<String> searchTerms, OntologyTerm ontologyTerm)
+	{
+		Hit<String> bestMatchingSynonym = bestMatchingSynonym(ontologyTerm, searchTerms);
+		OntologyTermHit candidate = create(ontologyTerm, bestMatchingSynonym.getResult());
+		return Hit.<OntologyTermHit> create(candidate, bestMatchingSynonym.getScore());
 	}
 
 	private boolean filterOntologyTerm(Set<String> keywordsFromAttribute, OntologyTerm ontologyTerm)
@@ -272,8 +329,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		Set<String> ontologyTermSynonyms = semanticSearchServiceHelper.getOtLabelAndSynonyms(ontologyTerm);
 		for (String synonym : ontologyTermSynonyms)
 		{
-			Set<String> splitIntoTerms = splitIntoTerms(synonym).stream().map(Stemmer::stem)
-					.collect(Collectors.toSet());
+			Set<String> splitIntoTerms = splitIntoTerms(synonym).stream().map(Stemmer::stem).collect(toSet());
 			if (splitIntoTerms.size() != 0 && keywordsFromAttribute.containsAll(splitIntoTerms)) return true;
 		}
 		return false;
@@ -292,7 +348,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	 */
 	public Hit<String> bestMatchingSynonym(OntologyTerm ontologyTerm, Set<String> searchTerms)
 	{
-		Optional<Hit<String>> bestSynonym = ontologyTerm.getSynonyms().stream()
+		Optional<Hit<String>> bestSynonym = semanticSearchServiceHelper.getOtLabelAndSynonyms(ontologyTerm).stream()
 				.map(synonym -> Hit.<String> create(synonym, distanceFrom(synonym, searchTerms)))
 				.max(Comparator.naturalOrder());
 		return bestSynonym.get();
@@ -309,8 +365,8 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 	private Set<String> splitIntoTerms(String description)
 	{
-		return FluentIterable.from(termSplitter.split(description)).transform(String::toLowerCase)
-				.filter(w -> !NGramDistanceAlgorithm.STOPWORDSLIST.contains(w)).filter(StringUtils::isNotEmpty).toSet();
+		return stream(termSplitter.split(description).spliterator(), false).map(StringUtils::lowerCase)
+				.filter(w -> !STOPWORDSLIST.contains(w)).filter(StringUtils::isNotEmpty).collect(Collectors.toSet());
 	}
 
 	float round(float score)

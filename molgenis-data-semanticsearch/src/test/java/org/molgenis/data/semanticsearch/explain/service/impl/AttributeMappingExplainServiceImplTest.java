@@ -96,8 +96,8 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		OntologyTermHit ontologyTermHit = OntologyTermHit
 				.create(OntologyTerm.create("iri1,iri2", "hypertension,medication"), "high blood pressure medication");
 
-		when(semanticSearchService.findTagForAttribute(matchedSourceAttribute, allOntologyIds, ontologyTerms))
-				.thenReturn(Hit.<OntologyTermHit> create(ontologyTermHit, (float) 1));
+		when(semanticSearchService.findAllTagsForAttribute(matchedSourceAttribute, allOntologyIds, ontologyTerms))
+				.thenReturn(Arrays.asList(Hit.<OntologyTermHit> create(ontologyTermHit, (float) 1)));
 
 		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl.explainAttributeMapping(targetAttribute,
 				matchedSourceAttribute, targetEntityMetaData, sourceEntityMetaData);
