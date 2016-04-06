@@ -2,15 +2,14 @@ package org.molgenis.data.semanticsearch.explain.bean;
 
 import static org.molgenis.data.semanticsearch.string.AttributeToMapUtil.attributeToMap;
 
-import java.util.Collections;
 import java.util.Map;
-import java.util.Set;
+
+import javax.annotation.Nullable;
 
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.gson.AutoGson;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.Sets;
 
 @AutoValue
 @AutoGson(autoValueClass = AutoValue_ExplainedAttributeMetaData.class)
@@ -18,20 +17,20 @@ public abstract class ExplainedAttributeMetaData
 {
 	public static ExplainedAttributeMetaData create(AttributeMetaData attributeMetaData)
 	{
-		return new AutoValue_ExplainedAttributeMetaData(attributeToMap(attributeMetaData), Collections.emptySet(),
-				false);
+		return new AutoValue_ExplainedAttributeMetaData(attributeToMap(attributeMetaData), null, false);
 	}
 
 	public static ExplainedAttributeMetaData create(AttributeMetaData attributeMetaData,
-			Iterable<ExplainedQueryString> explainedQueryStrings, boolean highQuality)
+			ExplainedQueryString explainedQueryString, boolean highQuality)
 	{
-		return new AutoValue_ExplainedAttributeMetaData(attributeToMap(attributeMetaData),
-				Sets.newHashSet(explainedQueryStrings), highQuality);
+		return new AutoValue_ExplainedAttributeMetaData(attributeToMap(attributeMetaData), explainedQueryString,
+				highQuality);
 	}
 
 	public abstract Map<String, Object> getAttributeMetaData();
 
-	public abstract Set<ExplainedQueryString> getExplainedQueryStrings();
+	@Nullable
+	public abstract ExplainedQueryString getExplainedQueryStrings();
 
 	public abstract boolean isHighQuality();
 

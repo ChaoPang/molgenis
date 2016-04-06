@@ -3,6 +3,7 @@ package org.molgenis.data.mapper.controller;
 import static org.molgenis.data.mapper.controller.AttributeAnnotationController.URI;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -12,7 +13,7 @@ import org.molgenis.data.DataService;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
-import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ui.MolgenisPluginController;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,15 +60,15 @@ public class AttributeAnnotationController extends MolgenisPluginController
 
 	@RequestMapping(value = "/annotate", method = RequestMethod.POST)
 	@ResponseBody
-	public Map<String, Hit<OntologyTerm>> findOntologyTerms(@RequestBody Map<String, String> request)
+	public Map<String, List<Hit<OntologyTermHit>>> findOntologyTerms(@RequestBody Map<String, String> request)
 			throws ExecutionException
 	{
 		String entityName = request.get("entityName");
 		EntityMetaData entityMetaData = dataService.getEntityMetaData(entityName);
-		Map<String, Hit<OntologyTerm>> annotationMap = new HashMap<>();
+		Map<String, List<Hit<OntologyTermHit>>> annotationMap = new HashMap<>();
 		for (AttributeMetaData attribute : entityMetaData.getAtomicAttributes())
 		{
-			Hit<OntologyTerm> findTags = semanticSearchService.findTagForAttr(attribute,
+			List<Hit<OntologyTermHit>> findTags = semanticSearchService.findAllTagsForAttr(attribute,
 					ontologyService.getAllOntologiesIds());
 			System.out.format("the attribute is %s; the tagged is %s%n",
 					attribute.getName() + ':' + attribute.getLabel(),

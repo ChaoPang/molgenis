@@ -11,6 +11,7 @@ import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -86,9 +87,21 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	{
 		Set<String> queryTerms = semanticSearchServiceHelper.createLexicalSearchQueryTerms(targetAttribute,
 				searchTerms);
-
 		List<OntologyTerm> ontologyTerms = findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, searchTerms);
+		return findAttributes(queryTerms, ontologyTerms, sourceEntityMetaData);
+	}
 
+	@Override
+	public List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute,
+			EntityMetaData sourceEntityMetaData)
+	{
+		Set<String> queryTerms = semanticSearchServiceHelper.createLexicalSearchQueryTerms(targetAttribute, null);
+		return findAttributes(queryTerms, Collections.emptyList(), sourceEntityMetaData);
+	}
+
+	private List<AttributeMetaData> findAttributes(Set<String> queryTerms, List<OntologyTerm> ontologyTerms,
+			EntityMetaData sourceEntityMetaData)
+	{
 		QueryRule disMaxQueryRule = semanticSearchServiceHelper.createDisMaxQueryRuleForAttribute(queryTerms,
 				ontologyTerms);
 
@@ -124,7 +137,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		if (searchTerms != null && !searchTerms.isEmpty())
 		{
 			Set<String> escapedSearchTerms = searchTerms.stream().filter(StringUtils::isNotBlank)
-					.map(QueryParser::escape).collect(Collectors.toSet());
+					.map(QueryParser::escape).collect(toSet());
 			ontologyTerms
 					.addAll(ontologyService.findExcatOntologyTerms(allOntologiesIds, escapedSearchTerms, MAX_NUM_TAGS));
 		}

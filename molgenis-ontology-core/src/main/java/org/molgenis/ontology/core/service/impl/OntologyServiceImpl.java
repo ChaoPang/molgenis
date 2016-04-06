@@ -1,13 +1,16 @@
 package org.molgenis.ontology.core.service.impl;
 
+import static com.google.common.collect.Sets.newHashSet;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
+import static org.molgenis.ontology.utils.Stemmer.cleanStemPhrase;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.elasticsearch.common.collect.Lists;
 import org.molgenis.ontology.core.model.Ontology;
@@ -17,8 +20,6 @@ import org.molgenis.ontology.core.repository.OntologyTermRepository;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.utils.Stemmer;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import com.google.common.collect.Sets;
 
 import static java.util.Objects.requireNonNull;
 
@@ -100,9 +101,9 @@ public class OntologyServiceImpl implements OntologyService
 	}
 
 	@Override
-	public List<OntologyTerm> getChildren(OntologyTerm ontologyTerm)
+	public Stream<OntologyTerm> getLevelThreeChildren(OntologyTerm ontologyTerm)
 	{
-		return ontologyTermRepository.getChildren(ontologyTerm);
+		return ontologyTermRepository.getLevelThreeChildren(ontologyTerm);
 	}
 
 	@Override
@@ -157,9 +158,9 @@ public class OntologyServiceImpl implements OntologyService
 	@Override
 	public Set<String> getUniqueSynonyms(OntologyTerm ontologyTerm)
 	{
-		Set<String> synonyms = Sets.newHashSet(
-				ontologyTerm.getSynonyms().stream().map(Stemmer::cleanStemPhrase).collect(Collectors.toSet()));
-		synonyms.add(Stemmer.cleanStemPhrase(ontologyTerm.getLabel()));
+		Set<String> synonyms = newHashSet(
+				ontologyTerm.getSynonyms().stream().map(Stemmer::cleanStemPhrase).collect(toSet()));
+		synonyms.add(cleanStemPhrase(ontologyTerm.getLabel()));
 		return synonyms;
 	}
 }

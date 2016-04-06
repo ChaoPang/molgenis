@@ -147,7 +147,7 @@ public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContext
 		OntologyTerm ontologyTerm3 = OntologyTerm.create("http://onto/standingheight-children", "length",
 				Arrays.<String> asList("body_length"));
 
-		when(ontologyService.getChildren(ontologyTerm2)).thenReturn(Arrays.asList(ontologyTerm3));
+		when(ontologyService.getLevelThreeChildren(ontologyTerm2)).thenReturn(Arrays.asList(ontologyTerm3));
 
 		when(ontologyService.getOntologyTermDistance(ontologyTerm2, ontologyTerm3)).thenReturn(1);
 

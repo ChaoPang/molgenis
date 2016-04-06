@@ -1,7 +1,5 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
-import static com.google.common.collect.Iterables.size;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -14,14 +12,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.math3.stat.StatUtils;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.EntityMetaData;
-import org.molgenis.data.semantic.Relation;
 import org.molgenis.data.semanticsearch.semantic.Hit;
-import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.OntologyTermSemanticSearch;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
-import org.molgenis.data.semanticsearch.service.bean.DistanceMatrixReport;
-import org.molgenis.data.semanticsearch.service.bean.DistanceMetric;
-import org.molgenis.data.support.DefaultAttributeMetaData;
+import org.molgenis.data.semanticsearch.service.bean.Distance;
+import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +24,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.Multimap;
 
 import static java.util.Objects.requireNonNull;
 
@@ -59,42 +53,27 @@ public class OntologyTermSemanticSearchImpl implements OntologyTermSemanticSearc
 
 	private final SemanticSearchService semanticSearchService;
 	private final OntologyService ontologyService;
-	private final OntologyTagService ontologyTagService;
 
 	@Autowired
-	public OntologyTermSemanticSearchImpl(SemanticSearchService semanticSearchService, OntologyService ontologyService,
-			OntologyTagService tagService)
+	public OntologyTermSemanticSearchImpl(SemanticSearchService semanticSearchService, OntologyService ontologyService)
 	{
 		this.semanticSearchService = requireNonNull(semanticSearchService);
 		this.ontologyService = requireNonNull(ontologyService);
-		this.ontologyTagService = requireNonNull(tagService);
-	}
-
-	public List<DistanceMetric> getAttrDistance(String attrName1, EntityMetaData entityMetaData1,
-			EntityMetaData entityMetaData2) throws ExecutionException
-	{
-		List<DistanceMetric> distanceMetrics = new ArrayList<>();
-		AttributeMetaData attr1 = entityMetaData1.getAttribute(attrName1);
-		if (attr1 == null) return distanceMetrics;
-
-		for (AttributeMetaData attr2 : entityMetaData2.getAtomicAttributes())
-		{
-			distanceMetrics.add(getAttrDistance(attr1, attr2, entityMetaData1, entityMetaData2));
-		}
-
-		return distanceMetrics;
 	}
 
 	@Override
-	public double getDistance(String queryOne, String queryTwo) throws ExecutionException
+	public Distance<String> getDistance(String queryOne, String queryTwo) throws ExecutionException
 	{
 		List<Hit<OntologyTerm>> ontologyTermsForAttr1 = findOntologyTerms(queryOne);
 		List<Hit<OntologyTerm>> ontologyTermsForAttr2 = findOntologyTerms(queryTwo);
-		return calculateAverageDistance(ontologyTermsForAttr1, ontologyTermsForAttr2);
+		double distance = calculateAverageDistance(ontologyTermsForAttr1, ontologyTermsForAttr2);
+		boolean isValid = distance == INVALID_DISTANCE;
+
+		return Distance.create(queryOne, queryTwo, isValid, distance);
 	}
 
 	@Override
-	public DistanceMetric getAttrDistance(AttributeMetaData attr1, AttributeMetaData attr2,
+	public Distance<AttributeMetaData> getDistance(AttributeMetaData attr1, AttributeMetaData attr2,
 			EntityMetaData entityMetaData1, EntityMetaData entityMetaData2) throws ExecutionException
 	{
 		List<Hit<OntologyTerm>> ontologyTermsForAttr1 = findOntologyTerms(attr1, entityMetaData1);
@@ -102,32 +81,7 @@ public class OntologyTermSemanticSearchImpl implements OntologyTermSemanticSearc
 		double distance = calculateAverageDistance(ontologyTermsForAttr1, ontologyTermsForAttr2);
 		boolean isValid = distance == INVALID_DISTANCE;
 
-		return DistanceMetric.create(attr1, attr2, isValid, distance);
-	}
-
-	public void getAsyncEntitiesDistance(DistanceMatrixReport distanceMatrixReport, EntityMetaData entityMetaData1,
-			EntityMetaData entityMetaData2) throws ExecutionException
-	{
-		int finishedNumber = 0;
-		double totalNumber = size(entityMetaData1.getAtomicAttributes()) * size(entityMetaData2.getAtomicAttributes());
-
-		for (AttributeMetaData attr1 : entityMetaData1.getAtomicAttributes())
-		{
-			List<Hit<OntologyTerm>> ontologyTermsForAttr1 = findOntologyTerms(attr1, entityMetaData1);
-			for (AttributeMetaData attr2 : entityMetaData2.getAtomicAttributes())
-			{
-				List<Hit<OntologyTerm>> ontologyTermsForAttr2 = findOntologyTerms(attr2, entityMetaData2);
-				double distance = calculateAverageDistance(ontologyTermsForAttr1, ontologyTermsForAttr2);
-				boolean isValid = distance == INVALID_DISTANCE;
-
-				distanceMatrixReport.setProgress(++finishedNumber / totalNumber);
-				distanceMatrixReport.setDistanceMetrics(attr1.getName() + ":" + attr1.getLabel(),
-						DistanceMetric.create(attr1, attr2, isValid, distance));
-			}
-		}
-
-		distanceMatrixReport.setFinished(true);
-		distanceMatrixReport.setProgress(100.0);
+		return Distance.create(attr1, attr2, isValid, distance);
 	}
 
 	@Override
@@ -188,51 +142,36 @@ public class OntologyTermSemanticSearchImpl implements OntologyTermSemanticSearc
 
 	List<Hit<OntologyTerm>> findOntologyTerms(String queryTerm)
 	{
-		DefaultAttributeMetaData attribute = new DefaultAttributeMetaData(queryTerm).setLabel(queryTerm);
-		List<Hit<OntologyTerm>> ontologyTerms = new ArrayList<>();
-		Hit<OntologyTerm> findTags = semanticSearchService.findTagForAttr(attribute,
+		List<Hit<OntologyTermHit>> findAllTagsForAttr = semanticSearchService.findAllTags(queryTerm,
 				ontologyService.getAllOntologiesIds());
-		if (findTags != null)
-		{
-			ontologyTerms.add(findTags);
-		}
+
+		List<Hit<OntologyTerm>> ontologyTerms = findAllTagsForAttr.stream()
+				.map(hit -> Hit.create(hit.getResult().getOntologyTerm(), hit.getScore())).collect(Collectors.toList());
+
 		return ontologyTerms;
 	}
 
 	List<Hit<OntologyTerm>> findOntologyTerms(AttributeMetaData attr, EntityMetaData entityMetaData)
 	{
-		Multimap<Relation, OntologyTerm> tagsForAttribute = ontologyTagService.getTagsForAttribute(entityMetaData,
-				attr);
-		List<Hit<OntologyTerm>> ontologyTerms = new ArrayList<>();
-		if (tagsForAttribute.size() > 0)
-		{
-			for (OntologyTerm ot : tagsForAttribute.values())
-			{
-				ontologyTerms.addAll(resolveOntologyTerms(ot).stream().map(o -> Hit.create(o, (float) 100))
-						.collect(Collectors.toList()));
-			}
-		}
-		else
-		{
-			Hit<OntologyTerm> findTags = semanticSearchService.findTagForAttr(attr,
-					ontologyService.getAllOntologiesIds());
-			if (findTags != null)
-			{
-				ontologyTerms.add(findTags);
-			}
-		}
+		List<Hit<OntologyTermHit>> findAllTagsForAttr = semanticSearchService.findAllTagsForAttr(attr,
+				ontologyService.getAllOntologiesIds());
+
+		List<Hit<OntologyTerm>> ontologyTerms = findAllTagsForAttr.stream()
+				.map(hit -> Hit.create(hit.getResult().getOntologyTerm(), hit.getScore())).collect(Collectors.toList());
+
 		return ontologyTerms;
 	}
 
 	List<OntologyTerm> resolveOntologyTerms(OntologyTerm ontologyTerm)
 	{
 		List<OntologyTerm> resolvedOntologyTerms = new ArrayList<>();
+
 		if (ontologyTerm.getIRI().contains(ONTOLOGY_TERM_IRI_SEPARATOR_CHAR))
 		{
-			for (String partialTag : ontologyTerm.getIRI().split(ONTOLOGY_TERM_IRI_SEPARATOR_CHAR))
+			for (String atomicIri : ontologyTerm.getIRI().split(ONTOLOGY_TERM_IRI_SEPARATOR_CHAR))
 			{
-				OntologyTerm partialOntologyTerm = partialTag.equals(PSEUDO_ONTOLOGY_TERM.getIRI())
-						? PSEUDO_ONTOLOGY_TERM : ontologyService.getOntologyTerm(partialTag);
+				OntologyTerm partialOntologyTerm = atomicIri.equals(PSEUDO_ONTOLOGY_TERM.getIRI())
+						? PSEUDO_ONTOLOGY_TERM : ontologyService.getOntologyTerm(atomicIri);
 				resolvedOntologyTerms.add(partialOntologyTerm);
 			}
 		}

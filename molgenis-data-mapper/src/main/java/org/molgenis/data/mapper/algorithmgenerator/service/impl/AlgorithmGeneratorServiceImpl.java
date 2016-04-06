@@ -1,5 +1,8 @@
 package org.molgenis.data.mapper.algorithmgenerator.service.impl;
 
+import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.toList;
+import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState.GENERATED_HIGH;
 import static org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState.GENERATED_LOW;
 import static utils.AlgorithmGeneratorHelper.extractSourceAttributesFromAlgorithm;
@@ -26,6 +29,7 @@ import org.molgenis.data.mapper.service.UnitResolver;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplate;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
+import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -74,29 +78,39 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 		String algorithm = StringUtils.EMPTY;
 		AlgorithmState algorithmState = null;
 		Set<AttributeMetaData> mappedSourceAttributes = null;
+		Double score = 0.0d;
 
 		if (sourceAttributes.size() > 0)
 		{
 			algorithm = runAlgorithmTemplate(targetAttribute, sourceAttributes, targetEntityMetaData,
 					sourceEntityMetaData);
-			if (StringUtils.isNotBlank(algorithm))
-			{
-				algorithmState = GENERATED_HIGH;
-			}
-			else
+
+			if (isBlank(algorithm))
 			{
 				AttributeMetaData sourceAttribute = sourceAttributes.stream().findFirst().get();
-				algorithm = runAlgorithmGenerator(targetAttribute, Arrays.asList(sourceAttribute), targetEntityMetaData,
+				algorithm = runAlgorithmGenerator(targetAttribute, asList(sourceAttribute), targetEntityMetaData,
 						sourceEntityMetaData);
-				ExplainedAttributeMetaData explainAttributeMapping = attributeMappingExplainService
-						.explainAttributeMapping(targetAttribute, sourceAttribute, targetEntityMetaData,
-								sourceEntityMetaData);
-				algorithmState = explainAttributeMapping.isHighQuality() ? GENERATED_HIGH : GENERATED_LOW;
 			}
+
+			// Get a list of source attributes from the algorithm.
 			mappedSourceAttributes = extractSourceAttributesFromAlgorithm(algorithm, sourceEntityMetaData);
+
+			// For each source attribute, an explanation is provided by the explain service.
+			List<ExplainedAttributeMetaData> explainedSourceAttributes = mappedSourceAttributes.stream()
+					.map(sourceAttribute -> attributeMappingExplainService.explainAttributeMapping(targetAttribute,
+							sourceAttribute, targetEntityMetaData, sourceEntityMetaData))
+					.collect(toList());
+
+			// if all source attributes are matched with high quality, then the algorithm is high quality.
+			algorithmState = explainedSourceAttributes.stream().allMatch(ExplainedAttributeMetaData::isHighQuality)
+					? GENERATED_HIGH : GENERATED_LOW;
+
+			// Calculate the final similarity score by summing up all the matched scores.
+			score = explainedSourceAttributes.stream().map(ExplainedAttributeMetaData::getExplainedQueryStrings)
+					.mapToDouble(ExplainedQueryString::getScore).sum();
 		}
 
-		return GeneratedAlgorithm.create(algorithm, mappedSourceAttributes, algorithmState);
+		return GeneratedAlgorithm.create(algorithm, mappedSourceAttributes, algorithmState, score);
 	}
 
 	String runAlgorithmTemplate(AttributeMetaData targetAttribute, List<AttributeMetaData> sourceAttributes,

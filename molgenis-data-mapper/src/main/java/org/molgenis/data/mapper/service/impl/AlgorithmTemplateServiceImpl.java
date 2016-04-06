@@ -138,11 +138,8 @@ public class AlgorithmTemplateServiceImpl implements AlgorithmTemplateService
 	private boolean isOntologyTermMatch(List<OntologyTerm> attributeAssociatedOts, OntologyTerm scriptOt)
 	{
 		if (attributeAssociatedOts.contains(scriptOt)) return true;
-		for (OntologyTerm childOt : ontologySerivce.getChildren(scriptOt))
-		{
-			if (attributeAssociatedOts.contains(childOt)) return true;
-		}
-		return false;
+		return ontologySerivce.getLevelThreeChildren(scriptOt)
+				.anyMatch(childOt -> attributeAssociatedOts.contains(childOt));
 	}
 
 	boolean containsAllTokens(Set<String> listOfSynonyms1, Set<String> listOfSynonyms2)

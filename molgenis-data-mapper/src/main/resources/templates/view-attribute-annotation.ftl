@@ -40,12 +40,15 @@
     	var table = $('<table />').addClass('table table-bordered');
     	var header = $('<thead><tr><th>Attribute Name</th><th>Ontology Term</th><th>Score</th></tr></thead>');
     	var body = $('<tbody />');
-    	$.map(data, function(hit, name){
-    		var score = hit.scoreInt / 1000;
-    		var result = hit.result;
+    	$.map(data, function(hits, name){
     		var row = $('<tr />').appendTo(body);
+    		var score = hits.length > 0 ? hits[0].scoreInt / 1000 : 0.0;
     		$('<td>' + name + '</td>').appendTo(row);
-    		$('<td>' + result.IRI + '<br />' + result.label + '</td>').appendTo(row);
+    		var column = $('<td />').appendTo(row);
+    		for(var i = 0; i < hits.length; i++){
+    			var ontologyTerm = hits[i].result.ontologyTerm;
+    			column.append(ontologyTerm.IRI + ' : ' + ontologyTerm.label + '<br/>');
+    		}	
     		$('<td>' + score + '%</td>').appendTo(row);
     	});
     	table.append(header).append(body);

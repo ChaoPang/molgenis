@@ -157,7 +157,7 @@ public class OntologyTermRepositoryTest extends AbstractTestNGSpringContextTests
 								.thenReturn(Stream.of(ontologyTerm_2, ontologyTerm_3));
 
 		List<OntologyTerm> childOntologyTermsByNodePath = ontologyTermRepository
-				.getChildOntologyTermsByNodePath(ontologyEntity, nodePathEntity_1);
+				.childOntologyTermStream(ontologyEntity, nodePathEntity_1);
 
 		assertEquals(childOntologyTermsByNodePath.size(), 2);
 		assertEquals(childOntologyTermsByNodePath.get(0),

@@ -1,7 +1,9 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
 import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.apache.commons.lang3.StringUtils.join;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -190,13 +192,12 @@ public class SemanticSearchServiceHelper
 	{
 		List<String> queryTerms = getOtLabelAndSynonyms(ontologyTerm).stream().map(this::processQueryString)
 				.collect(Collectors.<String> toList());
-
-		for (OntologyTerm childOt : ontologyService.getChildren(ontologyTerm))
-		{
-			double boostedNumber = Math.pow(0.5, ontologyService.getOntologyTermDistance(ontologyTerm, childOt));
-			getOtLabelAndSynonyms(childOt)
-					.forEach(synonym -> queryTerms.add(parseBoostQueryString(synonym, boostedNumber)));
-		}
+		ontologyService.getLevelThreeChildren(ontologyTerm).forEach(childOt -> {
+			double boostedNumber = ontologyService.getOntologyTermSemanticRelatedness(ontologyTerm, childOt);
+			List<String> collect = getOtLabelAndSynonyms(childOt).stream()
+					.map(query -> parseBoostQueryString(query, boostedNumber)).collect(Collectors.toList());
+			queryTerms.addAll(collect);
+		});
 		return queryTerms;
 	}
 
@@ -283,8 +284,8 @@ public class SemanticSearchServiceHelper
 
 	public String parseBoostQueryString(String queryString, double boost)
 	{
-		return StringUtils.join(removeStopWords(queryString).stream().map(word -> word + CARET_CHARACTER + boost)
-				.collect(Collectors.toSet()), SPACE_CHAR);
+		return join(removeStopWords(queryString).stream().map(word -> word + CARET_CHARACTER + boost).collect(toSet()),
+				SPACE_CHAR);
 	}
 
 	public String escapeCharsExcludingCaretChar(String string)

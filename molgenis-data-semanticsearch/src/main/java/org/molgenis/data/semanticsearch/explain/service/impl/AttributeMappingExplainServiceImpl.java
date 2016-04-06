@@ -1,6 +1,5 @@
 package org.molgenis.data.semanticsearch.explain.service.impl;
 
-import static com.google.common.collect.Sets.newHashSet;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
 import static org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString.create;
 import static org.molgenis.data.semanticsearch.semantic.Hit.create;
@@ -36,7 +35,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	private final OntologyService ontologyService;
 	private final SemanticSearchServiceHelper semanticSearchServiceHelper;
 	private final Joiner termJoiner = Joiner.on(' ');
-	private final static double HIGH_QUALITY_THRESHOLD = 70;
+	private final static float HIGH_QUALITY_THRESHOLD = 0.7f;
 	private final static OntologyTermHit EMPTY_ONTOLOGYTERM_HIT = OntologyTermHit.create(create(EMPTY, EMPTY), EMPTY);
 
 	@Autowired
@@ -74,21 +73,35 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		// target query that yields the highest similarity score.
 		Hit<String> targetQueryTermHit = findBestQueryTerm(queriesFromTargetAttribute, queriesFromSourceAttribute);
 
+		// If the similariy score is high enough by using query terms from the source attribute, we don't explain it
+		// using the ontology terms because collecting all relevant ontology terms is very expensive
+		if (targetQueryTermHit.getScore() >= HIGH_QUALITY_THRESHOLD)
+		{
+			// We get the matched words for the source attribute.
+			Set<String> matchedWords = getMatchedWords(targetQueryTermHit.getResult(), queriesFromSourceAttribute);
+			ExplainedQueryString explainedQueryString = create(termJoiner.join(matchedWords),
+					targetQueryTermHit.getResult(), targetQueryTermHit.getResult(), targetQueryTermHit.getScore());
+			return ExplainedAttributeMetaData.create(matchedSourceAttribute, explainedQueryString, true);
+		}
+
 		// Collect all the ontology terms that are associated with the target attribute, which were used in query
 		// expansion for finding the relevant source attributes.
-		List<OntologyTerm> relevantOntologyTerms = getExpandedOntologyTerms(
-				semanticSearchService.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, userQueries));
+		List<OntologyTerm> relevantOntologyTerms = Collections.emptyList();
+		// FIXME
+		// List<OntologyTerm> relevantOntologyTerms = getExpandedOntologyTerms(
+		// semanticSearchService.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, userQueries));
 
 		// Unfortunately the ElasticSearch built-in explain-api doesn't scale up. In order to explain why the source
-		// attribute was matched. Now we take the source attribute as the query and filter/find the best combination of
-		// ontology terms from the relevantOntologyTerms that are associated with the target attribute. By doing this,
-		// we can deduce which ontology terms were used as the expanded queries for finding that particular source
+		// attribute was matched. Now we take the source attribute as the query and filter/find the best combination
+		// of ontology terms from the relevantOntologyTerms that are associated with the target attribute. By doing
+		// this, we can deduce which ontology terms were used as the expanded queries for finding that particular source
 		// attribute.
 		Hit<OntologyTermHit> ontologyTermHit = semanticSearchService
 				.filterTagsForAttr(matchedSourceAttribute, ontologyService.getAllOntologiesIds(), relevantOntologyTerms)
 				.stream().findFirst().orElse(create(EMPTY_ONTOLOGYTERM_HIT, (float) 0));
 
-		// Here we check if the source attribute is matched with the original target queries or the expanded ontology
+		// Here we check if the source attribute is matched with the original target queries or the expanded
+		// ontology
 		// term queries.
 		String queryOrigin = targetQueryTermHit.getScore() >= ontologyTermHit.getScore()
 				? targetQueryTermHit.getResult() : ontologyTermHit.getResult().getOntologyTerm().getLabel();
@@ -99,11 +112,21 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 
 		// We collect the final matching score.
 		float score = (targetQueryTermHit.getScore() >= ontologyTermHit.getScore() ? targetQueryTermHit.getScore()
-				: ontologyTermHit.getScore()) * 100;
+				: ontologyTermHit.getScore());
 
 		boolean isHighQuality = score >= HIGH_QUALITY_THRESHOLD;
 
 		// We get the matched words for the source attribute.
+		Set<String> matchedWords = getMatchedWords(bestMatchingQuery, queriesFromSourceAttribute);
+
+		ExplainedQueryString explainedQueryString = create(termJoiner.join(matchedWords), bestMatchingQuery,
+				queryOrigin, score);
+
+		return ExplainedAttributeMetaData.create(matchedSourceAttribute, explainedQueryString, isHighQuality);
+	}
+
+	Set<String> getMatchedWords(String bestMatchingQuery, Set<String> queriesFromSourceAttribute)
+	{
 		Set<String> matchedWords = new HashSet<>();
 		for (String queryFromSourceAttribute : queriesFromSourceAttribute)
 		{
@@ -115,24 +138,19 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 				matchedWords = labelTokens;
 			}
 		}
-
-		ExplainedQueryString explainedQueryString = create(termJoiner.join(matchedWords), bestMatchingQuery,
-				queryOrigin, score);
-
-		return ExplainedAttributeMetaData.create(matchedSourceAttribute, newHashSet(explainedQueryString),
-				isHighQuality);
+		return matchedWords;
 	}
 
 	List<OntologyTerm> getExpandedOntologyTerms(List<OntologyTerm> ontologyTerms)
 	{
 		List<OntologyTerm> expandedOntologyTerms = new ArrayList<>();
-		for (OntologyTerm ot : ontologyTerms)
+		for (OntologyTerm ontologyTerm : ontologyTerms)
 		{
-			List<OntologyTerm> atomicOntologyTerms = ontologyService.getAtomicOntologyTerms(ot);
+			List<OntologyTerm> atomicOntologyTerms = ontologyService.getAtomicOntologyTerms(ontologyTerm);
 			expandedOntologyTerms.addAll(atomicOntologyTerms);
 			for (OntologyTerm atomicOntologyTerm : atomicOntologyTerms)
 			{
-				expandedOntologyTerms.addAll(ontologyService.getChildren(atomicOntologyTerm));
+				ontologyService.getLevelThreeChildren(atomicOntologyTerm).forEach(ot -> expandedOntologyTerms.add(ot));
 			}
 		}
 		return expandedOntologyTerms;

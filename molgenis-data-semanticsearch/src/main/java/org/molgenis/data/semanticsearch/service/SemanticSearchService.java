@@ -24,6 +24,8 @@ public interface SemanticSearchService
 	List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute, EntityMetaData targetEntityMetaData,
 			EntityMetaData sourceEntityMetaData, Set<String> searchTerms);
 
+	List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute, EntityMetaData sourceEntityMetaData);
+
 	List<OntologyTerm> findOntologyTermsForAttr(AttributeMetaData attribute, EntityMetaData entityMetadata,
 			Set<String> searchTerms);
 

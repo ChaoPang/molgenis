@@ -2,6 +2,7 @@ package org.molgenis.ontology.core.service;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -87,7 +88,7 @@ public interface OntologyService
 	 * @param ontologyTerm
 	 * @return a list of {@link OntologyTerm} as children
 	 */
-	List<OntologyTerm> getChildren(OntologyTerm ontologyTerm);
+	Stream<OntologyTerm> getLevelThreeChildren(OntologyTerm ontologyTerm);
 
 	/**
 	 * Calculate distance between two ontology terms

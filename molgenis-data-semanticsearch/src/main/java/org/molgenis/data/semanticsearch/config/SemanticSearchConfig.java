@@ -84,6 +84,6 @@ public class SemanticSearchConfig
 	@Bean
 	OntologyTermSemanticSearch ontologyTermBasedSemanticSearch()
 	{
-		return new OntologyTermSemanticSearchImpl(semanticSearchService(), ontologyService, ontologyTagService());
+		return new OntologyTermSemanticSearchImpl(semanticSearchService(), ontologyService);
 	}
 }
