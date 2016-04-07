@@ -15,8 +15,8 @@ import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.TagService;
 import org.molgenis.data.semanticsearch.service.impl.OntologyTagServiceImpl;
 import org.molgenis.data.semanticsearch.service.impl.OntologyTermSemanticSearchImpl;
-import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceHelper;
 import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceImpl;
+import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils;
 import org.molgenis.data.semanticsearch.service.impl.UntypedTagService;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.ic.TermFrequencyService;
@@ -43,9 +43,9 @@ public class SemanticSearchConfig
 	EmbeddedElasticSearchServiceFactory embeddedElasticSearchServiceFactory;
 
 	@Bean
-	public SemanticSearchServiceHelper semanticSearchServiceHelper()
+	public SemanticSearchServiceUtils semanticSearchServiceUtils()
 	{
-		return new SemanticSearchServiceHelper(dataService, ontologyService, termFrequencyService);
+		return new SemanticSearchServiceUtils(dataService, ontologyService, ontologyTagService(), termFrequencyService);
 	}
 
 	@Bean
@@ -57,8 +57,8 @@ public class SemanticSearchConfig
 	@Bean
 	public SemanticSearchService semanticSearchService()
 	{
-		return new SemanticSearchServiceImpl(dataService, ontologyService, ontologyTagService(),
-				semanticSearchServiceHelper());
+		return new SemanticSearchServiceImpl(dataService, ontologyService, semanticSearchServiceUtils(),
+				attributeMappingExplainService());
 	}
 
 	@Bean
@@ -77,8 +77,7 @@ public class SemanticSearchConfig
 	@Bean
 	AttributeMappingExplainService attributeMappingExplainService()
 	{
-		return new AttributeMappingExplainServiceImpl(semanticSearchService(), ontologyService,
-				semanticSearchServiceHelper());
+		return new AttributeMappingExplainServiceImpl(ontologyService, semanticSearchServiceUtils());
 	}
 
 	@Bean

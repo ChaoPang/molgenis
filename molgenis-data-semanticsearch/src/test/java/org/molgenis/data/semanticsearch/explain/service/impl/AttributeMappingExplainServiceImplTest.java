@@ -2,10 +2,12 @@ package org.molgenis.data.semanticsearch.explain.service.impl;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData.create;
 import static org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString.create;
+import static org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils.MAX_NUM_TAGS;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 import static org.testng.Assert.assertEquals;
 
@@ -18,9 +20,10 @@ import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
-import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceHelper;
+import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
+import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,70 +47,115 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 	OntologyService ontologyService;
 
 	@Autowired
-	SemanticSearchServiceHelper semanticSearchServiceHelper;
+	SemanticSearchServiceUtils semanticSearchServiceUtils;
 
 	@Autowired
 	AttributeMappingExplainServiceImpl attributeMappingExplainServiceImpl;
 
+	private Ontology ontology;
+	private OntologyTerm hypertension;
+	private OntologyTerm medication;
+	private OntologyTerm systolicHypertension;
+	private OntologyTerm distolicHypertension;
+	private OntologyTerm hypertensionMedicationOntology;
+
+	private DefaultAttributeMetaData targetAttribute;
+	private DefaultAttributeMetaData matchedSourceAttribute;
+	private DefaultEntityMetaData targetEntityMetaData;
+	private List<String> allOntologyIds;
+	private List<OntologyTerm> ontologyTerms;
+
 	@BeforeMethod
 	public void init()
 	{
-		OntologyTerm ot = OntologyTerm.create("iri1,iri2", "hypertension,medication");
-		OntologyTerm atomic_ot1 = OntologyTerm.create("iri1", "hypertension",
-				Lists.newArrayList("high blood pressure", "HBP"));
-		OntologyTerm atomic_ot2 = OntologyTerm.create("iri2", "medication");
-		when(ontologyService.getAtomicOntologyTerms(ot)).thenReturn(Arrays.asList(atomic_ot1, atomic_ot2));
+		ontology = Ontology.create("1", "iri", "name");
+		hypertensionMedicationOntology = OntologyTerm.create("iri1,iri2", "hypertension,medication");
+		hypertension = OntologyTerm.create("iri1", "hypertension", Lists.newArrayList("high blood pressure", "HBP"));
+		medication = OntologyTerm.create("iri2", "medication");
+		systolicHypertension = OntologyTerm.create("iri3", "systolic hypertension");
+		distolicHypertension = OntologyTerm.create("iri4", "distolic hypertension");
 
-		OntologyTerm atomic_ot1_child1 = OntologyTerm.create("iri3", "systolic hypertension");
-		OntologyTerm atomic_ot1_child2 = OntologyTerm.create("iri4", "distolic hypertension");
+		targetAttribute = new DefaultAttributeMetaData("hypertension medication");
+		matchedSourceAttribute = new DefaultAttributeMetaData("high blood pressure medication");
+		targetEntityMetaData = new DefaultEntityMetaData("target entity");
 
-		when(ontologyService.getLevelThreeChildren(atomic_ot1))
-				.thenReturn(asList(atomic_ot1_child1, atomic_ot1_child2));
-		when(ontologyService.getLevelThreeChildren(atomic_ot2)).thenReturn(emptyList());
+		allOntologyIds = Arrays.asList("1");
+		ontologyTerms = asList(hypertension, systolicHypertension, distolicHypertension, medication);
+		Set<String> sourceAttributeTerms = Sets.newLinkedHashSet(asList(matchedSourceAttribute.getName().split(" ")));
+
+		when(ontologyService.getAtomicOntologyTerms(hypertensionMedicationOntology))
+				.thenReturn(Arrays.asList(hypertension, medication));
+		when(ontologyService.getAtomicOntologyTerms(hypertension)).thenReturn(Arrays.asList(hypertension));
+		when(ontologyService.getAtomicOntologyTerms(medication)).thenReturn(Arrays.asList(medication));
+		when(ontologyService.getLevelThreeChildren(hypertension))
+				.thenReturn(asList(systolicHypertension, distolicHypertension));
+		when(ontologyService.getLevelThreeChildren(medication)).thenReturn(emptyList());
+		when(ontologyService.getOntologies()).thenReturn(Arrays.asList(ontology));
+		when(ontologyService.getAllOntologiesIds()).thenReturn(allOntologyIds);
+
+		when(semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, emptySet()))
+				.thenReturn(Sets.newHashSet(targetAttribute.getName()));
+		when(semanticSearchServiceUtils.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, emptySet(),
+				allOntologyIds)).thenReturn(ontologyTerms);
+		when(semanticSearchServiceUtils.getQueryTermsFromAttribute(matchedSourceAttribute, null))
+				.thenReturn(Sets.newHashSet(matchedSourceAttribute.getName()));
+		when(semanticSearchServiceUtils.splitIntoTerms(matchedSourceAttribute.getName()))
+				.thenReturn(sourceAttributeTerms);
+		when(ontologyService.findAndFilterOntologyTerms(allOntologyIds, sourceAttributeTerms, MAX_NUM_TAGS,
+				ontologyTerms)).thenReturn(Arrays.asList(hypertension, medication));
+		when(ontologyService.findAndFilterOntologyTerms(allOntologyIds, sourceAttributeTerms, MAX_NUM_TAGS,
+				Arrays.asList(hypertension, medication))).thenReturn(Arrays.asList(hypertension, medication));
+		when(semanticSearchServiceUtils.combineOntologyTerms(sourceAttributeTerms,
+				Arrays.asList(hypertension, medication)))
+						.thenReturn(Arrays.asList(Hit.create(OntologyTermHit.create(hypertensionMedicationOntology,
+								"high blood pressure medication"), 1.0f)));
 	}
 
 	@Test
-	public void explainAttributeMappingAttributeMetaDataAttributeMetaDataEntityMetaDataEntityMetaData()
+	public void testExplainByAttribute()
 	{
-		Set<String> userQueries = Collections.emptySet();
+		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl
+				.explainByAttribute(Collections.emptySet(), targetAttribute, matchedSourceAttribute);
 
-		DefaultAttributeMetaData targetAttribute = new DefaultAttributeMetaData("hypertension medication");
-		DefaultAttributeMetaData matchedSourceAttribute = new DefaultAttributeMetaData(
-				"high blood pressure medication");
-		DefaultEntityMetaData targetEntityMetaData = new DefaultEntityMetaData("target entity");
-		DefaultEntityMetaData sourceEntityMetaData = new DefaultEntityMetaData("source entity");
+		ExplainedAttributeMetaData expected = create(matchedSourceAttribute,
+				create("medic", "hypertension medication", "hypertension medication", 0.34146f), false);
 
-		List<OntologyTerm> ontologyTerms = Arrays.asList(
-				OntologyTerm.create("iri1", "hypertension", Lists.newArrayList("high blood pressure", "HBP")),
-				OntologyTerm.create("iri2", "medication"), OntologyTerm.create("iri3", "systolic hypertension"),
-				OntologyTerm.create("iri4", "distolic hypertension"));
+		assertEquals(actual, expected);
+	}
 
-		List<String> allOntologyIds = Arrays.asList("1");
-
-		when(semanticSearchServiceHelper.createLexicalSearchQueryTerms(targetAttribute, userQueries))
-				.thenReturn(Sets.newHashSet("hypertension medication"));
-
-		when(semanticSearchServiceHelper.createLexicalSearchQueryTerms(matchedSourceAttribute, null))
-				.thenReturn(Sets.newHashSet("high blood pressure medication"));
-
-		when(semanticSearchService.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, userQueries))
-				.thenReturn(Arrays.asList(OntologyTerm.create("iri1,iri2", "hypertension,medication")));
-
-		when(ontologyService.getAllOntologiesIds()).thenReturn(allOntologyIds);
-
-		OntologyTermHit ontologyTermHit = OntologyTermHit
-				.create(OntologyTerm.create("iri1,iri2", "hypertension,medication"), "high blood pressure medication");
-
-		when(semanticSearchService.filterTagsForAttr(matchedSourceAttribute, allOntologyIds, ontologyTerms))
-				.thenReturn(asList(Hit.<OntologyTermHit> create(ontologyTermHit, (float) 1)));
-
-		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl.explainAttributeMapping(targetAttribute,
-				matchedSourceAttribute, targetEntityMetaData, sourceEntityMetaData);
+	@Test
+	public void testExplainBySynonyms()
+	{
+		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl.explainBySynonyms(Collections.emptySet(),
+				targetAttribute, matchedSourceAttribute, targetEntityMetaData);
 
 		ExplainedAttributeMetaData expected = create(matchedSourceAttribute,
 				create("high pressur medic blood", "high blood pressure medication", "hypertension,medication", 1.0f),
 				true);
+		assertEquals(actual, expected);
+	}
 
+	@Test
+	public void testExplainByAll()
+	{
+		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl.explainByAll(emptySet(), targetAttribute,
+				matchedSourceAttribute, targetEntityMetaData);
+
+		ExplainedAttributeMetaData expected = create(matchedSourceAttribute,
+				create("high pressur medic blood", "high blood pressure medication", "hypertension,medication", 1.0f),
+				true);
+		assertEquals(actual, expected);
+	}
+
+	@Test
+	public void testExplainAttributeMappingInternal()
+	{
+		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl.explainAttributeMappingInternal(
+				Sets.newHashSet(targetAttribute.getName()), ontologyTerms, matchedSourceAttribute);
+
+		ExplainedAttributeMetaData expected = create(matchedSourceAttribute,
+				create("high pressur medic blood", "high blood pressure medication", "hypertension,medication", 1.0f),
+				true);
 		assertEquals(actual, expected);
 	}
 
@@ -127,8 +175,8 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		List<OntologyTerm> actual = attributeMappingExplainServiceImpl.getExpandedOntologyTerms(Arrays.asList(ot));
 		List<OntologyTerm> expected = Arrays.asList(
 				OntologyTerm.create("iri1", "hypertension", Lists.newArrayList("high blood pressure", "HBP")),
-				OntologyTerm.create("iri2", "medication"), OntologyTerm.create("iri3", "systolic hypertension"),
-				OntologyTerm.create("iri4", "distolic hypertension"));
+				OntologyTerm.create("iri3", "systolic hypertension"),
+				OntologyTerm.create("iri4", "distolic hypertension"), OntologyTerm.create("iri2", "medication"));
 		assertEquals(actual, expected);
 	}
 
@@ -148,16 +196,15 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		}
 
 		@Bean
-		public SemanticSearchServiceHelper semanticSearchServiceHelper()
+		public SemanticSearchServiceUtils semanticSearchServiceHelper()
 		{
-			return mock(SemanticSearchServiceHelper.class);
+			return mock(SemanticSearchServiceUtils.class);
 		}
 
 		@Bean
 		public AttributeMappingExplainServiceImpl attributeMappingExplainService()
 		{
-			return new AttributeMappingExplainServiceImpl(semanticSearchService(), ontologyService(),
-					semanticSearchServiceHelper());
+			return new AttributeMappingExplainServiceImpl(ontologyService(), semanticSearchServiceHelper());
 		}
 	}
 }

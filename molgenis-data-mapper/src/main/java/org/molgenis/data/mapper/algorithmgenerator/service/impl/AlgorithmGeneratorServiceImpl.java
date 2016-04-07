@@ -1,6 +1,7 @@
 package org.molgenis.data.mapper.algorithmgenerator.service.impl;
 
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState.GENERATED_HIGH;
@@ -97,8 +98,8 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 
 			// For each source attribute, an explanation is provided by the explain service.
 			List<ExplainedAttributeMetaData> explainedSourceAttributes = mappedSourceAttributes.stream()
-					.map(sourceAttribute -> attributeMappingExplainService.explainAttributeMapping(targetAttribute,
-							sourceAttribute, targetEntityMetaData, sourceEntityMetaData))
+					.map(sourceAttribute -> attributeMappingExplainService.explainAttributeMapping(emptySet(),
+							targetAttribute, sourceAttribute, targetEntityMetaData))
 					.collect(toList());
 
 			// if all source attributes are matched with high quality, then the algorithm is high quality.

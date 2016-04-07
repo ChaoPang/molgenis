@@ -584,9 +584,7 @@ public class MappingServiceController extends MolgenisPluginController
 		EntityMetaData sourceEntityMetaData = entityMapping.getSourceEntityMetaData();
 		AttributeMetaData targetAttributeMetaData = targetEntityMetaData.getAttribute(targetAttribute);
 
-		// Find relevant attributes base on tags
-		// FIXME
-		List<AttributeMetaData> relevantAttributes = semanticSearchService.findAttributes(targetAttributeMetaData,
+		List<AttributeMetaData> relevantAttributes = semanticSearchService.findAttributesLazy(targetAttributeMetaData,
 				targetEntityMetaData, sourceEntityMetaData, searchTerms);
 		List<ExplainedAttributeMetaData> results = new ArrayList<>();
 		for (int i = 0; i < relevantAttributes.size(); i++)
@@ -595,7 +593,7 @@ public class MappingServiceController extends MolgenisPluginController
 			if (i < 5)
 			{
 				results.add(attributeMappingExplainService.explainAttributeMapping(searchTerms, targetAttributeMetaData,
-						sourceAttribute, targetEntityMetaData, sourceEntityMetaData));
+						sourceAttribute, targetEntityMetaData));
 			}
 			else
 			{

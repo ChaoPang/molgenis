@@ -72,22 +72,11 @@ public class AlgorithmServiceImpl implements AlgorithmService
 		LOG.debug("createAttributeMappingIfOnlyOneMatch: target= " + targetAttribute.getName());
 
 		// We first search for the source attributes only using query terms collected from the target attribute
-		List<AttributeMetaData> relevantAttributes = semanticSearchService.findAttributes(targetAttribute,
-				sourceEntityMetaData);
+		List<AttributeMetaData> relevantAttributes = semanticSearchService.findAttributesLazy(targetAttribute,
+				targetEntityMetaData, sourceEntityMetaData, Collections.emptySet());
+
 		GeneratedAlgorithm generatedAlgorithm = algorithmGeneratorService.autoGenerate(targetAttribute,
 				relevantAttributes, targetEntityMetaData, sourceEntityMetaData);
-
-		// If the first source attribute found by the query terms collected from the target attribute is not good
-		// enough, we then use ontology query expansion to search again. We don't want to use query expansion right away
-		// because it's very expensive.
-		if (generatedAlgorithm.getScore() < 0.9f)
-		{
-			relevantAttributes = semanticSearchService.findAttributes(targetAttribute, targetEntityMetaData,
-					sourceEntityMetaData, null);
-
-			generatedAlgorithm = algorithmGeneratorService.autoGenerate(targetAttribute, relevantAttributes,
-					targetEntityMetaData, sourceEntityMetaData);
-		}
 
 		if (StringUtils.isNotBlank(generatedAlgorithm.getAlgorithm()))
 		{
@@ -95,6 +84,7 @@ public class AlgorithmServiceImpl implements AlgorithmService
 			attributeMapping.setAlgorithm(generatedAlgorithm.getAlgorithm());
 			attributeMapping.getSourceAttributeMetaDatas().addAll(generatedAlgorithm.getSourceAttributes());
 			attributeMapping.setAlgorithmState(generatedAlgorithm.getAlgorithmState());
+			attributeMapping.setSimilarity(generatedAlgorithm.getScore());
 			LOG.debug("Creating attribute mapping: " + targetAttribute.getName() + " = "
 					+ generatedAlgorithm.getAlgorithm());
 		}

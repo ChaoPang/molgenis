@@ -13,7 +13,7 @@ import org.molgenis.ontology.core.model.OntologyTerm;
 public interface SemanticSearchService
 {
 	/**
-	 * Find all relevant source attributes
+	 * Finds all relevant source {@link AttributeMetaData}s
 	 * 
 	 * @param source
 	 * @param attributeMetaData
@@ -24,10 +24,21 @@ public interface SemanticSearchService
 	List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute, EntityMetaData targetEntityMetaData,
 			EntityMetaData sourceEntityMetaData, Set<String> searchTerms);
 
-	List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute, EntityMetaData sourceEntityMetaData);
-
-	List<OntologyTerm> findOntologyTermsForAttr(AttributeMetaData attribute, EntityMetaData entityMetadata,
-			Set<String> searchTerms);
+	/**
+	 * Finds all relevant source {@link AttributeMetaData}s. Due to the large number of queries that might be generated
+	 * from ontology terms, this method will search for attributes using the information in such an order, 1. only the
+	 * terms collected from the target @{link AttributeMetaData}; 2. synonyms collected from @{link OntologyTerm}s; 3.
+	 * all terms including children terms from @{link OntologyTerm}s. At any of the stage, it the match result passes a
+	 * certain threshold the search will stop.
+	 * 
+	 * @param targetAttribute
+	 * @param targetEntityMetaData
+	 * @param sourceEntityMetaData
+	 * @param searchTerms
+	 * @return
+	 */
+	List<AttributeMetaData> findAttributesLazy(AttributeMetaData targetAttribute, EntityMetaData targetEntityMetaData,
+			EntityMetaData sourceEntityMetaData, Set<String> searchTerms);
 
 	/**
 	 * Finds {@link OntologyTerm}s that can be used to tag an attribute.
@@ -65,18 +76,4 @@ public interface SemanticSearchService
 	List<Hit<OntologyTermHit>> findAllTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds);
 
 	List<Hit<OntologyTermHit>> findAllTags(String description, List<String> ontologyIds);
-
-	/**
-	 * Filters all the relevant {@link OntologyTerm}s and creates the {@link OntologyTermHit}s for the attribute.
-	 * {@link OntologyTermHit} contains the best combination of ontology terms that yields the highest lexical
-	 * similarity score.
-	 * 
-	 * @param attribute
-	 * @param ontologyIds
-	 * @param scope
-	 *            defines a scope of ontology terms in which the search is performed.
-	 * @return
-	 */
-	List<Hit<OntologyTermHit>> filterTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds,
-			List<OntologyTerm> scope);
 }
