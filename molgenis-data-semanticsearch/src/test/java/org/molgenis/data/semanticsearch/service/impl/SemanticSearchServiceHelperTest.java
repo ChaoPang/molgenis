@@ -40,6 +40,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
@@ -114,19 +115,19 @@ public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContext
 
 		// Case 1
 		QueryRule actualTargetAttributeQueryTerms_1 = semanticSearchServiceHelper.createDisMaxQueryRuleForAttribute(
-				Sets.newLinkedHashSet(Arrays.asList("targetAttribute 1", "Height")), tags.values());
+				Sets.newLinkedHashSet(Arrays.asList("targetAttribute 1", "Height")), Lists.newArrayList(tags.values()));
 		String expecteddisMaxQueryRuleToString_1 = "DIS_MAX ('label' FUZZY_MATCH '1 targetattribute', 'description' FUZZY_MATCH '1 targetattribute', 'label' FUZZY_MATCH 'height', 'description' FUZZY_MATCH 'height', 'label' FUZZY_MATCH 'length body', 'description' FUZZY_MATCH 'length body', 'label' FUZZY_MATCH 'standing height', 'description' FUZZY_MATCH 'standing height', 'label' FUZZY_MATCH 'length sitting', 'description' FUZZY_MATCH 'length sitting', 'label' FUZZY_MATCH 'sitting height', 'description' FUZZY_MATCH 'sitting height', 'label' FUZZY_MATCH 'sature', 'description' FUZZY_MATCH 'sature', 'label' FUZZY_MATCH 'height', 'description' FUZZY_MATCH 'height')";
 		assertEquals(actualTargetAttributeQueryTerms_1.toString(), expecteddisMaxQueryRuleToString_1);
 
 		// Case 2
 		QueryRule expecteddisMaxQueryRuleToString_2 = semanticSearchServiceHelper
-				.createDisMaxQueryRuleForAttribute(Sets.newHashSet("Height"), tags.values());
+				.createDisMaxQueryRuleForAttribute(Sets.newHashSet("Height"), Lists.newArrayList(tags.values()));
 		String expectedTargetAttributeQueryTermsToString_2 = "DIS_MAX ('label' FUZZY_MATCH 'height', 'description' FUZZY_MATCH 'height', 'label' FUZZY_MATCH 'length body', 'description' FUZZY_MATCH 'length body', 'label' FUZZY_MATCH 'standing height', 'description' FUZZY_MATCH 'standing height', 'label' FUZZY_MATCH 'length sitting', 'description' FUZZY_MATCH 'length sitting', 'label' FUZZY_MATCH 'sitting height', 'description' FUZZY_MATCH 'sitting height', 'label' FUZZY_MATCH 'sature', 'description' FUZZY_MATCH 'sature', 'label' FUZZY_MATCH 'height', 'description' FUZZY_MATCH 'height')";
 		assertEquals(expecteddisMaxQueryRuleToString_2.toString(), expectedTargetAttributeQueryTermsToString_2);
 
 		// Case 3
-		QueryRule expecteddisMaxQueryRuleToString_3 = semanticSearchServiceHelper
-				.createDisMaxQueryRuleForAttribute(Sets.newHashSet("targetAttribute 3"), tags.values());
+		QueryRule expecteddisMaxQueryRuleToString_3 = semanticSearchServiceHelper.createDisMaxQueryRuleForAttribute(
+				Sets.newHashSet("targetAttribute 3"), Lists.newArrayList(tags.values()));
 		String expectedTargetAttributeQueryTermsToString_3 = "DIS_MAX ('label' FUZZY_MATCH '3 targetattribute', 'description' FUZZY_MATCH '3 targetattribute', 'label' FUZZY_MATCH 'length body', 'description' FUZZY_MATCH 'length body', 'label' FUZZY_MATCH 'standing height', 'description' FUZZY_MATCH 'standing height', 'label' FUZZY_MATCH 'length sitting', 'description' FUZZY_MATCH 'length sitting', 'label' FUZZY_MATCH 'sitting height', 'description' FUZZY_MATCH 'sitting height', 'label' FUZZY_MATCH 'sature', 'description' FUZZY_MATCH 'sature', 'label' FUZZY_MATCH 'height', 'description' FUZZY_MATCH 'height')";
 		assertEquals(expecteddisMaxQueryRuleToString_3.toString(), expectedTargetAttributeQueryTermsToString_3);
 	}
@@ -137,6 +138,7 @@ public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContext
 		// Case 1
 		OntologyTerm ontologyTerm1 = OntologyTerm.create("http://onto/standingheight", "Standing height",
 				"Description is not used", Arrays.<String> asList("body_length"));
+		when(ontologyService.getLevelThreeChildren(ontologyTerm1)).thenReturn(Collections.emptyList());
 		List<String> actual_1 = semanticSearchServiceHelper.parseOntologyTermQueries(ontologyTerm1);
 		assertEquals(actual_1, Arrays.asList("length body", "standing height"));
 
@@ -147,9 +149,9 @@ public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContext
 		OntologyTerm ontologyTerm3 = OntologyTerm.create("http://onto/standingheight-children", "length",
 				Arrays.<String> asList("body_length"));
 
-		when(ontologyService.getLevelThreeChildren(ontologyTerm2)).thenReturn(Arrays.asList(ontologyTerm3));
+		when(ontologyService.getLevelThreeChildren(ontologyTerm2)).thenReturn(Lists.newArrayList(ontologyTerm3));
 
-		when(ontologyService.getOntologyTermDistance(ontologyTerm2, ontologyTerm3)).thenReturn(1);
+		when(ontologyService.getOntologyTermSemanticRelatedness(ontologyTerm2, ontologyTerm3)).thenReturn(0.5);
 
 		List<String> actual_2 = semanticSearchServiceHelper.parseOntologyTermQueries(ontologyTerm2);
 

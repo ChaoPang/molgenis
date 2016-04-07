@@ -1,10 +1,12 @@
 package org.molgenis.ontology.utils;
 
+import static java.util.stream.Collectors.toList;
+import static org.molgenis.ontology.utils.Stemmer.replaceIllegalCharacter;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.common.collect.Sets;
@@ -80,9 +82,9 @@ public class NGramDistanceAlgorithm
 
 	public static Map<String, Integer> createNGrams(String inputQuery, boolean removeStopWords)
 	{
-		List<String> wordsInString = Lists.newArrayList(Stemmer.replaceIllegalCharacter(inputQuery).split(" "));
+		List<String> wordsInString = Lists.newArrayList(replaceIllegalCharacter(inputQuery).split(" "));
 		if (removeStopWords) wordsInString.removeAll(STOPWORDSLIST);
-		List<String> stemmedWordsInString = wordsInString.stream().map(Stemmer::stem).collect(Collectors.toList());
+		List<String> stemmedWordsInString = wordsInString.stream().map(Stemmer::stem).collect(toList());
 		Map<String, Integer> tokens = new HashMap<String, Integer>();
 		// Padding the string
 		for (String singleWord : stemmedWordsInString)

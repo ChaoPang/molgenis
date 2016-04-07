@@ -2,10 +2,10 @@ package org.molgenis.ontology.core.service;
 
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
 
 public interface OntologyService
 {
@@ -49,8 +49,17 @@ public interface OntologyService
 	 */
 	List<OntologyTerm> findOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize);
 
+	/**
+	 * Finds all {@link OntologyTerm}s in the give ontologyTerm scope
+	 * 
+	 * @param ontologyIds
+	 * @param terms
+	 * @param pageSize
+	 * @param scope
+	 * @return
+	 */
 	List<OntologyTerm> findAndFilterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
-			List<OntologyTerm> ontologyTerms);
+			List<OntologyTerm> scope);
 
 	/**
 	 * Retrieve all ontology terms from the specified ontology
@@ -83,12 +92,21 @@ public interface OntologyService
 	List<OntologyTerm> getAtomicOntologyTerms(OntologyTerm ontologyTerm);
 
 	/**
-	 * Retrieves all children from the current ontology term
+	 * Retrieves children with a predicate indicating at which level in the hierarchy the children should be retrieved.
 	 * 
 	 * @param ontologyTerm
-	 * @return a list of {@link OntologyTerm} as children
+	 * @param continuePredicate
+	 * @return
 	 */
-	Stream<OntologyTerm> getLevelThreeChildren(OntologyTerm ontologyTerm);
+	List<OntologyTerm> getChildren(OntologyTerm ontologyTerm, OntologyTermChildrenPredicate continuePredicate);
+
+	/**
+	 * Retrieves children within the 3 levels down the hierarchy from the current {@link OntologyTerm}.
+	 * 
+	 * @param ontologyTerm
+	 * @return
+	 */
+	List<OntologyTerm> getLevelThreeChildren(OntologyTerm ontologyTerm);
 
 	/**
 	 * Calculate distance between two ontology terms
@@ -115,7 +133,12 @@ public interface OntologyService
 	 */
 	List<String> getAllOntologiesIds();
 
+	/**
+	 * Compute best lexical similarity score between two ontology terms
+	 * 
+	 * @param ontologyTerm1
+	 * @param ontologyTerm2
+	 * @return
+	 */
 	Double getOntologyTermLexicalSimilarity(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2);
-
-	Set<String> getUniqueSynonyms(OntologyTerm ontologyTerm);
 }

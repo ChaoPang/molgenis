@@ -203,7 +203,7 @@
 			$.each(explainedAttributes, function(index, explainedAttribute){
 				
 				var attribute = explainedAttribute.attributeMetaData;
-				var explainedQueryStrings = explainedAttribute.explainedQueryStrings;
+				var explainedQueryString = explainedAttribute.explainedQueryString;
 				
 				var row = $('<tr />').attr({
 					'data-attribute-name' : attribute.name,
@@ -240,21 +240,18 @@
 				
 				if(counter < 10)
 				{
-					if(explainedQueryStrings.length > 0)
+					if(explainedQueryString)
 					{
 						var matchedWords = [];
 						var attributeInfoElement = $(row).find('td.source-attribute-information');
 						var attributeLabel = attribute.label;
 						//Create a detailed explanation popover to show how the attributes get matched
-						createPopoverExplanation(row, attributeInfoElement, attributeLabel, explainedQueryStrings);
+						createPopoverExplanation(row, attributeInfoElement, attributeLabel, explainedQueryString);
 						
 						//Collect all matched words from all explanations
-						$.each(explainedQueryStrings, function(index, explainedQueryString){
-							var matchedWordsFromOneExplanation = extendPartialWord(attributeLabel, explainedQueryString.matchedWords.split(' '));
-							$.each(matchedWordsFromOneExplanation, function(index, element){
-								matchedWords.push(element);
-							});
-							
+						var matchedWordsFromOneExplanation = extendPartialWord(attributeLabel, explainedQueryString.matchedWords.split(' '));
+						$.each(matchedWordsFromOneExplanation, function(index, element){
+							matchedWords.push(element);
 						});
 						
 						//Connect matched words and highlight them together
@@ -382,16 +379,14 @@
 	/**
 	 * Create a boostrap popover message to show the explanation 
 	 */
-	function createPopoverExplanation(row, attributeInfoElement, attributeLabel, explainedQueryStrings){
-		if(explainedQueryStrings.length > 0){
-			var message = '', matchedWords, queryString, score;
-			$.each(explainedQueryStrings, function(index, explainedQueryString){
-				matchedWords = extendPartialWord(attributeLabel, explainedQueryString.matchedWords.split(' '));
-				queryString = explainedQueryString.queryString;
-				score = explainedQueryString.score;
-				message += 'The query <strong>' + queryString + '</strong> derived from <strong>' + explainedQueryString.tagName;
-				message += '</strong> is matched to the label on words <strong>' + matchedWords.join(' ').toLowerCase() + '</strong> with ' + score + '%<br><br>';
-			});
+	function createPopoverExplanation(row, attributeInfoElement, attributeLabel, explainedQueryString){
+		if(explainedQueryString){
+			var matchedWords = extendPartialWord(attributeLabel, explainedQueryString.matchedWords.split(' '));
+			var queryString = explainedQueryString.queryString;
+			var score = explainedQueryString.score;
+			var message = 'The query <strong>' + queryString + '</strong> derived from <strong>' 
+				+ explainedQueryString.tagName;+ '</strong> is matched to the label on words <strong>' 
+				+ matchedWords.join(' ').toLowerCase() + '</strong> with ' + score + '%<br><br>';
 			var option = {'title' : 'Explanation', 'content' : message, 'html' : true, 'placement' : 'top', 'container' : row, 'trigger' : 'hover'};
 			$(attributeInfoElement).popover(option);
 		}

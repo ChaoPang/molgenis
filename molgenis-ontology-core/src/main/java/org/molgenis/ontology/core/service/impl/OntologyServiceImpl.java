@@ -5,21 +5,31 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
+import static org.molgenis.ontology.utils.PredicateUtils.createRetrieveLevelThreePredicate;
 import static org.molgenis.ontology.utils.Stemmer.cleanStemPhrase;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Stream;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import org.elasticsearch.common.collect.Lists;
+import org.molgenis.data.MolgenisDataAccessException;
+import org.molgenis.ontology.core.model.ConditionalChildrenRetrieval;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
 import org.molgenis.ontology.core.repository.OntologyRepository;
 import org.molgenis.ontology.core.repository.OntologyTermRepository;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.utils.Stemmer;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,6 +38,17 @@ public class OntologyServiceImpl implements OntologyService
 	private final static String ONTOLOGY_TERM_IRI_SEPARATOR = ",";
 	private OntologyRepository ontologyRepository;
 	private OntologyTermRepository ontologyTermRepository;
+
+	private LoadingCache<ConditionalChildrenRetrieval, List<OntologyTerm>> cachedOntologyTermChildren = CacheBuilder
+			.newBuilder().maximumSize(1000).expireAfterWrite(1, TimeUnit.HOURS)
+			.build(new CacheLoader<ConditionalChildrenRetrieval, List<OntologyTerm>>()
+			{
+				public List<OntologyTerm> load(ConditionalChildrenRetrieval conditionalChildrenRetrieval)
+				{
+					return ontologyTermRepository.getChildren(conditionalChildrenRetrieval.getOntologyTerm(),
+							conditionalChildrenRetrieval.getContinuePredicate()).collect(Collectors.toList());
+				}
+			});
 
 	@Autowired
 	public OntologyServiceImpl(OntologyRepository ontologyRepository, OntologyTermRepository ontologyTermRepository)
@@ -101,9 +122,23 @@ public class OntologyServiceImpl implements OntologyService
 	}
 
 	@Override
-	public Stream<OntologyTerm> getLevelThreeChildren(OntologyTerm ontologyTerm)
+	public List<OntologyTerm> getChildren(OntologyTerm ontologyTerm, OntologyTermChildrenPredicate continuePredicate)
 	{
-		return ontologyTermRepository.getLevelThreeChildren(ontologyTerm);
+		try
+		{
+			return cachedOntologyTermChildren.get(ConditionalChildrenRetrieval.create(ontologyTerm, continuePredicate));
+		}
+		catch (ExecutionException e)
+		{
+			throw new MolgenisDataAccessException(e.getMessage());
+		}
+	}
+
+	@Override
+	public List<OntologyTerm> getLevelThreeChildren(OntologyTerm ontologyTerm)
+	{
+		OntologyTermChildrenPredicate continuePredicate = createRetrieveLevelThreePredicate(this);
+		return getChildren(ontologyTerm, continuePredicate);
 	}
 
 	@Override
@@ -155,8 +190,7 @@ public class OntologyServiceImpl implements OntologyService
 		return ontologyTerms;
 	}
 
-	@Override
-	public Set<String> getUniqueSynonyms(OntologyTerm ontologyTerm)
+	private Set<String> getUniqueSynonyms(OntologyTerm ontologyTerm)
 	{
 		Set<String> synonyms = newHashSet(
 				ontologyTerm.getSynonyms().stream().map(Stemmer::cleanStemPhrase).collect(toSet()));

@@ -106,7 +106,7 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 					? GENERATED_HIGH : GENERATED_LOW;
 
 			// Calculate the final similarity score by summing up all the matched scores.
-			score = explainedSourceAttributes.stream().map(ExplainedAttributeMetaData::getExplainedQueryStrings)
+			score = explainedSourceAttributes.stream().map(ExplainedAttributeMetaData::getExplainedQueryString)
 					.mapToDouble(ExplainedQueryString::getScore).sum();
 		}
 

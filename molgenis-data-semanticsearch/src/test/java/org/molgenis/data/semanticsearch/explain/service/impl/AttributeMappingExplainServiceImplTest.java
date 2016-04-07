@@ -1,6 +1,7 @@
 package org.molgenis.data.semanticsearch.explain.service.impl;
 
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData.create;
@@ -60,8 +61,9 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		OntologyTerm atomic_ot1_child1 = OntologyTerm.create("iri3", "systolic hypertension");
 		OntologyTerm atomic_ot1_child2 = OntologyTerm.create("iri4", "distolic hypertension");
 
-		when(ontologyService.getLevelThreeChildren(atomic_ot1)).thenReturn(Arrays.asList(atomic_ot1_child1, atomic_ot1_child2));
-		when(ontologyService.getLevelThreeChildren(atomic_ot2)).thenReturn(Collections.emptyList());
+		when(ontologyService.getLevelThreeChildren(atomic_ot1))
+				.thenReturn(asList(atomic_ot1_child1, atomic_ot1_child2));
+		when(ontologyService.getLevelThreeChildren(atomic_ot2)).thenReturn(emptyList());
 	}
 
 	@Test
@@ -102,8 +104,9 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl.explainAttributeMapping(targetAttribute,
 				matchedSourceAttribute, targetEntityMetaData, sourceEntityMetaData);
 
-		ExplainedAttributeMetaData expected = create(matchedSourceAttribute, create("high pressur medic blood",
-				"high blood pressure medication", "hypertension,medication", (float) 100.0), true);
+		ExplainedAttributeMetaData expected = create(matchedSourceAttribute,
+				create("high pressur medic blood", "high blood pressure medication", "hypertension,medication", 1.0f),
+				true);
 
 		assertEquals(actual, expected);
 	}

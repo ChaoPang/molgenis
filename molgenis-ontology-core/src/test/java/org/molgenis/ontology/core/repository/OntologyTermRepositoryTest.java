@@ -1,5 +1,6 @@
 package org.molgenis.ontology.core.repository;
 
+import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Arrays.asList;
 import static org.elasticsearch.common.collect.ImmutableSet.of;
 import static org.mockito.ArgumentCaptor.forClass;
@@ -136,34 +137,46 @@ public class OntologyTermRepositoryTest extends AbstractTestNGSpringContextTests
 		Entity nodePathEntity_3 = new MapEntity(
 				ImmutableMap.of(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH, "0[0].1[1].1[2]"));
 
-		MapEntity ontologyTerm_2 = new MapEntity();
-		ontologyTerm_2.set(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
-		ontologyTerm_2.set(OntologyTermMetaData.ONTOLOGY_TERM_IRI, "iri 2");
-		ontologyTerm_2.set(OntologyTermMetaData.ONTOLOGY_TERM_NAME, "name 2");
-		ontologyTerm_2.set(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH,
-				Arrays.asList(nodePathEntity_1, nodePathEntity_2));
-		ontologyTerm_2.set(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM, Collections.emptyList());
+		MapEntity ontologyTermEntity_1 = new MapEntity();
+		ontologyTermEntity_1.set(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
+		ontologyTermEntity_1.set(OntologyTermMetaData.ONTOLOGY_TERM_IRI, "iri 1");
+		ontologyTermEntity_1.set(OntologyTermMetaData.ONTOLOGY_TERM_NAME, "name 1");
+		ontologyTermEntity_1.set(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, Arrays.asList(nodePathEntity_1));
+		ontologyTermEntity_1.set(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM, Collections.emptyList());
 
-		MapEntity ontologyTerm_3 = new MapEntity();
-		ontologyTerm_3.set(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
-		ontologyTerm_3.set(OntologyTermMetaData.ONTOLOGY_TERM_IRI, "iri 3");
-		ontologyTerm_3.set(OntologyTermMetaData.ONTOLOGY_TERM_NAME, "name 3");
-		ontologyTerm_3.set(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, Arrays.asList(nodePathEntity_3));
-		ontologyTerm_3.set(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM, Collections.emptyList());
+		MapEntity ontologyTermEntity_2 = new MapEntity();
+		ontologyTermEntity_2.set(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
+		ontologyTermEntity_2.set(OntologyTermMetaData.ONTOLOGY_TERM_IRI, "iri 2");
+		ontologyTermEntity_2.set(OntologyTermMetaData.ONTOLOGY_TERM_NAME, "name 2");
+		ontologyTermEntity_2.set(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, Arrays.asList(nodePathEntity_2));
+		ontologyTermEntity_2.set(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM, Collections.emptyList());
+
+		MapEntity ontologyTermEntity_3 = new MapEntity();
+		ontologyTermEntity_3.set(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
+		ontologyTermEntity_3.set(OntologyTermMetaData.ONTOLOGY_TERM_IRI, "iri 3");
+		ontologyTermEntity_3.set(OntologyTermMetaData.ONTOLOGY_TERM_NAME, "name 3");
+		ontologyTermEntity_3.set(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, Arrays.asList(nodePathEntity_3));
+		ontologyTermEntity_3.set(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM, Collections.emptyList());
+
+		OntologyTerm ontologyTerm_1 = OntologyTerm.create("iri 1", "name 1", null, Arrays.asList("name 1"),
+				Arrays.asList("0[0].1[1]"));
+		OntologyTerm ontologyTerm_2 = OntologyTerm.create("iri 2", "name 2", null, Arrays.asList("name 2"),
+				Arrays.asList("0[0].1[1].0[2]"));
+		OntologyTerm ontologyTerm_3 = OntologyTerm.create("iri 3", "name 3", null, asList("name 3"),
+				asList("0[0].1[1].1[2]"));
 
 		when(dataService.findAll(OntologyTermMetaData.ENTITY_NAME,
 				new QueryImpl(new QueryRule(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, Operator.FUZZY_MATCH,
-						"\"0[0].1[1]\"")).and().eq(OntologyTermMetaData.ONTOLOGY, ontologyEntity)))
-								.thenReturn(Stream.of(ontologyTerm_2, ontologyTerm_3));
+						"\"0[0].1[1]\"")).and().eq(OntologyTermMetaData.ONTOLOGY, ontologyEntity))).thenReturn(
+								Stream.of(ontologyTermEntity_1, ontologyTermEntity_2, ontologyTermEntity_3));
 
-		List<OntologyTerm> childOntologyTermsByNodePath = ontologyTermRepository
-				.childOntologyTermStream(ontologyEntity, nodePathEntity_1);
+		List<OntologyTerm> childOntologyTermsByNodePath = newArrayList(ontologyTermRepository.childOntologyTermStream(
+				ontologyTerm_1, ontologyEntity,
+				nodePathEntity_1.getString(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH), (x, y) -> true));
 
 		assertEquals(childOntologyTermsByNodePath.size(), 2);
-		assertEquals(childOntologyTermsByNodePath.get(0),
-				OntologyTerm.create("iri 2", "name 2", null, Arrays.asList("name 2")));
-		assertEquals(childOntologyTermsByNodePath.get(1),
-				OntologyTerm.create("iri 3", "name 3", null, Arrays.asList("name 3")));
+		assertEquals(childOntologyTermsByNodePath.get(0), ontologyTerm_2);
+		assertEquals(childOntologyTermsByNodePath.get(1), ontologyTerm_3);
 	}
 
 	@Test

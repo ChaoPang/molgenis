@@ -86,10 +86,10 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 
 		// Collect all the ontology terms that are associated with the target attribute, which were used in query
 		// expansion for finding the relevant source attributes.
-		List<OntologyTerm> relevantOntologyTerms = Collections.emptyList();
-		// FIXME
-		// List<OntologyTerm> relevantOntologyTerms = getExpandedOntologyTerms(
-		// semanticSearchService.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, userQueries));
+		List<OntologyTerm> findOntologyTermsForAttr = semanticSearchService.findOntologyTermsForAttr(targetAttribute,
+				targetEntityMetaData, userQueries);
+
+		List<OntologyTerm> relevantOntologyTerms = getExpandedOntologyTerms(findOntologyTermsForAttr);
 
 		// Unfortunately the ElasticSearch built-in explain-api doesn't scale up. In order to explain why the source
 		// attribute was matched. Now we take the source attribute as the query and filter/find the best combination
@@ -150,7 +150,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 			expandedOntologyTerms.addAll(atomicOntologyTerms);
 			for (OntologyTerm atomicOntologyTerm : atomicOntologyTerms)
 			{
-				ontologyService.getLevelThreeChildren(atomicOntologyTerm).forEach(ot -> expandedOntologyTerms.add(ot));
+				expandedOntologyTerms.addAll(ontologyService.getLevelThreeChildren(atomicOntologyTerm));
 			}
 		}
 		return expandedOntologyTerms;

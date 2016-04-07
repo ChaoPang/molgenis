@@ -1,12 +1,12 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
 import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.apache.commons.lang3.StringUtils.join;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -101,7 +101,7 @@ public class SemanticSearchServiceHelper
 	 * 
 	 * @return disMaxJunc queryRule
 	 */
-	public QueryRule createDisMaxQueryRuleForAttribute(Set<String> searchTerms, Collection<OntologyTerm> ontologyTerms)
+	public QueryRule createDisMaxQueryRuleForAttribute(Set<String> searchTerms, List<OntologyTerm> ontologyTerms)
 	{
 		List<String> queryTerms = new ArrayList<String>();
 
@@ -191,7 +191,7 @@ public class SemanticSearchServiceHelper
 	public List<String> parseOntologyTermQueries(OntologyTerm ontologyTerm)
 	{
 		List<String> queryTerms = getOtLabelAndSynonyms(ontologyTerm).stream().map(this::processQueryString)
-				.collect(Collectors.<String> toList());
+				.collect(toList());
 		ontologyService.getLevelThreeChildren(ontologyTerm).forEach(childOt -> {
 			double boostedNumber = ontologyService.getOntologyTermSemanticRelatedness(ontologyTerm, childOt);
 			List<String> collect = getOtLabelAndSynonyms(childOt).stream()

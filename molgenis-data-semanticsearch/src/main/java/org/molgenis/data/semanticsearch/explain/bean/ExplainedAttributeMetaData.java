@@ -30,7 +30,7 @@ public abstract class ExplainedAttributeMetaData
 	public abstract Map<String, Object> getAttributeMetaData();
 
 	@Nullable
-	public abstract ExplainedQueryString getExplainedQueryStrings();
+	public abstract ExplainedQueryString getExplainedQueryString();
 
 	public abstract boolean isHighQuality();
 

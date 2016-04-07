@@ -585,6 +585,7 @@ public class MappingServiceController extends MolgenisPluginController
 		AttributeMetaData targetAttributeMetaData = targetEntityMetaData.getAttribute(targetAttribute);
 
 		// Find relevant attributes base on tags
+		// FIXME
 		List<AttributeMetaData> relevantAttributes = semanticSearchService.findAttributes(targetAttributeMetaData,
 				targetEntityMetaData, sourceEntityMetaData, searchTerms);
 		List<ExplainedAttributeMetaData> results = new ArrayList<>();
