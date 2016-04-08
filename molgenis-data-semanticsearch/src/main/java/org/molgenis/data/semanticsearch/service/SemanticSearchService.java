@@ -15,14 +15,15 @@ public interface SemanticSearchService
 	/**
 	 * Finds all relevant source {@link AttributeMetaData}s
 	 * 
-	 * @param source
-	 * @param attributeMetaData
-	 * @param ontologyTerms
-	 * 
+	 * @param targetAttribute
+	 * @param targetEntityMetaData
+	 * @param sourceEntityMetaData
+	 * @param searchTerms
+	 * @param expand
 	 * @return AttributeMetaData of resembling attributes, sorted by relevance
 	 */
 	List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute, EntityMetaData targetEntityMetaData,
-			EntityMetaData sourceEntityMetaData, Set<String> searchTerms);
+			EntityMetaData sourceEntityMetaData, Set<String> searchTerms, boolean expand);
 
 	/**
 	 * Finds all relevant source {@link AttributeMetaData}s. Due to the large number of queries that might be generated

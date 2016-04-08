@@ -202,7 +202,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 			LOG.debug("findOntologyTerms({},{},{})", ontologyIds, searchTerms, MAX_NUM_TAGS);
 		}
 
-		List<OntologyTerm> candidates = ontologyService.findAndFilterOntologyTerms(ontologyIds, searchTerms,
+		List<OntologyTerm> candidates = ontologyService.fileterOntologyTerms(ontologyIds, searchTerms,
 				MAX_NUM_TAGS, scope);
 
 		if (LOG.isDebugEnabled())

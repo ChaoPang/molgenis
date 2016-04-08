@@ -1,5 +1,6 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
+import static com.google.common.collect.ImmutableSet.of;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Sets.newHashSet;
 import static com.google.common.collect.Sets.newLinkedHashSet;
@@ -45,6 +46,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableSet;
@@ -54,8 +56,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
-@ContextConfiguration(classes = SemanticSearchServiceHelperTest.Config.class)
-public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContextTests
+@ContextConfiguration(classes = SemanticSearchServiceUtilsTest.Config.class)
+public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextTests
 {
 	@Autowired
 	private OntologyService ontologyService;
@@ -65,6 +67,24 @@ public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContext
 
 	@Autowired
 	private DataService dataService;
+
+	private DefaultAttributeMetaData attribute;
+	private OntologyTerm standingHeight;
+	private OntologyTerm bodyWeight;
+	private List<OntologyTerm> ontologyTerms;
+	private List<String> ontologyIds;
+
+	@BeforeMethod
+	public void init()
+	{
+		attribute = new DefaultAttributeMetaData("attr1").setLabel("attribute 1");
+		standingHeight = OntologyTerm.create("http://onto/height", "Standing height",
+				Arrays.asList("Standing height", "length"));
+		bodyWeight = OntologyTerm.create("http://onto/bmi", "Body weight",
+				Arrays.asList("Body weight", "Mass in kilograms"));
+		ontologyTerms = Arrays.asList(standingHeight, bodyWeight);
+		ontologyIds = Arrays.asList("1");
+	}
 
 	@Test
 	public void testCreateDisMaxQueryRule()
@@ -295,12 +315,12 @@ public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContext
 		OntologyTerm maternalHypertension = OntologyTerm.create("http://onto/mhyp", "Maternal hypertension");
 
 		List<OntologyTerm> ontologyTerms = asList(standingHeight, bodyWeight, hypertension, maternalHypertension);
-		Set<String> searchTerms = ImmutableSet.<String> of("history", "hypertension");
+		Set<String> searchTerms = Sets.newLinkedHashSet(asList("history", "hypertension"));
 
 		when(ontologyService.findOntologyTerms(ontologyIds, searchTerms, 20)).thenReturn(ontologyTerms);
 
-		List<Hit<OntologyTermHit>> result = semanticSearchServiceUtils.findOntologyTermCombination(searchTerms,
-				ontologyIds);
+		List<Hit<OntologyTermHit>> result = semanticSearchServiceUtils
+				.findOntologyTermCombination("history hypertension", ontologyIds);
 
 		assertEquals(result, asList(Hit.create(OntologyTermHit.create(hypertension, "hypertension"), 0.69231f)));
 	}
@@ -319,12 +339,12 @@ public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContext
 		OntologyTerm maternalHypertension = OntologyTerm.create("http://onto/mhyp", "Maternal hypertension");
 
 		List<OntologyTerm> ontologyTerms = asList(standingHeight, bodyWeight, hypertension, maternalHypertension);
-		Set<String> searchTerms = ImmutableSet.<String> of("standing", "height", "meters");
+		Set<String> searchTerms = Sets.newLinkedHashSet(asList("standing", "height", "meters"));
 
 		when(ontologyService.findOntologyTerms(ontologyIds, searchTerms, 20)).thenReturn(ontologyTerms);
 
-		List<Hit<OntologyTermHit>> result = semanticSearchServiceUtils.findOntologyTermCombination(searchTerms,
-				ontologyIds);
+		List<Hit<OntologyTermHit>> result = semanticSearchServiceUtils
+				.findOntologyTermCombination("standing height meters", ontologyIds);
 
 		assertEquals(result, asList(Hit.create(OntologyTermHit.create(standingHeight, "standing height"), 0.81250f)));
 	}
@@ -385,14 +405,74 @@ public class SemanticSearchServiceHelperTest extends AbstractTestNGSpringContext
 	@Test
 	public void testDistanceFrom()
 	{
-		Assert.assertEquals(
-				semanticSearchServiceUtils.distanceFrom("Hypertension",
-						ImmutableSet.<String> of("history", "hypertens")),
-				.6923, 0.0001, "String distance should be equal");
-		Assert.assertEquals(
-				semanticSearchServiceUtils.distanceFrom("Maternal Hypertension",
-						ImmutableSet.<String> of("history", "hypertens")),
+		assertEquals(semanticSearchServiceUtils.distanceFrom("Hypertension", of("history", "hypertens")), .6923, 0.0001,
+				"String distance should be equal");
+		assertEquals(semanticSearchServiceUtils.distanceFrom("Maternal Hypertension", of("history", "hypertens")),
 				.5454, 0.0001, "String distance should be equal");
+	}
+
+	@Test
+	public void testSearchUnicode2()
+	{
+		Mockito.reset(ontologyService);
+		attribute.setDescription("Standing height (Ångstrøm)");
+
+		when(ontologyService.findOntologyTerms(ontologyIds, newLinkedHashSet(asList("standing", "height", "ångstrøm")),
+				20)).thenReturn(ontologyTerms);
+
+		List<Hit<OntologyTermHit>> result = semanticSearchServiceUtils
+				.findOntologyTermCombination(attribute.getDescription(), ontologyIds);
+
+		assertEquals(result.size(), 1);
+		assertEquals(result.get(0), Hit.create(OntologyTermHit.create(standingHeight, "standing height"), 0.76471f));
+	}
+
+	@Test
+	public void testSearchUnicode() throws InterruptedException, ExecutionException
+	{
+		Mockito.reset(ontologyService);
+		attribute.setDescription("/əˈnædrəməs/");
+
+		when(ontologyService.findOntologyTerms(ontologyIds, ImmutableSet.of("əˈnædrəməs"), 20))
+				.thenReturn(ontologyTerms);
+
+		List<Hit<OntologyTermHit>> result = semanticSearchServiceUtils
+				.findOntologyTermCombination(attribute.getDescription(), ontologyIds);
+
+		assertEquals(result, Collections.emptyList());
+	}
+
+	@Test
+	public void testSearchMultipleTags() throws InterruptedException, ExecutionException
+	{
+		Mockito.reset(ontologyService);
+		attribute.setDescription("Body mass index");
+
+		when(ontologyService.findOntologyTerms(ontologyIds, newLinkedHashSet(asList("body", "mass", "index")), 20))
+				.thenReturn(ontologyTerms);
+
+		List<Hit<OntologyTermHit>> result = semanticSearchServiceUtils
+				.findOntologyTermCombination(attribute.getDescription(), ontologyIds);
+
+		assertEquals(result, Collections.emptyList());
+	}
+
+	@Test
+	public void testSearchLabel() throws InterruptedException, ExecutionException
+	{
+		Mockito.reset(ontologyService);
+		attribute.setDescription("Standing height (m.)");
+
+		when(ontologyService.findOntologyTerms(ontologyIds, newLinkedHashSet(asList("standing", "height", "m")), 20))
+				.thenReturn(ontologyTerms);
+
+		List<Hit<OntologyTermHit>> result = semanticSearchServiceUtils
+				.findOntologyTermCombination(attribute.getDescription(), ontologyIds);
+
+		Hit<OntologyTermHit> ontologyTermHit = Hit
+				.<OntologyTermHit> create(OntologyTermHit.create(standingHeight, "standing height"), 0.92857f);
+
+		assertEquals(result, Arrays.asList(ontologyTermHit));
 	}
 
 	@Configuration

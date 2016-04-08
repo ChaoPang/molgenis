@@ -281,13 +281,13 @@ public class AlgorithmServiceImplTest extends AbstractTestNGSpringContextTests
 
 		EntityMapping mapping = project.getMappingTarget("target").addSource(sourceEntityMetaData);
 
-		when(semanticSearchService.findAttributes(targetAttribute, targetEntityMetaData, sourceEntityMetaData, null))
-				.thenReturn(Arrays.asList(sourceAttribute));
+		when(semanticSearchService.findAttributesLazy(targetAttribute, targetEntityMetaData, sourceEntityMetaData,
+				emptySet())).thenReturn(Arrays.asList(sourceAttribute));
 
 		when(algorithmGeneratorService.autoGenerate(targetAttribute, Arrays.asList(sourceAttribute),
 				targetEntityMetaData, sourceEntityMetaData))
 						.thenReturn(GeneratedAlgorithm.create("$('sourceHeight').value();",
-								Sets.newHashSet(sourceAttribute), AlgorithmState.GENERATED_HIGH));
+								Sets.newHashSet(sourceAttribute), AlgorithmState.GENERATED_HIGH, 100.0d));
 
 		algorithmService.autoGenerateAlgorithm(sourceEntityMetaData, targetEntityMetaData, mapping, targetAttribute);
 
@@ -321,11 +321,11 @@ public class AlgorithmServiceImplTest extends AbstractTestNGSpringContextTests
 
 		EntityMapping mapping = project.getMappingTarget("target").addSource(sourceEntityMetaData);
 
-		when(semanticSearchService.findAttributes(targetAttribute, targetEntityMetaData, sourceEntityMetaData, null))
-				.thenReturn(emptyList());
+		when(semanticSearchService.findAttributesLazy(targetAttribute, targetEntityMetaData, sourceEntityMetaData,
+				emptySet())).thenReturn(emptyList());
 
 		when(algorithmGeneratorService.autoGenerate(targetAttribute, emptyList(), targetEntityMetaData,
-				sourceEntityMetaData)).thenReturn(GeneratedAlgorithm.create(EMPTY, emptySet(), null));
+				sourceEntityMetaData)).thenReturn(GeneratedAlgorithm.create(EMPTY, emptySet(), null, 0.0d));
 
 		algorithmService.autoGenerateAlgorithm(sourceEntityMetaData, targetEntityMetaData, mapping, targetAttribute);
 
@@ -362,13 +362,13 @@ public class AlgorithmServiceImplTest extends AbstractTestNGSpringContextTests
 
 		EntityMapping mapping = project.getMappingTarget("target").addSource(sourceEntityMetaData);
 
-		when(semanticSearchService.findAttributes(targetAttribute, targetEntityMetaData, sourceEntityMetaData, null))
-				.thenReturn(Arrays.asList(sourceAttribute1, sourceAttribute2));
+		when(semanticSearchService.findAttributesLazy(targetAttribute, targetEntityMetaData, sourceEntityMetaData,
+				emptySet())).thenReturn(Arrays.asList(sourceAttribute1, sourceAttribute2));
 
 		when(algorithmGeneratorService.autoGenerate(targetAttribute, asList(sourceAttribute1, sourceAttribute2),
 				targetEntityMetaData, sourceEntityMetaData))
 						.thenReturn(GeneratedAlgorithm.create("$('" + sourceAttribute1.getName() + "').value();",
-								newHashSet(sourceAttribute1), GENERATED_HIGH));
+								newHashSet(sourceAttribute1), GENERATED_HIGH, 100.0d));
 
 		algorithmService.autoGenerateAlgorithm(sourceEntityMetaData, targetEntityMetaData, mapping, targetAttribute);
 

@@ -58,7 +58,7 @@ public interface OntologyService
 	 * @param scope
 	 * @return
 	 */
-	List<OntologyTerm> findAndFilterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
+	List<OntologyTerm> fileterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
 			List<OntologyTerm> scope);
 
 	/**

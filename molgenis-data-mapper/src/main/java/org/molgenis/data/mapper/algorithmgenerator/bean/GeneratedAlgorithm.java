@@ -25,12 +25,6 @@ public abstract class GeneratedAlgorithm
 	public abstract Double getScore();
 
 	public static GeneratedAlgorithm create(String algorithm, Set<AttributeMetaData> sourceAttributes,
-			AlgorithmState algorithmState)
-	{
-		return new AutoValue_GeneratedAlgorithm(algorithm, sourceAttributes, algorithmState, null);
-	}
-
-	public static GeneratedAlgorithm create(String algorithm, Set<AttributeMetaData> sourceAttributes,
 			AlgorithmState algorithmState, Double score)
 	{
 		return new AutoValue_GeneratedAlgorithm(algorithm, sourceAttributes, algorithmState, score);

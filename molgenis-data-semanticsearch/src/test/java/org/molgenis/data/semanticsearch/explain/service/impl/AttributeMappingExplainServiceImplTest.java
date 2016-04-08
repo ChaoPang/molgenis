@@ -101,9 +101,9 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 				.thenReturn(Sets.newHashSet(matchedSourceAttribute.getName()));
 		when(semanticSearchServiceUtils.splitIntoTerms(matchedSourceAttribute.getName()))
 				.thenReturn(sourceAttributeTerms);
-		when(ontologyService.findAndFilterOntologyTerms(allOntologyIds, sourceAttributeTerms, MAX_NUM_TAGS,
+		when(ontologyService.fileterOntologyTerms(allOntologyIds, sourceAttributeTerms, MAX_NUM_TAGS,
 				ontologyTerms)).thenReturn(Arrays.asList(hypertension, medication));
-		when(ontologyService.findAndFilterOntologyTerms(allOntologyIds, sourceAttributeTerms, MAX_NUM_TAGS,
+		when(ontologyService.fileterOntologyTerms(allOntologyIds, sourceAttributeTerms, MAX_NUM_TAGS,
 				Arrays.asList(hypertension, medication))).thenReturn(Arrays.asList(hypertension, medication));
 		when(semanticSearchServiceUtils.combineOntologyTerms(sourceAttributeTerms,
 				Arrays.asList(hypertension, medication)))

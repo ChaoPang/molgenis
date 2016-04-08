@@ -1,6 +1,11 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
 import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
+import static org.elasticsearch.common.collect.Lists.newArrayList;
+import static org.molgenis.data.QueryRule.Operator.IN;
+import static org.molgenis.data.meta.AttributeMetaDataMetaData.ENTITY_NAME;
+import static org.molgenis.data.meta.AttributeMetaDataMetaData.IDENTIFIER;
 import static org.molgenis.data.semanticsearch.semantic.Hit.create;
 import static org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils.UNIT_ONTOLOGY_IRI;
 
@@ -12,14 +17,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.elasticsearch.common.collect.Lists;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
-import org.molgenis.data.meta.AttributeMetaDataMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
@@ -72,8 +75,8 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 			// the ontology term synonyms to improve the matching result.
 			if (!explainByAttribute.isHighQuality())
 			{
-				matchedSourceAttributes = findAttributeByOntologyTerms(targetAttribute, targetEntityMetaData,
-						sourceEntityMetaData, searchTerms, false);
+				matchedSourceAttributes = findAttributes(targetAttribute, targetEntityMetaData, sourceEntityMetaData,
+						searchTerms, false);
 
 				if (matchedSourceAttributes.size() > 0)
 				{
@@ -85,24 +88,18 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 					// ontology terms to improve the matchign result.
 					if (!explainByAttribute.isHighQuality())
 					{
-						matchedSourceAttributes = findAttributeByOntologyTerms(targetAttribute, targetEntityMetaData,
+						matchedSourceAttributes = findAttributes(targetAttribute, targetEntityMetaData,
 								sourceEntityMetaData, searchTerms, true);
 					}
 				}
 			}
 		}
+
 		return matchedSourceAttributes;
 	}
 
 	@Override
 	public List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute,
-			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, Set<String> searchTerms)
-	{
-		return findAttributeByOntologyTerms(targetAttribute, targetEntityMetaData, sourceEntityMetaData, searchTerms,
-				true);
-	}
-
-	private List<AttributeMetaData> findAttributeByOntologyTerms(AttributeMetaData targetAttribute,
 			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, Set<String> searchTerms,
 			boolean expand)
 	{
@@ -125,20 +122,19 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		Iterable<String> attributeIdentifiers = semanticSearchServiceUtils
 				.getAttributeIdentifiers(sourceEntityMetaData);
 
-		List<QueryRule> finalQueryRules = Lists
-				.newArrayList(new QueryRule(AttributeMetaDataMetaData.IDENTIFIER, Operator.IN, attributeIdentifiers));
+		List<QueryRule> finalQueryRules = newArrayList(new QueryRule(IDENTIFIER, IN, attributeIdentifiers));
 
 		if (disMaxQueryRule.getNestedRules().size() > 0)
 		{
 			finalQueryRules.addAll(Arrays.asList(new QueryRule(Operator.AND), disMaxQueryRule));
 		}
 
-		Stream<Entity> attributeMetaDataEntities = dataService.findAll(AttributeMetaDataMetaData.ENTITY_NAME,
+		Stream<Entity> attributeMetaDataEntities = dataService.findAll(ENTITY_NAME,
 				new QueryImpl(finalQueryRules).pageSize(MAX_NUMBER_ATTRIBTUES));
 
 		List<AttributeMetaData> attributes = attributeMetaDataEntities
 				.map(entity -> semanticSearchServiceUtils.entityToAttributeMetaData(entity, sourceEntityMetaData))
-				.collect(Collectors.toList());
+				.collect(toList());
 
 		return attributes;
 	}
@@ -185,7 +181,6 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	@Override
 	public List<Hit<OntologyTermHit>> findAllTags(String description, List<String> ontologyIds)
 	{
-		Set<String> searchTerms = semanticSearchServiceUtils.splitIntoTerms(description);
-		return semanticSearchServiceUtils.findOntologyTermCombination(searchTerms, ontologyIds);
+		return semanticSearchServiceUtils.findOntologyTermCombination(description, ontologyIds);
 	}
 }

@@ -1,8 +1,10 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
+import static com.google.common.collect.Sets.newLinkedHashSet;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static java.util.stream.StreamSupport.stream;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.apache.commons.lang3.StringUtils.join;
 import static org.molgenis.data.QueryRule.Operator.DIS_MAX;
@@ -19,7 +21,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.queryparser.classic.QueryParser;
@@ -86,7 +87,7 @@ public class SemanticSearchServiceUtils
 	}
 
 	public List<OntologyTerm> findOntologyTermsForAttr(AttributeMetaData attribute, EntityMetaData entityMetadata,
-			Set<String> searchTerms, List<String> allOntologiesIds)
+			Set<String> searchTerms, List<String> ontologyIds)
 	{
 		List<OntologyTerm> ontologyTerms = new ArrayList<>();
 
@@ -95,30 +96,34 @@ public class SemanticSearchServiceUtils
 		{
 			Set<String> escapedSearchTerms = searchTerms.stream().filter(StringUtils::isNotBlank)
 					.map(QueryParser::escape).collect(toSet());
-			ontologyTerms
-					.addAll(ontologyService.findExcatOntologyTerms(allOntologiesIds, escapedSearchTerms, MAX_NUM_TAGS));
+			ontologyTerms.addAll(ontologyService.findExcatOntologyTerms(ontologyIds, escapedSearchTerms, MAX_NUM_TAGS));
 		}
 		else
 		{
 			Multimap<Relation, OntologyTerm> tagsForAttribute = ontologyTagService.getTagsForAttribute(entityMetadata,
 					attribute);
+
 			if (tagsForAttribute.isEmpty())
 			{
-				List<Hit<OntologyTermHit>> ontologyTermHit = findOntologyTermCombination(
-						getQueryTermsFromAttribute(attribute, searchTerms), allOntologiesIds);
-				ontologyTerms.addAll(ontologyTermHit.stream().map(Hit::getResult).map(OntologyTermHit::getOntologyTerm)
-						.collect(toList()));
+				String description = attribute.getDescription() == null ? attribute.getLabel()
+						: attribute.getDescription();
+
+				ontologyTerms.addAll(findOntologyTermCombination(description, ontologyIds).stream().map(Hit::getResult)
+						.map(OntologyTermHit::getOntologyTerm).collect(toList()));
 			}
 			else
 			{
 				ontologyTerms.addAll(tagsForAttribute.values());
 			}
 		}
+
 		return ontologyTerms;
 	}
 
-	public List<Hit<OntologyTermHit>> findOntologyTermCombination(Set<String> searchTerms, List<String> ontologyIds)
+	public List<Hit<OntologyTermHit>> findOntologyTermCombination(String queryString, List<String> ontologyIds)
 	{
+		Set<String> searchTerms = splitIntoTerms(queryString);
+
 		if (LOG.isDebugEnabled())
 		{
 			LOG.debug("findOntologyTermCombination({},{},{})", ontologyIds, searchTerms, MAX_NUM_TAGS);
@@ -129,6 +134,13 @@ public class SemanticSearchServiceUtils
 		if (LOG.isDebugEnabled())
 		{
 			LOG.debug("Candidates: {}", candidates);
+		}
+
+		List<Hit<OntologyTermHit>> ontologyTermHit = combineOntologyTerms(searchTerms, candidates);
+
+		if (LOG.isDebugEnabled())
+		{
+			LOG.debug("OntologyTermHit: {}", ontologyTermHit);
 		}
 
 		return combineOntologyTerms(searchTerms, candidates);
@@ -501,8 +513,8 @@ public class SemanticSearchServiceUtils
 
 	public Set<String> splitIntoTerms(String description)
 	{
-		return StreamSupport.stream(termSplitter.split(description).spliterator(), false).map(StringUtils::lowerCase)
-				.filter(w -> !STOPWORDSLIST.contains(w)).filter(StringUtils::isNotEmpty).collect(Collectors.toSet());
+		return newLinkedHashSet(stream(termSplitter.split(description).spliterator(), false).map(StringUtils::lowerCase)
+				.filter(w -> !STOPWORDSLIST.contains(w) && isNotBlank(w)).collect(toList()));
 	}
 
 	private void recursivelyCollectAttributeIdentifiers(Iterable<Entity> attributeEntities,

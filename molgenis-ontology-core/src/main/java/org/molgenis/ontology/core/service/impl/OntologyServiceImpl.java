@@ -111,7 +111,7 @@ public class OntologyServiceImpl implements OntologyService
 	}
 
 	@Override
-	public List<OntologyTerm> findAndFilterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
+	public List<OntologyTerm> fileterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
 			List<OntologyTerm> filteredOntologyTerms)
 	{
 		if (null == terms || terms.size() == 0)
