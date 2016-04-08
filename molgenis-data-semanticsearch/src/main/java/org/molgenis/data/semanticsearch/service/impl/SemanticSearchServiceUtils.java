@@ -266,15 +266,26 @@ public class SemanticSearchServiceUtils
 		{
 			List<String> queryTerms = searchTerms.stream().filter(StringUtils::isNotBlank).map(this::processQueryString)
 					.collect(toList());
-			rules.add(createDisMaxQueryRuleForTerms(queryTerms));
+
+			QueryRule createDisMaxQueryRuleForTerms = createDisMaxQueryRuleForTerms(queryTerms);
+			if (createDisMaxQueryRuleForTerms != null)
+			{
+				rules.add(createDisMaxQueryRuleForTerms);
+			}
 		}
 
-		rules.addAll(createQueryRulesForOntologyTerms(ontologyTerms, expand));
+		List<QueryRule> queryRulesForOntologyTerms = createQueryRulesForOntologyTerms(ontologyTerms, expand);
+		if (queryRulesForOntologyTerms.size() > 0)
+		{
+			rules.addAll(queryRulesForOntologyTerms);
+		}
 
-		QueryRule disMaxQueryRule = new QueryRule(rules);
-
-		disMaxQueryRule.setOperator(DIS_MAX);
-
+		QueryRule disMaxQueryRule = null;
+		if (rules.size() > 0)
+		{
+			disMaxQueryRule = new QueryRule(rules);
+			disMaxQueryRule.setOperator(DIS_MAX);
+		}
 		return disMaxQueryRule;
 	}
 
@@ -287,30 +298,42 @@ public class SemanticSearchServiceUtils
 	public List<QueryRule> createQueryRulesForOntologyTerms(List<OntologyTerm> ontologyTerms, boolean expand)
 	{
 		List<QueryRule> queryRules = new ArrayList<>();
+
 		for (OntologyTerm ontologyTerm : ontologyTerms)
 		{
-			List<OntologyTerm> atomicOntologyTerms = ontologyService.getAtomicOntologyTerms(ontologyTerm);
+			QueryRule queryRule = null;
 
+			List<OntologyTerm> atomicOntologyTerms = ontologyService.getAtomicOntologyTerms(ontologyTerm);
 			// Create a should query because it is a composite ontology term
 			if (atomicOntologyTerms.size() > 1)
 			{
-				QueryRule shouldQueryRule = new QueryRule(new ArrayList<QueryRule>());
-				shouldQueryRule.setOperator(Operator.SHOULD);
+				List<QueryRule> shouldQueryRules = new ArrayList<>();
 				for (OntologyTerm atomicOntologyTerm : atomicOntologyTerms)
 				{
 					List<String> queryTerms = getQueryTermsFromOntologyTerm(atomicOntologyTerm, expand);
 					Double termFrequency = getBestInverseDocumentFrequency(queryTerms);
-					shouldQueryRule.getNestedRules()
-							.add(createBoostedDisMaxQueryRuleForTerms(queryTerms, termFrequency));
+					QueryRule boostedDisMaxQueryRuleForTerms = createBoostedDisMaxQueryRuleForTerms(queryTerms,
+							termFrequency);
+
+					if (boostedDisMaxQueryRuleForTerms != null)
+					{
+						shouldQueryRules.add(boostedDisMaxQueryRuleForTerms);
+					}
 				}
-				queryRules.add(shouldQueryRule);
+				queryRule = createShouldQueryRule(shouldQueryRules);
 			}
 			else if (atomicOntologyTerms.size() == 1) // Create a disMaxJunc query if the ontologyTerm is an atomic one
 			{
-				List<String> queryTerms = getQueryTermsFromOntologyTerm(atomicOntologyTerms.get(0), expand);
-				queryRules.add(createDisMaxQueryRuleForTerms(queryTerms));
+				queryRule = createDisMaxQueryRuleForTerms(
+						getQueryTermsFromOntologyTerm(atomicOntologyTerms.get(0), expand));
+			}
+
+			if (queryRule != null)
+			{
+				queryRules.add(queryRule);
 			}
 		}
+
 		return queryRules;
 	}
 
@@ -327,8 +350,13 @@ public class SemanticSearchServiceUtils
 			rules.add(new QueryRule(AttributeMetaDataMetaData.LABEL, Operator.FUZZY_MATCH, query));
 			rules.add(new QueryRule(AttributeMetaDataMetaData.DESCRIPTION, Operator.FUZZY_MATCH, query));
 		});
-		QueryRule finalDisMaxQuery = new QueryRule(rules);
-		finalDisMaxQuery.setOperator(Operator.DIS_MAX);
+
+		QueryRule finalDisMaxQuery = null;
+		if (rules.size() > 0)
+		{
+			finalDisMaxQuery = new QueryRule(rules);
+			finalDisMaxQuery.setOperator(Operator.DIS_MAX);
+		}
 		return finalDisMaxQuery;
 	}
 
@@ -342,18 +370,24 @@ public class SemanticSearchServiceUtils
 	public QueryRule createBoostedDisMaxQueryRuleForTerms(List<String> queryTerms, Double boostValue)
 	{
 		QueryRule finalDisMaxQuery = createDisMaxQueryRuleForTerms(queryTerms);
-		if (boostValue != null && boostValue.intValue() != 0)
+
+		if (finalDisMaxQuery != null && boostValue != null && boostValue.intValue() != 0)
 		{
 			finalDisMaxQuery.setValue(boostValue);
 		}
+
 		return finalDisMaxQuery;
 	}
 
 	public QueryRule createShouldQueryRule(List<QueryRule> queryRules)
 	{
-		QueryRule shouldQueryRule = new QueryRule(new ArrayList<QueryRule>());
-		shouldQueryRule.setOperator(Operator.SHOULD);
-		shouldQueryRule.getNestedRules().addAll(queryRules);
+		QueryRule shouldQueryRule = null;
+		if (queryRules.size() > 0)
+		{
+			shouldQueryRule = new QueryRule(new ArrayList<QueryRule>());
+			shouldQueryRule.setOperator(Operator.SHOULD);
+			shouldQueryRule.getNestedRules().addAll(queryRules);
+		}
 		return shouldQueryRule;
 	}
 

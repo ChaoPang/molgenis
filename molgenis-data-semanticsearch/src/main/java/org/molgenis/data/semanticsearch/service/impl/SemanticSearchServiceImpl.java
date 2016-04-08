@@ -10,6 +10,7 @@ import static org.molgenis.data.semanticsearch.semantic.Hit.create;
 import static org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils.UNIT_ONTOLOGY_IRI;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -105,11 +106,11 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	{
 		Set<String> queryTerms = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, searchTerms);
 
-		List<String> ontologyTermIds = ontologyService.getOntologies().stream()
+		List<String> ontologyIds = ontologyService.getOntologies().stream()
 				.filter(ontology -> !ontology.getIRI().equals(UNIT_ONTOLOGY_IRI)).map(Ontology::getId)
 				.collect(Collectors.toList());
 		List<OntologyTerm> ontologyTerms = semanticSearchServiceUtils.findOntologyTermsForAttr(targetAttribute,
-				targetEntityMetaData, searchTerms, ontologyTermIds);
+				targetEntityMetaData, searchTerms, ontologyIds);
 
 		return findAttributes(queryTerms, ontologyTerms, sourceEntityMetaData, expand);
 	}
@@ -119,24 +120,29 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	{
 		QueryRule disMaxQueryRule = semanticSearchServiceUtils.createDisMaxQueryRule(queryTerms, ontologyTerms, expand);
 
-		Iterable<String> attributeIdentifiers = semanticSearchServiceUtils
-				.getAttributeIdentifiers(sourceEntityMetaData);
-
-		List<QueryRule> finalQueryRules = newArrayList(new QueryRule(IDENTIFIER, IN, attributeIdentifiers));
-
-		if (disMaxQueryRule.getNestedRules().size() > 0)
+		if (disMaxQueryRule != null)
 		{
-			finalQueryRules.addAll(Arrays.asList(new QueryRule(Operator.AND), disMaxQueryRule));
+			Iterable<String> attributeIdentifiers = semanticSearchServiceUtils
+					.getAttributeIdentifiers(sourceEntityMetaData);
+
+			List<QueryRule> finalQueryRules = newArrayList(new QueryRule(IDENTIFIER, IN, attributeIdentifiers));
+
+			if (disMaxQueryRule.getNestedRules().size() > 0)
+			{
+				finalQueryRules.addAll(Arrays.asList(new QueryRule(Operator.AND), disMaxQueryRule));
+			}
+
+			Stream<Entity> attributeMetaDataEntities = dataService.findAll(ENTITY_NAME,
+					new QueryImpl(finalQueryRules).pageSize(MAX_NUMBER_ATTRIBTUES));
+
+			List<AttributeMetaData> attributes = attributeMetaDataEntities
+					.map(entity -> semanticSearchServiceUtils.entityToAttributeMetaData(entity, sourceEntityMetaData))
+					.collect(toList());
+
+			return attributes;
 		}
 
-		Stream<Entity> attributeMetaDataEntities = dataService.findAll(ENTITY_NAME,
-				new QueryImpl(finalQueryRules).pageSize(MAX_NUMBER_ATTRIBTUES));
-
-		List<AttributeMetaData> attributes = attributeMetaDataEntities
-				.map(entity -> semanticSearchServiceUtils.entityToAttributeMetaData(entity, sourceEntityMetaData))
-				.collect(toList());
-
-		return attributes;
+		return Collections.emptyList();
 	}
 
 	@Override

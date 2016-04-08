@@ -20,6 +20,7 @@ public interface SemanticSearchService
 	 * @param sourceEntityMetaData
 	 * @param searchTerms
 	 * @param expand
+	 * 
 	 * @return AttributeMetaData of resembling attributes, sorted by relevance
 	 */
 	List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute, EntityMetaData targetEntityMetaData,
