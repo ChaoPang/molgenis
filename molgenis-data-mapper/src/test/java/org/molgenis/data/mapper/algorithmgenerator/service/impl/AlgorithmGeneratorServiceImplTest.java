@@ -1,5 +1,6 @@
 package org.molgenis.data.mapper.algorithmgenerator.service.impl;
 
+import static java.util.Arrays.asList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -18,6 +19,8 @@ import org.molgenis.data.mapper.service.UnitResolver;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplate;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
 import org.molgenis.data.mapper.service.impl.UnitResolverImpl;
+import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
+import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
@@ -36,6 +39,7 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 @ContextConfiguration(classes = AlgorithmGeneratorServiceImplTest.Config.class)
 public class AlgorithmGeneratorServiceImplTest extends AbstractTestNGSpringContextTests
@@ -51,6 +55,9 @@ public class AlgorithmGeneratorServiceImplTest extends AbstractTestNGSpringConte
 
 	@Autowired
 	AlgorithmGeneratorService algorithmGeneratorService;
+
+	@Autowired
+	AttributeMappingExplainService attributeMappingExplainService;
 
 	@BeforeMethod
 	public void setUpBeforeMethod()
@@ -92,8 +99,19 @@ public class AlgorithmGeneratorServiceImplTest extends AbstractTestNGSpringConte
 		AlgorithmTemplate template = new AlgorithmTemplate(script,
 				ImmutableMap.of("height", "sourceHeight", "weight", "sourceWeight"));
 
-		when(algorithmTemplateService.find(targetBMIAttribute,
-				Arrays.asList(heightSourceAttribute, weightSourceAttribute))).thenReturn(Stream.of(template));
+		when(algorithmTemplateService.find(targetBMIAttribute, sourceAttributes)).thenReturn(Stream.of(template));
+
+		ExplainedAttributeMetaData explainedHeightAttribute = ExplainedAttributeMetaData.create(heightSourceAttribute,
+				ExplainedQueryString.create("height", "height", "height", 1.0f), true);
+
+		ExplainedAttributeMetaData explainedWeightAttribute = ExplainedAttributeMetaData.create(weightSourceAttribute,
+				ExplainedQueryString.create("weight", "weight", "weight", 1.0f), true);
+
+		when(attributeMappingExplainService.explainAttributeMapping(Sets.newLinkedHashSet(asList("height", "weight")),
+				targetBMIAttribute, heightSourceAttribute, targetEntityMetaData)).thenReturn(explainedHeightAttribute);
+
+		when(attributeMappingExplainService.explainAttributeMapping(Sets.newLinkedHashSet(asList("height", "weight")),
+				targetBMIAttribute, weightSourceAttribute, targetEntityMetaData)).thenReturn(explainedWeightAttribute);
 
 		GeneratedAlgorithm generate = algorithmGeneratorService.autoGenerate(targetBMIAttribute, sourceAttributes,
 				targetEntityMetaData, sourceEntityMetaData);

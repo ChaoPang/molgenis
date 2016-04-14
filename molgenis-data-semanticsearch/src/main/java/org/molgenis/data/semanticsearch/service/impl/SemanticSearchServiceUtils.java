@@ -404,7 +404,6 @@ public class SemanticSearchServiceUtils
 				.collect(toList());
 		if (expand)
 		{
-			// FIXME: try the parallelStream to see if it can speed up this process a bit
 			ontologyService.getLevelThreeChildren(ontologyTerm).forEach(childOt -> {
 				double boostedNumber = ontologyService.getOntologyTermSemanticRelatedness(ontologyTerm, childOt);
 				List<String> collect = getLowerCaseTermsFromOntologyTerm(childOt).stream()

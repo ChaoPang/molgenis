@@ -1,7 +1,6 @@
 package org.molgenis.data.mapper.algorithmgenerator.service.impl;
 
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState.GENERATED_HIGH;
@@ -9,6 +8,7 @@ import static org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmS
 import static utils.AlgorithmGeneratorHelper.extractSourceAttributesFromAlgorithm;
 
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -32,6 +32,7 @@ import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
+import org.molgenis.script.ScriptParameter;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static java.util.Objects.requireNonNull;
@@ -63,7 +64,7 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData)
 	{
 		String algorithm = runAlgorithmTemplate(targetAttribute, sourceAttributes, targetEntityMetaData,
-				sourceEntityMetaData);
+				sourceEntityMetaData, null);
 		if (StringUtils.isBlank(algorithm))
 		{
 			algorithm = runAlgorithmGenerator(targetAttribute, sourceAttributes, targetEntityMetaData,
@@ -80,11 +81,12 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 		AlgorithmState algorithmState = null;
 		Set<AttributeMetaData> mappedSourceAttributes = null;
 		Double score = 0.0d;
+		Set<String> additionalQueryTerms = new LinkedHashSet<>();
 
 		if (sourceAttributes.size() > 0)
 		{
 			algorithm = runAlgorithmTemplate(targetAttribute, sourceAttributes, targetEntityMetaData,
-					sourceEntityMetaData);
+					sourceEntityMetaData, additionalQueryTerms);
 
 			if (isBlank(algorithm))
 			{
@@ -98,7 +100,7 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 
 			// For each source attribute, an explanation is provided by the explain service.
 			List<ExplainedAttributeMetaData> explainedSourceAttributes = mappedSourceAttributes.stream()
-					.map(sourceAttribute -> attributeMappingExplainService.explainAttributeMapping(emptySet(),
+					.map(sourceAttribute -> attributeMappingExplainService.explainAttributeMapping(additionalQueryTerms,
 							targetAttribute, sourceAttribute, targetEntityMetaData))
 					.collect(toList());
 
@@ -106,16 +108,20 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 			algorithmState = explainedSourceAttributes.stream().allMatch(ExplainedAttributeMetaData::isHighQuality)
 					? GENERATED_HIGH : GENERATED_LOW;
 
+			// FIXME: how do i deal with the attributes that are matched to the the script parameters?
+
 			// Calculate the final similarity score by summing up all the matched scores.
 			score = explainedSourceAttributes.stream().map(ExplainedAttributeMetaData::getExplainedQueryString)
 					.mapToDouble(ExplainedQueryString::getScore).sum();
+
+			if (additionalQueryTerms.size() > 0) score = score / additionalQueryTerms.size();
 		}
 
 		return GeneratedAlgorithm.create(algorithm, mappedSourceAttributes, algorithmState, score);
 	}
 
 	String runAlgorithmTemplate(AttributeMetaData targetAttribute, List<AttributeMetaData> sourceAttributes,
-			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData)
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, Set<String> additionalQueryTerms)
 	{
 		String algorithm = null;
 		if (sourceAttributes.size() > 0)
@@ -127,6 +133,13 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 				algorithm = algorithmTemplate.render();
 				algorithm = convertUnitForTemplateAlgorithm(algorithm, targetAttribute, targetEntityMetaData,
 						sourceEntityMetaData);
+
+				// Put the parameters in the additionalQueryTerms if this varaible exists
+				if (additionalQueryTerms != null)
+				{
+					additionalQueryTerms.addAll(algorithmTemplate.getScript().getParameters().stream()
+							.map(ScriptParameter::getName).collect(toList()));
+				}
 			}
 		}
 		return algorithm;

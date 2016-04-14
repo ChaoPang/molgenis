@@ -1,8 +1,11 @@
 package org.molgenis.data.mapper.service;
 
-import org.molgenis.data.EntityMetaData;
+import java.util.List;
+
+import org.molgenis.data.mapper.data.request.AttributeConnectionResponse;
+import org.molgenis.data.mapper.mapping.model.MappingProject;
 
 public interface MappingNetworkService
 {
-	public void computeDistance(EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData);
+	AttributeConnectionResponse createConnections(List<MappingProject> mappingProjects);
 }

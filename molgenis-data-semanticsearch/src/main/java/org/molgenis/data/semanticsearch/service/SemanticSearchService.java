@@ -13,7 +13,7 @@ import org.molgenis.ontology.core.model.OntologyTerm;
 public interface SemanticSearchService
 {
 	/**
-	 * Finds all relevant source {@link AttributeMetaData}s
+	 * Finds all relevant source {@link AttributeMetaData}s using the information from ontologies.
 	 * 
 	 * @param targetAttribute
 	 * @param targetEntityMetaData
@@ -23,8 +23,21 @@ public interface SemanticSearchService
 	 * 
 	 * @return AttributeMetaData of resembling attributes, sorted by relevance
 	 */
-	List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute, EntityMetaData targetEntityMetaData,
-			EntityMetaData sourceEntityMetaData, Set<String> searchTerms, boolean expand);
+	List<AttributeMetaData> findAttributesBySemanticSearch(AttributeMetaData targetAttribute,
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, Set<String> searchTerms,
+			boolean expand);
+
+	/**
+	 * Finds all relevant source {@link AttributeMetaData}s using the information targetAttribute and user defined
+	 * queries only.
+	 * 
+	 * @param targetAttribute
+	 * @param sourceEntityMetaData
+	 * @param searchTerms
+	 * @return
+	 */
+	List<AttributeMetaData> findAttributesByLexicalSearch(AttributeMetaData targetAttribute,
+			EntityMetaData sourceEntityMetaData, Set<String> searchTerms);
 
 	/**
 	 * Finds all relevant source {@link AttributeMetaData}s. Due to the large number of queries that might be generated

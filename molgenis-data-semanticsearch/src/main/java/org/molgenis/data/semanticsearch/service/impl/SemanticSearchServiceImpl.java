@@ -61,11 +61,9 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	public List<AttributeMetaData> findAttributesLazy(AttributeMetaData targetAttribute,
 			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, Set<String> searchTerms)
 	{
-		Set<String> queryTerms = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, searchTerms);
-
 		// Find attributes by the query terms collected from the target attribute
-		List<AttributeMetaData> matchedSourceAttributes = findAttributes(queryTerms, emptyList(), sourceEntityMetaData,
-				false);
+		List<AttributeMetaData> matchedSourceAttributes = findAttributes(targetAttribute, emptyList(),
+				sourceEntityMetaData, searchTerms, false);
 
 		if (matchedSourceAttributes.size() > 0)
 		{
@@ -76,8 +74,8 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 			// the ontology term synonyms to improve the matching result.
 			if (!explainByAttribute.isHighQuality())
 			{
-				matchedSourceAttributes = findAttributes(targetAttribute, targetEntityMetaData, sourceEntityMetaData,
-						searchTerms, false);
+				matchedSourceAttributes = findAttributesBySemanticSearch(targetAttribute, targetEntityMetaData,
+						sourceEntityMetaData, searchTerms, false);
 
 				if (matchedSourceAttributes.size() > 0)
 				{
@@ -89,7 +87,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 					// ontology terms to improve the matchign result.
 					if (!explainByAttribute.isHighQuality())
 					{
-						matchedSourceAttributes = findAttributes(targetAttribute, targetEntityMetaData,
+						matchedSourceAttributes = findAttributesBySemanticSearch(targetAttribute, targetEntityMetaData,
 								sourceEntityMetaData, searchTerms, true);
 					}
 				}
@@ -100,24 +98,31 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	}
 
 	@Override
-	public List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute,
+	public List<AttributeMetaData> findAttributesBySemanticSearch(AttributeMetaData targetAttribute,
 			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, Set<String> searchTerms,
 			boolean expand)
 	{
-		Set<String> queryTerms = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, searchTerms);
-
 		List<String> ontologyIds = ontologyService.getOntologies().stream()
 				.filter(ontology -> !ontology.getIRI().equals(UNIT_ONTOLOGY_IRI)).map(Ontology::getId)
 				.collect(Collectors.toList());
 		List<OntologyTerm> ontologyTerms = semanticSearchServiceUtils.findOntologyTermsForAttr(targetAttribute,
 				targetEntityMetaData, searchTerms, ontologyIds);
 
-		return findAttributes(queryTerms, ontologyTerms, sourceEntityMetaData, expand);
+		return findAttributes(targetAttribute, ontologyTerms, sourceEntityMetaData, searchTerms, expand);
 	}
 
-	private List<AttributeMetaData> findAttributes(Set<String> queryTerms, List<OntologyTerm> ontologyTerms,
-			EntityMetaData sourceEntityMetaData, boolean expand)
+	@Override
+	public List<AttributeMetaData> findAttributesByLexicalSearch(AttributeMetaData targetAttribute,
+			EntityMetaData sourceEntityMetaData, Set<String> searchTerms)
 	{
+		return findAttributes(targetAttribute, Collections.emptyList(), sourceEntityMetaData, searchTerms, false);
+	}
+
+	private List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute, List<OntologyTerm> ontologyTerms,
+			EntityMetaData sourceEntityMetaData, Set<String> searchTerms, boolean expand)
+	{
+		Set<String> queryTerms = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, searchTerms);
+
 		QueryRule disMaxQueryRule = semanticSearchServiceUtils.createDisMaxQueryRule(queryTerms, ontologyTerms, expand);
 
 		if (disMaxQueryRule != null)

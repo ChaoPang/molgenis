@@ -145,7 +145,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 		when(semanticSearchServiceUtils.entityToAttributeMetaData(entityHeight, sourceEntityMetaData))
 				.thenReturn(sourceAttributeHeight);
 
-		assertEquals(semanticSearchService.findAttributes(targetHeight, targetEntityMetaData, sourceEntityMetaData,
+		assertEquals(semanticSearchService.findAttributesBySemanticSearch(targetHeight, targetEntityMetaData, sourceEntityMetaData,
 				emptySet(), true), asList(sourceAttributeHeight));
 
 		// Case 2: mock the createDisMaxQueryRule method for the attribute Weight
@@ -164,7 +164,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 		when(semanticSearchServiceUtils.entityToAttributeMetaData(entityWeight, sourceEntityMetaData))
 				.thenReturn(sourceAttributeWeight);
 
-		assertEquals(semanticSearchService.findAttributes(targetWeight, targetEntityMetaData, sourceEntityMetaData,
+		assertEquals(semanticSearchService.findAttributesBySemanticSearch(targetWeight, targetEntityMetaData, sourceEntityMetaData,
 				emptySet(), true), asList(sourceAttributeWeight));
 	}
 
