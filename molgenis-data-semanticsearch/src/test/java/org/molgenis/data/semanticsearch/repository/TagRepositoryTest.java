@@ -8,7 +8,6 @@ import static org.testng.Assert.assertEquals;
 
 import java.util.UUID;
 
-import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.IdGenerator;
 import org.molgenis.data.Repository;
 import org.molgenis.data.meta.TagMetaData;
@@ -36,9 +35,6 @@ public class TagRepositoryTest extends AbstractTestNGSpringContextTests
 	@Autowired
 	private IdGenerator idGenerator;
 
-	@Autowired
-	private AttributeMetaData attributeMetaData;
-
 	private final UUID uuid = UUID.randomUUID();
 
 	@BeforeMethod
@@ -62,10 +58,9 @@ public class TagRepositoryTest extends AbstractTestNGSpringContextTests
 		assertEquals(tagRepository.getTagEntity("http://edamontology.org/data_3031", "Core data", Relation.instanceOf,
 				"http://edamontology.org"), expected);
 
-		when(
-				repository.findOne(new QueryImpl().eq(TagMetaData.OBJECT_IRI, "http://edamontology.org/data_3031")
-						.and().eq(TagMetaData.RELATION_IRI, "http://molgenis.org/biobankconnect/instanceOf").and()
-						.eq(TagMetaData.CODE_SYSTEM, "http://edamontology.org"))).thenReturn(expected);
+		when(repository.findOne(new QueryImpl().eq(TagMetaData.OBJECT_IRI, "http://edamontology.org/data_3031").and()
+				.eq(TagMetaData.RELATION_IRI, "http://molgenis.org/biobankconnect/instanceOf").and()
+				.eq(TagMetaData.CODE_SYSTEM, "http://edamontology.org"))).thenReturn(expected);
 
 		assertEquals(tagRepository.getTagEntity("http://edamontology.org/data_3031", "Core data", Relation.instanceOf,
 				"http://edamontology.org"), expected);
@@ -86,12 +81,6 @@ public class TagRepositoryTest extends AbstractTestNGSpringContextTests
 		IdGenerator idGenerator()
 		{
 			return mock(IdGenerator.class);
-		}
-
-		@Bean
-		AttributeMetaData attributeMetaData()
-		{
-			return mock(AttributeMetaData.class);
 		}
 	}
 }

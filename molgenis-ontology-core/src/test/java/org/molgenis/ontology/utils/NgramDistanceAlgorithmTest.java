@@ -11,8 +11,8 @@ public class NgramDistanceAlgorithmTest
 	{
 		assertEquals(NGramDistanceAlgorithm.stringMatching("hypertensive", "hypertensive"), 100.0);
 
-		assertEquals(NGramDistanceAlgorithm.stringMatching("hypertensive disorder", "hypertensive order"),
-				72.72727272727273);
+		assertEquals(NGramDistanceAlgorithm.stringMatching("hypertensive disorder", "hypertensive order"), 72.727,
+				0.001);
 
 		assertEquals(NGramDistanceAlgorithm.stringMatching("hypertensive", "diabetes"), 0.0);
 	}
