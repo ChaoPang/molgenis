@@ -81,7 +81,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 	@BeforeMethod
 	public void init()
 	{
-		when(semanticSearchServiceUtils.splitIntoTerms(attribute.getLabel())).thenReturn(newHashSet("attribute", "1"));
+		when(semanticSearchServiceUtils.splitRemoveStopWords(attribute.getLabel())).thenReturn(newHashSet("attribute", "1"));
 		when(ontologyService.getOntologies()).thenReturn(ontologies);
 		when(ontologyService.getAllOntologiesIds()).thenReturn(ontologyIds);
 	}

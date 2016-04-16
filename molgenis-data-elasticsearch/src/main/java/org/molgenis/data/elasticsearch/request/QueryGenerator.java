@@ -1,5 +1,6 @@
 package org.molgenis.data.elasticsearch.request;
 
+import static java.lang.Float.parseFloat;
 import static org.molgenis.data.elasticsearch.index.ElasticsearchIndexCreator.DEFAULT_ANALYZER;
 
 import java.util.Date;
@@ -151,6 +152,10 @@ public class QueryGenerator implements QueryPartGenerator
 				{
 					boolQueryBuilder.should(createQueryClause(subQuery, entityMetaData));
 				}
+				if (queryRule.getValue() != null)
+				{
+					boolQueryBuilder.boost(parseFloat(queryRule.getValue().toString()));
+				}
 				queryBuilder = boolQueryBuilder;
 				break;
 			case DIS_MAX:
@@ -162,7 +167,7 @@ public class QueryGenerator implements QueryPartGenerator
 				disMaxQueryBuilder.tieBreaker((float) 0.0);
 				if (queryRule.getValue() != null)
 				{
-					disMaxQueryBuilder.boost(Float.parseFloat(queryRule.getValue().toString()));
+					disMaxQueryBuilder.boost(parseFloat(queryRule.getValue().toString()));
 				}
 				queryBuilder = disMaxQueryBuilder;
 				break;

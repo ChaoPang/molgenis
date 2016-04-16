@@ -249,11 +249,7 @@
 						createPopoverExplanation(row, attributeInfoElement, attributeLabel, explainedQueryString);
 						
 						//Collect all matched words from all explanations
-						var matchedWordsFromOneExplanation = extendPartialWord(attributeLabel, explainedQueryString.matchedWords.split(' '));
-						$.each(matchedWordsFromOneExplanation, function(index, element){
-							matchedWords.push(element);
-						});
-						
+						var matchedWords = explainedQueryString.matchedWords.split(' ');
 						//Connect matched words and highlight them together
 						$.each(connectNeighboredWords(attributeLabel, matchedWords), function(index, word){
 							$(attributeInfoElement).highlight(word);
@@ -381,7 +377,7 @@
 	 */
 	function createPopoverExplanation(row, attributeInfoElement, attributeLabel, explainedQueryString){
 		if(explainedQueryString){
-			var matchedWords = extendPartialWord(attributeLabel, explainedQueryString.matchedWords.split(' '));
+			var matchedWords = explainedQueryString.matchedWords.split(' ');
 			var queryString = explainedQueryString.queryString;
 			var score = explainedQueryString.score;
 			var message = 'The query <strong>' + queryString + '</strong> derived from <strong>' 
@@ -397,26 +393,25 @@
 	 * TODO : move these string operation related methods to the server
 	 */
 	function connectNeighboredWords(attributeLabel, matchedWords){
-		var connectedPhrases = [], connectedPhrase, potentialConnectedPhrase, orderedMatchedWords;
 		
-		if(attributeLabel && matchedWords && matchedWords.length > 0){	
+		var connectedPhrases = [], connectedPhrase, potentialConnectedPhrase, upperCasedMatchedWords;
+		if(attributeLabel && matchedWords && matchedWords.length > 0){
+			upperCasedMatchedWords = matchedWords.map(function (x){return x.toUpperCase()});
 			attributeLabel = attributeLabel.toUpperCase();
-			//Order the matched words
-			orderedMatchedWords = orderMatchedWords(attributeLabel, matchedWords);
-			if(orderedMatchedWords.length > 0){
+			if(upperCasedMatchedWords.length > 0){
 
 				//Algorithm to connect the words that are sitting next each other
-				connectedPhrase = orderedMatchedWords[0];
-				for(var i = 1; i < orderedMatchedWords.length;i++){
+				connectedPhrase = upperCasedMatchedWords[0];
+				for(var i = 1; i < upperCasedMatchedWords.length;i++){
 					//Try to connect the next matched words with previous one
-					potentialConnectedPhrase = connectedPhrase + ' ' + orderedMatchedWords[i];
+					potentialConnectedPhrase = connectedPhrase + ' ' + upperCasedMatchedWords[i];
 					
 					//See if the connected phrase can be found in the label string
 					if(attributeLabel.indexOf(potentialConnectedPhrase) !== -1){
-						connectedPhrase = connectedPhrase + ' ' + orderedMatchedWords[i];
+						connectedPhrase = connectedPhrase + ' ' + upperCasedMatchedWords[i];
 					}else{
 						connectedPhrases.push(connectedPhrase.trim());
-						connectedPhrase = orderedMatchedWords[i];
+						connectedPhrase = upperCasedMatchedWords[i];
 					}
 				}
 				
@@ -428,58 +423,7 @@
 		}
 		return connectedPhrases;
 	}
-	/**
-	 * Order the matched the words according to the order of words in the attribute label
-	 */
-	function orderMatchedWords(attributeLabel, matchedWords){
-		var hash = {}, orderedMatchedWords = [], wordIndices = [];
-		$.each(matchedWords, function(index, matchedWord){
-			var index = attributeLabel.indexOf(matchedWord);
-			hash[index] = matchedWord;
-			wordIndices.push(index);
-		});
-		wordIndices.sort(function (a,b) {
-		    return a - b;
-		});
-		$.each(wordIndices, function(i, wordIndex){
-			if(hash[wordIndex]){				
-				orderedMatchedWords.push(hash[wordIndex]);
-			}
-		});
-		return orderedMatchedWords;
-	}
-	
-	/**
-	 * Explain API provides stemmed words, this method finds the 'original' word in the attribute label based the stemmed word.
-	 */
-	function extendPartialWord(attributeLabel, partialWords){
-		var completeWords = [];
-		if(attributeLabel && partialWords && partialWords.length > 0){
-			$.each(partialWords, function(index, partialWord){
-				if(partialWord.length > 2){
-					attributeLabel = attributeLabel.toUpperCase();
-					partialWord = partialWord.toUpperCase();
-					var startIndex = attributeLabel.indexOf(partialWord);
-					
-					while(startIndex == -1 && partialWord.length > 0){
-						partialWord = partialWord.substring(0, partialWord.length - 1);
-						startIndex = attributeLabel.indexOf(partialWord);
-					}
-				
-					if(startIndex != -1){
-						var endIndex = startIndex + partialWord.length;
-						while(attributeLabel.length > endIndex && attributeLabel.charAt(endIndex).match(/[A-Z0-9]/i)){
-							endIndex++;
-						}
-						completeWords.push(attributeLabel.substring(startIndex, endIndex));
-					}else{
-						completeWords.push(partialWord)
-					}
-				}
-			});
-		}
-		return completeWords;
-	}
+
 	
 	//A helper function to perform post-redirect action
 	function redirect(method, url, data){

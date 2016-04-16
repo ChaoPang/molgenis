@@ -105,7 +105,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		List<String> ontologyIds = ontologyService.getOntologies().stream()
 				.filter(ontology -> !ontology.getIRI().equals(UNIT_ONTOLOGY_IRI)).map(Ontology::getId)
 				.collect(Collectors.toList());
-		List<OntologyTerm> ontologyTerms = semanticSearchServiceUtils.findOntologyTermsForAttr(targetAttribute,
+		List<Hit<OntologyTerm>> ontologyTerms = semanticSearchServiceUtils.findOntologyTermsForAttr(targetAttribute,
 				targetEntityMetaData, searchTerms, ontologyIds);
 
 		return findAttributes(targetAttribute, ontologyTerms, sourceEntityMetaData, searchTerms, expand);
@@ -118,8 +118,9 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		return findAttributes(targetAttribute, Collections.emptyList(), sourceEntityMetaData, searchTerms, false);
 	}
 
-	private List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute, List<OntologyTerm> ontologyTerms,
-			EntityMetaData sourceEntityMetaData, Set<String> searchTerms, boolean expand)
+	private List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute,
+			List<Hit<OntologyTerm>> ontologyTerms, EntityMetaData sourceEntityMetaData, Set<String> searchTerms,
+			boolean expand)
 	{
 		Set<String> queryTerms = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, searchTerms);
 

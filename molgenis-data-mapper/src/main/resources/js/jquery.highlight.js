@@ -20,7 +20,8 @@ jQuery.fn.highlight = function(pat) {
 		if (node.nodeType == 3) {
 			var pos = node.data.toUpperCase().indexOf(pat);
 			pos -= (node.data.substr(0, pos).toUpperCase().length - node.data.substr(0, pos).length);
-			if (pos >= 0) {
+			
+			if (pos >= 0 && isWord(pos, pat.length, node.data)) {
 				var spannode = document.createElement('span');
 				spannode.className = 'highlight';
 				var middlebit = node.splitText(pos);
@@ -37,6 +38,14 @@ jQuery.fn.highlight = function(pat) {
 		}
 		return skip;
 	}
+	
+	function isWord(pos, length, text){
+		var rightPos = pos + length;
+		var isLeftCharSeparator = pos > 1 ? text.charAt(pos-1).match(/[a-z0-9]/i) == null : true;
+		var isRightCharSeparator = rightPos < text.length - 1 ? text.charAt(rightPos).match(/[a-z0-9]/i) == null : true;
+		return isLeftCharSeparator && isRightCharSeparator;
+	}
+	
 	return this.length && pat && pat.length ? this.each(function() {
 		innerHighlight(this, pat.toUpperCase());
 	}) : this;

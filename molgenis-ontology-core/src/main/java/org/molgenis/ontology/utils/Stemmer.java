@@ -5,7 +5,6 @@ import static com.google.common.collect.Sets.newHashSet;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.StreamSupport.stream;
-import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
 
 import java.util.List;
 import java.util.Set;
@@ -17,7 +16,7 @@ import com.google.common.base.Splitter;
 
 public class Stemmer
 {
-	private final static Splitter SPLITTER = Splitter.onPattern("[^\\p{IsAlphabetic}]+");
+	private final static Splitter SPLITTER = Splitter.onPattern("[^\\p{IsAlphabetic}0-9]+");
 	private final static String ILLEGAL_REGEX_PATTERN = "[^a-zA-Z0-9 ]";
 	private final static String SINGLE_SPACE_CHAR = " ";
 
@@ -43,15 +42,14 @@ public class Stemmer
 
 	public static String stemAndJoin(Iterable<String> terms)
 	{
-		return stream(terms.spliterator(), false).filter(w -> !STOPWORDSLIST.contains(w.toLowerCase()))
-				.map(Stemmer::stem).filter(StringUtils::isNotBlank).collect(joining(SINGLE_SPACE_CHAR));
+		return stream(terms.spliterator(), false).map(Stemmer::stem).filter(StringUtils::isNotBlank)
+				.collect(joining(SINGLE_SPACE_CHAR));
 	}
 
 	public static Set<String> splitAndStem(String phrase)
 	{
-		return newHashSet(stream(SPLITTER.split(phrase.toLowerCase()).spliterator(), false)
-				.filter(w -> !STOPWORDSLIST.contains(w)).map(Stemmer::stem).filter(StringUtils::isNotBlank)
-				.collect(toSet()));
+		return newHashSet(stream(SPLITTER.split(phrase.toLowerCase()).spliterator(), false).map(Stemmer::stem)
+				.filter(StringUtils::isNotBlank).collect(toSet()));
 	}
 
 	public static String replaceIllegalCharacter(String string)

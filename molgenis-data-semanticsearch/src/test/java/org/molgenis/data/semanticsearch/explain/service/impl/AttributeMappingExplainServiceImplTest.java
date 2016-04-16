@@ -99,7 +99,7 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 				allOntologyIds)).thenReturn(ontologyTerms);
 		when(semanticSearchServiceUtils.getQueryTermsFromAttribute(matchedSourceAttribute, null))
 				.thenReturn(Sets.newHashSet(matchedSourceAttribute.getName()));
-		when(semanticSearchServiceUtils.splitIntoTerms(matchedSourceAttribute.getName()))
+		when(semanticSearchServiceUtils.splitRemoveStopWords(matchedSourceAttribute.getName()))
 				.thenReturn(sourceAttributeTerms);
 		when(ontologyService.fileterOntologyTerms(allOntologyIds, sourceAttributeTerms, MAX_NUM_TAGS,
 				ontologyTerms)).thenReturn(Arrays.asList(hypertension, medication));

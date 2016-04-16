@@ -27,10 +27,10 @@ public class OntologyTermFrequencyServiceImpl implements TermFrequencyService
 	}
 
 	@Override
-	public Double getTermFrequency(String term)
+	public Float getTermFrequency(String term)
 	{
 		String termFrequency = getAttributeValue(term, TermFrequencyEntityMetaData.FREQUENCY);
-		return StringUtils.isNotEmpty(termFrequency) ? Double.parseDouble(termFrequency) : null;
+		return StringUtils.isNotEmpty(termFrequency) ? Float.parseFloat(termFrequency) : null;
 	}
 
 	@Override

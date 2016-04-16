@@ -1,6 +1,7 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
 import static com.google.common.collect.Sets.newLinkedHashSet;
+import static java.lang.Math.pow;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
@@ -86,43 +88,48 @@ public class SemanticSearchServiceUtils
 		this.termFrequencyService = requireNonNull(termFrequencyService);
 	}
 
-	public List<OntologyTerm> findOntologyTermsForAttr(AttributeMetaData attribute, EntityMetaData entityMetadata,
+	public List<Hit<OntologyTerm>> findOntologyTermsForAttr(AttributeMetaData attribute, EntityMetaData entityMetadata,
 			Set<String> searchTerms, List<String> ontologyIds)
 	{
-		List<OntologyTerm> ontologyTerms = new ArrayList<>();
+		Multimap<Relation, OntologyTerm> tagsForAttribute = ontologyTagService.getTagsForAttribute(entityMetadata,
+				attribute);
+		if (!tagsForAttribute.isEmpty())
+		{
+			return tagsForAttribute.values().stream().map(ot -> Hit.create(ot, 1.0f)).collect(Collectors.toList());
+		}
 
+		List<OntologyTerm> relevantOntologyTerms;
 		// If the user search query is not empty, then it overrules the existing tags
 		if (searchTerms != null && !searchTerms.isEmpty())
 		{
 			Set<String> escapedSearchTerms = searchTerms.stream().filter(StringUtils::isNotBlank)
 					.map(QueryParser::escape).collect(toSet());
-			ontologyTerms.addAll(ontologyService.findExcatOntologyTerms(ontologyIds, escapedSearchTerms, MAX_NUM_TAGS));
+			relevantOntologyTerms = ontologyService.findExcatOntologyTerms(ontologyIds, escapedSearchTerms,
+					MAX_NUM_TAGS);
 		}
 		else
 		{
-			Multimap<Relation, OntologyTerm> tagsForAttribute = ontologyTagService.getTagsForAttribute(entityMetadata,
-					attribute);
-
-			if (tagsForAttribute.isEmpty())
-			{
-				String description = attribute.getDescription() == null ? attribute.getLabel()
-						: attribute.getDescription();
-
-				ontologyTerms.addAll(findOntologyTermCombination(description, ontologyIds).stream().map(Hit::getResult)
-						.map(OntologyTermHit::getOntologyTerm).collect(toList()));
-			}
-			else
-			{
-				ontologyTerms.addAll(tagsForAttribute.values());
-			}
+			searchTerms = splitRemoveStopWords(
+					attribute.getDescription() == null ? attribute.getLabel() : attribute.getDescription());
+			relevantOntologyTerms = ontologyService.findOntologyTerms(ontologyIds, searchTerms, MAX_NUM_TAGS);
 		}
 
-		return ontologyTerms;
+		// TODO: we need to add the part of the string, which didn't get annotated, to the annotation result as a fake
+		// ontology term
+		List<Hit<OntologyTerm>> ontologyTermHits = combineOntologyTerms(searchTerms, relevantOntologyTerms).stream()
+				.map(hit -> Hit.create(hit.getResult().getOntologyTerm(), hit.getScore())).collect(toList());
+
+		if (LOG.isDebugEnabled())
+		{
+			LOG.debug("Candidates: {}", ontologyTermHits);
+		}
+
+		return ontologyTermHits;
 	}
 
 	public List<Hit<OntologyTermHit>> findOntologyTermCombination(String queryString, List<String> ontologyIds)
 	{
-		Set<String> searchTerms = splitIntoTerms(queryString);
+		Set<String> searchTerms = splitRemoveStopWords(queryString);
 
 		if (LOG.isDebugEnabled())
 		{
@@ -143,7 +150,7 @@ public class SemanticSearchServiceUtils
 			LOG.debug("OntologyTermHit: {}", ontologyTermHit);
 		}
 
-		return combineOntologyTerms(searchTerms, candidates);
+		return ontologyTermHit;
 	}
 
 	/**
@@ -161,7 +168,7 @@ public class SemanticSearchServiceUtils
 
 		List<Hit<OntologyTermHit>> hits = relevantOntologyTerms.stream()
 				.filter(ontologyTerm -> filterOntologyTerm(stemmedSearchTerms, ontologyTerm))
-				.map(ontologyTerm -> createOntologyTermHit(searchTerms, ontologyTerm))
+				.map(ontologyTerm -> createOntologyTermHit(stemmedSearchTerms, ontologyTerm))
 				.sorted(new OntologyTermComparator()).collect(Collectors.toList());
 
 		if (LOG.isDebugEnabled())
@@ -193,7 +200,7 @@ public class SemanticSearchServiceUtils
 				{
 					Set<String> involvedSynonyms = candidates.keys().elementSet();
 					Set<String> jointTerms = Sets.union(involvedSynonyms,
-							splitIntoTerms(ontologyTermHit.getJoinedSynonym()));
+							splitRemoveStopWords(ontologyTermHit.getJoinedSynonym()));
 					float previousScore = round(distanceFrom(termJoiner.join(involvedSynonyms), searchTerms));
 					float joinedScore = round(distanceFrom(termJoiner.join(jointTerms), searchTerms));
 					if (joinedScore > previousScore)
@@ -258,16 +265,17 @@ public class SemanticSearchServiceUtils
 	 *
 	 * @return disMaxJunc queryRule
 	 */
-	public QueryRule createDisMaxQueryRule(Set<String> searchTerms, List<OntologyTerm> ontologyTerms, boolean expand)
+	public QueryRule createDisMaxQueryRule(Set<String> searchTerms, List<Hit<OntologyTerm>> ontologyTerms,
+			boolean expand)
 	{
 		List<QueryRule> rules = new ArrayList<>();
 
 		if (searchTerms != null)
 		{
-			List<String> queryTerms = searchTerms.stream().filter(StringUtils::isNotBlank).map(this::processQueryString)
+			List<String> queryTerms = searchTerms.stream().filter(StringUtils::isNotBlank).map(this::parseQueryString)
 					.collect(toList());
 
-			QueryRule createDisMaxQueryRuleForTerms = createDisMaxQueryRuleForTerms(queryTerms);
+			QueryRule createDisMaxQueryRuleForTerms = createDisMaxQueryRuleForTerms(queryTerms, null);
 			if (createDisMaxQueryRuleForTerms != null)
 			{
 				rules.add(createDisMaxQueryRuleForTerms);
@@ -295,12 +303,15 @@ public class SemanticSearchServiceUtils
 	 * @param ontologyTerms
 	 * @return
 	 */
-	public List<QueryRule> createQueryRulesForOntologyTerms(List<OntologyTerm> ontologyTerms, boolean expand)
+	public List<QueryRule> createQueryRulesForOntologyTerms(List<Hit<OntologyTerm>> ontologyTerms, boolean expand)
 	{
 		List<QueryRule> queryRules = new ArrayList<>();
 
-		for (OntologyTerm ontologyTerm : ontologyTerms)
+		for (Hit<OntologyTerm> ontologyTermHit : ontologyTerms)
 		{
+			OntologyTerm ontologyTerm = ontologyTermHit.getResult();
+			float score = ontologyTermHit.getScore();
+
 			QueryRule queryRule = null;
 
 			List<OntologyTerm> atomicOntologyTerms = ontologyService.getAtomicOntologyTerms(ontologyTerm);
@@ -311,21 +322,20 @@ public class SemanticSearchServiceUtils
 				for (OntologyTerm atomicOntologyTerm : atomicOntologyTerms)
 				{
 					List<String> queryTerms = getQueryTermsFromOntologyTerm(atomicOntologyTerm, expand);
-					Double termFrequency = getBestInverseDocumentFrequency(queryTerms);
-					QueryRule boostedDisMaxQueryRuleForTerms = createBoostedDisMaxQueryRuleForTerms(queryTerms,
-							termFrequency);
+					Float termFrequency = getBestInverseDocumentFrequency(queryTerms);
+					QueryRule boostedDisMaxQueryRuleForTerms = createDisMaxQueryRuleForTerms(queryTerms, termFrequency);
 
 					if (boostedDisMaxQueryRuleForTerms != null)
 					{
 						shouldQueryRules.add(boostedDisMaxQueryRuleForTerms);
 					}
 				}
-				queryRule = createShouldQueryRule(shouldQueryRules);
+				queryRule = createShouldQueryRule(shouldQueryRules, score);
 			}
 			else if (atomicOntologyTerms.size() == 1) // Create a disMaxJunc query if the ontologyTerm is an atomic one
 			{
 				queryRule = createDisMaxQueryRuleForTerms(
-						getQueryTermsFromOntologyTerm(atomicOntologyTerms.get(0), expand));
+						getQueryTermsFromOntologyTerm(atomicOntologyTerms.get(0), expand), score);
 			}
 
 			if (queryRule != null)
@@ -343,7 +353,7 @@ public class SemanticSearchServiceUtils
 	 * @param queryTerms
 	 * @return disMaxJunc queryRule
 	 */
-	public QueryRule createDisMaxQueryRuleForTerms(List<String> queryTerms)
+	public QueryRule createDisMaxQueryRuleForTerms(List<String> queryTerms, Float boostValue)
 	{
 		List<QueryRule> rules = new ArrayList<QueryRule>();
 		queryTerms.stream().filter(StringUtils::isNotEmpty).map(this::escapeCharsExcludingCaretChar).forEach(query -> {
@@ -357,19 +367,6 @@ public class SemanticSearchServiceUtils
 			finalDisMaxQuery = new QueryRule(rules);
 			finalDisMaxQuery.setOperator(Operator.DIS_MAX);
 		}
-		return finalDisMaxQuery;
-	}
-
-	/**
-	 * Create a disMaxQueryRule with corresponding boosted value
-	 * 
-	 * @param queryTerms
-	 * @param boostValue
-	 * @return a disMaxQueryRule with boosted value
-	 */
-	public QueryRule createBoostedDisMaxQueryRuleForTerms(List<String> queryTerms, Double boostValue)
-	{
-		QueryRule finalDisMaxQuery = createDisMaxQueryRuleForTerms(queryTerms);
 
 		if (finalDisMaxQuery != null && boostValue != null && boostValue.intValue() != 0)
 		{
@@ -379,7 +376,7 @@ public class SemanticSearchServiceUtils
 		return finalDisMaxQuery;
 	}
 
-	public QueryRule createShouldQueryRule(List<QueryRule> queryRules)
+	public QueryRule createShouldQueryRule(List<QueryRule> queryRules, Float boostValue)
 	{
 		QueryRule shouldQueryRule = null;
 		if (queryRules.size() > 0)
@@ -388,6 +385,12 @@ public class SemanticSearchServiceUtils
 			shouldQueryRule.setOperator(Operator.SHOULD);
 			shouldQueryRule.getNestedRules().addAll(queryRules);
 		}
+
+		if (shouldQueryRule != null && boostValue != null && boostValue.intValue() != 0)
+		{
+			shouldQueryRule.setValue(boostValue);
+		}
+
 		return shouldQueryRule;
 	}
 
@@ -400,14 +403,14 @@ public class SemanticSearchServiceUtils
 	 */
 	public List<String> getQueryTermsFromOntologyTerm(OntologyTerm ontologyTerm, boolean expand)
 	{
-		List<String> queryTerms = getLowerCaseTermsFromOntologyTerm(ontologyTerm).stream().map(this::processQueryString)
+		List<String> queryTerms = getLowerCaseTermsFromOntologyTerm(ontologyTerm).stream().map(this::parseQueryString)
 				.collect(toList());
 		if (expand)
 		{
 			ontologyService.getLevelThreeChildren(ontologyTerm).forEach(childOt -> {
 				double boostedNumber = ontologyService.getOntologyTermSemanticRelatedness(ontologyTerm, childOt);
 				List<String> collect = getLowerCaseTermsFromOntologyTerm(childOt).stream()
-						.map(query -> parseBoostQueryString(query, boostedNumber)).collect(Collectors.toList());
+						.map(query -> parseBoostQueryString(query, pow(boostedNumber, 2))).collect(Collectors.toList());
 				queryTerms.addAll(collect);
 			});
 		}
@@ -462,27 +465,31 @@ public class SemanticSearchServiceUtils
 		return attribute;
 	}
 
-	public String processQueryString(String queryString)
+	public String parseQueryString(String queryString)
 	{
-		return StringUtils.join(removeStopWords(queryString), SPACE_CHAR);
+		Function<? super String, ? extends String> deBoostStopWordMapper = w -> STOPWORDSLIST.contains(w)
+				? w + CARET_CHARACTER + 0.1f : w;
+
+		Set<String> searchTerms = stream(queryString.toLowerCase().split(ILLEGAL_CHARS_REGEX))
+				.filter(StringUtils::isNotBlank).map(deBoostStopWordMapper).collect(toSet());
+
+		return join(searchTerms, SPACE_CHAR);
 	}
 
 	public String parseBoostQueryString(String queryString, double boost)
 	{
-		return join(removeStopWords(queryString).stream().map(word -> word + CARET_CHARACTER + boost).collect(toSet()),
-				SPACE_CHAR);
+		Function<? super String, ? extends String> boostWordMapper = w -> STOPWORDSLIST.contains(w)
+				? w + CARET_CHARACTER + 0.1f : w + CARET_CHARACTER + boost;
+
+		Set<String> searchTerms = stream(queryString.toLowerCase().split(ILLEGAL_CHARS_REGEX))
+				.filter(StringUtils::isNotBlank).map(boostWordMapper).collect(toSet());
+
+		return join(searchTerms, SPACE_CHAR);
 	}
 
 	public String escapeCharsExcludingCaretChar(String string)
 	{
 		return QueryParser.escape(string).replace(ESCAPED_CARET_CHARACTER, CARET_CHARACTER);
-	}
-
-	public Set<String> removeStopWords(String string)
-	{
-		Set<String> searchTerms = stream(string.split(ILLEGAL_CHARS_REGEX)).map(String::toLowerCase)
-				.filter(w -> !STOPWORDSLIST.contains(w) && StringUtils.isNotEmpty(w)).collect(Collectors.toSet());
-		return searchTerms;
 	}
 
 	List<OntologyTerm> createOntologyTermPairwiseCombination(Multimap<String, OntologyTerm> candidates)
@@ -529,15 +536,19 @@ public class SemanticSearchServiceUtils
 	 */
 	public Hit<String> bestMatchingSynonym(OntologyTerm ontologyTerm, Set<String> searchTerms)
 	{
-		Optional<Hit<String>> bestSynonym = getLowerCaseTermsFromOntologyTerm(ontologyTerm).stream()
-				.map(synonym -> Hit.<String> create(synonym, distanceFrom(synonym, searchTerms)))
-				.max(Comparator.naturalOrder());
-		return bestSynonym.get();
+		List<Hit<String>> collect = getLowerCaseTermsFromOntologyTerm(ontologyTerm).stream()
+				.map(synonym -> Hit.create(synonym, distanceFrom(synonym, searchTerms))).collect(Collectors.toList());
+		for (Hit<String> hit : collect)
+		{
+			Set<String> synoymTokens = Stemmer.splitAndStem(hit.getResult());
+			if (searchTerms.containsAll(synoymTokens)) return hit;
+		}
+		return collect.get(0);
 	}
 
 	public float distanceFrom(String synonym, Set<String> searchTerms)
 	{
-		String s1 = Stemmer.stemAndJoin(splitIntoTerms(synonym));
+		String s1 = Stemmer.stemAndJoin(splitRemoveStopWords(synonym));
 		String s2 = Stemmer.stemAndJoin(searchTerms);
 		float distance = (float) stringMatching(s1, s2) / 100;
 		LOG.debug("Similarity between: {} and {} is {}", s1, s2, distance);
@@ -545,6 +556,12 @@ public class SemanticSearchServiceUtils
 	}
 
 	public Set<String> splitIntoTerms(String description)
+	{
+		return newLinkedHashSet(stream(termSplitter.split(description).spliterator(), false).map(StringUtils::lowerCase)
+				.filter(StringUtils::isNotBlank).collect(toList()));
+	}
+
+	public Set<String> splitRemoveStopWords(String description)
 	{
 		return newLinkedHashSet(stream(termSplitter.split(description).spliterator(), false).map(StringUtils::lowerCase)
 				.filter(w -> !STOPWORDSLIST.contains(w) && isNotBlank(w)).collect(toList()));
@@ -569,7 +586,7 @@ public class SemanticSearchServiceUtils
 		}
 	}
 
-	private Double getBestInverseDocumentFrequency(List<String> terms)
+	private Float getBestInverseDocumentFrequency(List<String> terms)
 	{
 		Optional<String> findFirst = terms.stream().sorted(new Comparator<String>()
 		{
@@ -582,9 +599,9 @@ public class SemanticSearchServiceUtils
 		return findFirst.isPresent() ? termFrequencyService.getTermFrequency(findFirst.get()) : null;
 	}
 
-	private Hit<OntologyTermHit> createOntologyTermHit(Set<String> searchTerms, OntologyTerm ontologyTerm)
+	private Hit<OntologyTermHit> createOntologyTermHit(Set<String> stemmedSearchTerms, OntologyTerm ontologyTerm)
 	{
-		Hit<String> bestMatchingSynonym = bestMatchingSynonym(ontologyTerm, searchTerms);
+		Hit<String> bestMatchingSynonym = bestMatchingSynonym(ontologyTerm, stemmedSearchTerms);
 		OntologyTermHit candidate = create(ontologyTerm, bestMatchingSynonym.getResult());
 		return Hit.<OntologyTermHit> create(candidate, bestMatchingSynonym.getScore());
 	}
@@ -594,7 +611,7 @@ public class SemanticSearchServiceUtils
 		Set<String> ontologyTermSynonyms = getLowerCaseTermsFromOntologyTerm(ontologyTerm);
 		for (String synonym : ontologyTermSynonyms)
 		{
-			Set<String> splitIntoTerms = splitIntoTerms(synonym).stream().map(Stemmer::stem).collect(toSet());
+			Set<String> splitIntoTerms = splitRemoveStopWords(synonym).stream().map(Stemmer::stem).collect(toSet());
 			if (splitIntoTerms.size() != 0 && keywordsFromAttribute.containsAll(splitIntoTerms)) return true;
 		}
 		return false;
