@@ -44,7 +44,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	private final OntologyService ontologyService;
 	private final SemanticSearchServiceUtils semanticSearchServiceUtils;
 	private final Joiner termJoiner = Joiner.on(' ');
-	private final static float HIGH_QUALITY_THRESHOLD = 0.93f;
+	private final static float HIGH_QUALITY_THRESHOLD = 0.90f;
 	private final static OntologyTermHit EMPTY_ONTOLOGYTERM_HIT = OntologyTermHit.create(create(EMPTY, EMPTY), EMPTY);
 
 	private static final Logger LOG = LoggerFactory.getLogger(AttributeMappingExplainServiceImpl.class);
@@ -314,7 +314,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		{
 			for (String sourceQuery : queriesFromSourceAttribute)
 			{
-				double score = stringMatching(targetQuery, sourceQuery, false);
+				double score = stringMatching(targetQuery, sourceQuery);
 				if (bestTargetQuery == null || score > highestScore)
 				{
 					bestTargetQuery = targetQuery;
