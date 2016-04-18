@@ -6,7 +6,6 @@ import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.mapper.algorithmgenerator.bean.Category;
-import org.molgenis.data.mapper.algorithmgenerator.categorymapper.CategoryMapper;
 import org.molgenis.data.mapper.algorithmgenerator.categorymapper.FrequencyCategoryMapper;
 import org.molgenis.data.mapper.algorithmgenerator.categorymapper.LexicalCategoryMapper;
 import org.molgenis.data.mapper.algorithmgenerator.rules.CategoryRule;
@@ -38,7 +37,8 @@ public class OneToOneCategoryAlgorithmGenerator extends AbstractCategoryAlgorith
 	@Override
 	public boolean isSuitable(AttributeMetaData targetAttribute, List<AttributeMetaData> sourceAttributes)
 	{
-		return isXrefOrCategorialDataType(targetAttribute) && (sourceAttributes.stream().allMatch(this::isXrefOrCategorialDataType))
+		return isXrefOrCategorialDataType(targetAttribute)
+				&& (sourceAttributes.stream().allMatch(this::isXrefOrCategorialDataType))
 				&& sourceAttributes.size() == 1;
 	}
 
@@ -53,29 +53,22 @@ public class OneToOneCategoryAlgorithmGenerator extends AbstractCategoryAlgorith
 
 			List<Category> targetCategories = convertToCategory(targetAttribute);
 			List<Category> sourceCategories = convertToCategory(firstSourceAttribute);
-
-			// Check if both of target and source categories contain frequency units
-			if (isFrequencyCategory(targetCategories) && isFrequencyCategory(sourceCategories))
-			{
-				mapAlgorithm = mapCategories(firstSourceAttribute, targetCategories, sourceCategories,
-						frequencyCategoryMapper);
-			}
-			else
-			{
-				mapAlgorithm = mapCategories(firstSourceAttribute, targetCategories, sourceCategories,
-						lexicalCategoryMapper);
-			}
+			mapAlgorithm = mapCategories(firstSourceAttribute, targetCategories, sourceCategories);
 		}
 		return mapAlgorithm;
 	}
 
 	public String mapCategories(AttributeMetaData sourceAttributeMetaData, List<Category> targetCategories,
-			List<Category> sourceCategories, CategoryMapper categoryMapper)
+			List<Category> sourceCategories)
 	{
 		StringBuilder stringBuilder = new StringBuilder();
 		for (Category sourceCategory : sourceCategories)
 		{
-			Category bestTargetCategory = categoryMapper.findBestCategoryMatch(sourceCategory, targetCategories);
+			Category bestTargetCategory = frequencyCategoryMapper.findBestCategoryMatch(sourceCategory,
+					targetCategories);
+
+			if (bestTargetCategory == null)
+				bestTargetCategory = lexicalCategoryMapper.findBestCategoryMatch(sourceCategory, targetCategories);
 
 			if (bestTargetCategory != null)
 			{

@@ -5,7 +5,6 @@ import static java.lang.Math.pow;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static java.util.stream.StreamSupport.stream;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.apache.commons.lang3.StringUtils.join;
 import static org.molgenis.data.QueryRule.Operator.DIS_MAX;
@@ -52,7 +51,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
@@ -61,6 +59,8 @@ import static java.util.Objects.requireNonNull;
 
 public class SemanticSearchServiceUtils
 {
+	private static final float LEXICAL_QUERY_BOOSTVALUE = 1.0f;
+
 	private static final Logger LOG = LoggerFactory.getLogger(SemanticSearchServiceUtils.class);
 
 	private final TermFrequencyService termFrequencyService;
@@ -75,7 +75,6 @@ public class SemanticSearchServiceUtils
 	private final static String CARET_CHARACTER = "^";
 	private final static String ESCAPED_CARET_CHARACTER = "\\^";
 	private final static String ILLEGAL_CHARS_REGEX = "[^\\p{L}'a-zA-Z0-9\\.~]+";
-	private Splitter termSplitter = Splitter.onPattern("[^\\p{IsAlphabetic}]+");
 	private Joiner termJoiner = Joiner.on(' ');
 
 	@Autowired
@@ -275,7 +274,9 @@ public class SemanticSearchServiceUtils
 			List<String> queryTerms = searchTerms.stream().filter(StringUtils::isNotBlank).map(this::parseQueryString)
 					.collect(toList());
 
-			QueryRule createDisMaxQueryRuleForTerms = createDisMaxQueryRuleForTerms(queryTerms, null);
+			QueryRule createDisMaxQueryRuleForTerms = createDisMaxQueryRuleForTerms(queryTerms,
+					LEXICAL_QUERY_BOOSTVALUE);
+
 			if (createDisMaxQueryRuleForTerms != null)
 			{
 				rules.add(createDisMaxQueryRuleForTerms);
@@ -469,7 +470,6 @@ public class SemanticSearchServiceUtils
 	{
 		Function<? super String, ? extends String> deBoostStopWordMapper = w -> STOPWORDSLIST.contains(w)
 				? w + CARET_CHARACTER + 0.1f : w;
-
 		Set<String> searchTerms = stream(queryString.toLowerCase().split(ILLEGAL_CHARS_REGEX))
 				.filter(StringUtils::isNotBlank).map(deBoostStopWordMapper).collect(toSet());
 
@@ -557,13 +557,13 @@ public class SemanticSearchServiceUtils
 
 	public Set<String> splitIntoTerms(String description)
 	{
-		return newLinkedHashSet(stream(termSplitter.split(description).spliterator(), false).map(StringUtils::lowerCase)
+		return newLinkedHashSet(stream(description.split(ILLEGAL_CHARS_REGEX)).map(StringUtils::lowerCase)
 				.filter(StringUtils::isNotBlank).collect(toList()));
 	}
 
 	public Set<String> splitRemoveStopWords(String description)
 	{
-		return newLinkedHashSet(stream(termSplitter.split(description).spliterator(), false).map(StringUtils::lowerCase)
+		return newLinkedHashSet(stream(description.split(ILLEGAL_CHARS_REGEX)).map(StringUtils::lowerCase)
 				.filter(w -> !STOPWORDSLIST.contains(w) && isNotBlank(w)).collect(toList()));
 	}
 

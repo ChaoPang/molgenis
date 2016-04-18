@@ -100,8 +100,8 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 
 			// For each source attribute, an explanation is provided by the explain service.
 			List<ExplainedAttributeMetaData> explainedSourceAttributes = mappedSourceAttributes.stream()
-					.map(sourceAttribute -> attributeMappingExplainService.explainAttributeMapping(additionalQueryTerms,
-							targetAttribute, sourceAttribute, targetEntityMetaData))
+					.map(sourceAttribute -> attributeMappingExplainService.explainAttributeMapping(targetAttribute,
+							additionalQueryTerms, sourceAttribute, targetEntityMetaData))
 					.collect(toList());
 
 			// if all source attributes are matched with high quality, then the algorithm is high quality.

@@ -6,39 +6,13 @@ import java.util.Set;
 
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.EntityMetaData;
+import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.ontology.core.model.OntologyTerm;
 
 public interface SemanticSearchService
 {
-	/**
-	 * Finds all relevant source {@link AttributeMetaData}s using the information from ontologies.
-	 * 
-	 * @param targetAttribute
-	 * @param targetEntityMetaData
-	 * @param sourceEntityMetaData
-	 * @param searchTerms
-	 * @param expand
-	 * 
-	 * @return AttributeMetaData of resembling attributes, sorted by relevance
-	 */
-	List<AttributeMetaData> findAttributesBySemanticSearch(AttributeMetaData targetAttribute,
-			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, Set<String> searchTerms,
-			boolean expand);
-
-	/**
-	 * Finds all relevant source {@link AttributeMetaData}s using the information targetAttribute and user defined
-	 * queries only.
-	 * 
-	 * @param targetAttribute
-	 * @param sourceEntityMetaData
-	 * @param searchTerms
-	 * @return
-	 */
-	List<AttributeMetaData> findAttributesByLexicalSearch(AttributeMetaData targetAttribute,
-			EntityMetaData sourceEntityMetaData, Set<String> searchTerms);
-
 	/**
 	 * Finds all relevant source {@link AttributeMetaData}s. Due to the large number of queries that might be generated
 	 * from ontology terms, this method will search for attributes using the information in such an order, 1. only the
@@ -54,6 +28,13 @@ public interface SemanticSearchService
 	 */
 	List<AttributeMetaData> findAttributesLazy(AttributeMetaData targetAttribute, EntityMetaData targetEntityMetaData,
 			EntityMetaData sourceEntityMetaData, Set<String> searchTerms);
+
+	List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations(AttributeMetaData targetAttribute,
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, Set<String> searchTerms);
+
+	List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute, Set<String> searchTerms,
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, boolean semanticSearchEnabled,
+			boolean childOntologyTermExpansionEnabled);
 
 	/**
 	 * Finds {@link OntologyTerm}s that can be used to tag an attribute.

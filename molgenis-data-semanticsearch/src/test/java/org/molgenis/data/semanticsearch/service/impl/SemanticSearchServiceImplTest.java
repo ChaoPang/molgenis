@@ -16,10 +16,12 @@ import static org.molgenis.data.meta.AttributeMetaDataMetaData.ENTITY_NAME;
 import static org.molgenis.data.meta.AttributeMetaDataMetaData.IDENTIFIER;
 import static org.molgenis.data.meta.AttributeMetaDataMetaData.LABEL;
 import static org.molgenis.data.meta.AttributeMetaDataMetaData.NAME;
+import static org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceImpl.MAX_NUMBER_ATTRIBTUES;
 import static org.molgenis.ontology.core.model.Ontology.create;
 import static org.testng.Assert.assertEquals;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,6 +30,7 @@ import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
+import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
@@ -81,7 +84,8 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 	@BeforeMethod
 	public void init()
 	{
-		when(semanticSearchServiceUtils.splitRemoveStopWords(attribute.getLabel())).thenReturn(newHashSet("attribute", "1"));
+		when(semanticSearchServiceUtils.splitRemoveStopWords(attribute.getLabel()))
+				.thenReturn(newHashSet("attribute", "1"));
 		when(ontologyService.getOntologies()).thenReturn(ontologies);
 		when(ontologyService.getAllOntologiesIds()).thenReturn(ontologyIds);
 	}
@@ -132,40 +136,46 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 				.thenReturn(Sets.newHashSet(targetHeight.getLabel()));
 
 		when(semanticSearchServiceUtils.findOntologyTermsForAttr(targetHeight, targetEntityMetaData, emptySet(),
-				ontologyIds)).thenReturn(Arrays.asList(standingHeight));
+				ontologyIds)).thenReturn(Arrays.asList(Hit.create(standingHeight, 0.5f)));
 
 		when(semanticSearchServiceUtils.createDisMaxQueryRule(Sets.newHashSet(targetHeight.getLabel()),
-				Arrays.asList(standingHeight), true)).thenReturn(disMaxQueryRuleForHeight);
+				Arrays.asList(Hit.create(standingHeight, 0.5f)), true)).thenReturn(disMaxQueryRuleForHeight);
 
 		when(semanticSearchServiceUtils.getAttributeIdentifiers(sourceEntityMetaData)).thenReturn(attributeIdentifiers);
 
-		when(dataService.findAll(ENTITY_NAME, new QueryImpl(asList(new QueryRule(IDENTIFIER, IN, attributeIdentifiers),
-				new QueryRule(AND), disMaxQueryRuleForHeight)).pageSize(100))).thenReturn(of(entityHeight));
+		when(dataService
+				.findAll(ENTITY_NAME,
+						new QueryImpl(asList(new QueryRule(IDENTIFIER, IN, attributeIdentifiers), new QueryRule(AND),
+								disMaxQueryRuleForHeight)).pageSize(MAX_NUMBER_ATTRIBTUES)))
+										.thenReturn(of(entityHeight));
 
 		when(semanticSearchServiceUtils.entityToAttributeMetaData(entityHeight, sourceEntityMetaData))
 				.thenReturn(sourceAttributeHeight);
 
-		assertEquals(semanticSearchService.findAttributesBySemanticSearch(targetHeight, targetEntityMetaData, sourceEntityMetaData,
-				emptySet(), true), asList(sourceAttributeHeight));
+		assertEquals(semanticSearchService.findAttributes(targetHeight, Collections.emptySet(), targetEntityMetaData,
+				sourceEntityMetaData, true, false), asList(sourceAttributeHeight));
 
 		// Case 2: mock the createDisMaxQueryRule method for the attribute Weight
 		when(semanticSearchServiceUtils.getQueryTermsFromAttribute(targetWeight, emptySet()))
 				.thenReturn(newHashSet(targetWeight.getLabel()));
 
 		when(semanticSearchServiceUtils.findOntologyTermsForAttr(targetWeight, targetEntityMetaData, emptySet(),
-				ontologyIds)).thenReturn(asList(bodyWeight));
+				ontologyIds)).thenReturn(asList(Hit.create(bodyWeight, 1.0f)));
 
 		when(semanticSearchServiceUtils.createDisMaxQueryRule(newHashSet(targetWeight.getLabel()),
-				Arrays.asList(bodyWeight), true)).thenReturn(disMaxQueryRuleForWeight);
+				asList(Hit.create(bodyWeight, 1.0f)), true)).thenReturn(disMaxQueryRuleForWeight);
 
-		when(dataService.findAll(ENTITY_NAME, new QueryImpl(asList(new QueryRule(IDENTIFIER, IN, attributeIdentifiers),
-				new QueryRule(AND), disMaxQueryRuleForWeight)).pageSize(100))).thenReturn(of(entityWeight));
+		when(dataService
+				.findAll(ENTITY_NAME,
+						new QueryImpl(asList(new QueryRule(IDENTIFIER, IN, attributeIdentifiers), new QueryRule(AND),
+								disMaxQueryRuleForWeight)).pageSize(MAX_NUMBER_ATTRIBTUES)))
+										.thenReturn(of(entityWeight));
 
 		when(semanticSearchServiceUtils.entityToAttributeMetaData(entityWeight, sourceEntityMetaData))
 				.thenReturn(sourceAttributeWeight);
 
-		assertEquals(semanticSearchService.findAttributesBySemanticSearch(targetWeight, targetEntityMetaData, sourceEntityMetaData,
-				emptySet(), true), asList(sourceAttributeWeight));
+		assertEquals(semanticSearchService.findAttributes(targetWeight, emptySet(), targetEntityMetaData,
+				sourceEntityMetaData, true, false), asList(sourceAttributeWeight));
 	}
 
 	@Configuration

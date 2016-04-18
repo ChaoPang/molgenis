@@ -1,7 +1,6 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
 import static com.google.common.collect.ImmutableSet.of;
-import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Sets.newHashSet;
 import static com.google.common.collect.Sets.newLinkedHashSet;
 import static java.util.Arrays.asList;
@@ -18,6 +17,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import org.mockito.Mockito;
 import org.molgenis.data.DataService;
@@ -91,14 +91,15 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 	{
 		List<String> createdTargetAttributeQueries = Arrays.asList("Height", "Standing height in cm", "body_length",
 				"Sitting height", "sitting_length", "Height", "sature");
-		QueryRule actualRule = semanticSearchServiceUtils.createDisMaxQueryRuleForTerms(createdTargetAttributeQueries);
+		QueryRule actualRule = semanticSearchServiceUtils.createDisMaxQueryRuleForTerms(createdTargetAttributeQueries,
+				null);
 		String expectedQueryRuleToString = "DIS_MAX ('label' FUZZY_MATCH 'Height', 'description' FUZZY_MATCH 'Height', 'label' FUZZY_MATCH 'Standing height in cm', 'description' FUZZY_MATCH 'Standing height in cm', 'label' FUZZY_MATCH 'body_length', 'description' FUZZY_MATCH 'body_length', 'label' FUZZY_MATCH 'Sitting height', 'description' FUZZY_MATCH 'Sitting height', 'label' FUZZY_MATCH 'sitting_length', 'description' FUZZY_MATCH 'sitting_length', 'label' FUZZY_MATCH 'Height', 'description' FUZZY_MATCH 'Height', 'label' FUZZY_MATCH 'sature', 'description' FUZZY_MATCH 'sature')";
 		assertEquals(actualRule.getOperator(), Operator.DIS_MAX);
 		assertEquals(actualRule.toString(), expectedQueryRuleToString);
 
 		List<String> createdTargetAttributeQueries2 = Arrays.asList("(Height) [stand^~]");
-		QueryRule actualRule2 = semanticSearchServiceUtils
-				.createDisMaxQueryRuleForTerms(createdTargetAttributeQueries2);
+		QueryRule actualRule2 = semanticSearchServiceUtils.createDisMaxQueryRuleForTerms(createdTargetAttributeQueries2,
+				null);
 		String expectedQueryRuleToString2 = "DIS_MAX ('label' FUZZY_MATCH '\\(Height\\) \\[stand^\\~\\]', 'description' FUZZY_MATCH '\\(Height\\) \\[stand^\\~\\]')";
 		assertEquals(actualRule2.getOperator(), Operator.DIS_MAX);
 		assertEquals(actualRule2.toString(), expectedQueryRuleToString2);
@@ -114,6 +115,10 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 				Arrays.asList("child"));
 		OntologyTerm ontologyTerm_4 = OntologyTerm.and(ontologyTerm_1, ontologyTerm_2);
 
+		Hit<OntologyTerm> hit_1 = Hit.create(ontologyTerm_1, 0.5f);
+		Hit<OntologyTerm> hit_2 = Hit.create(ontologyTerm_2, 0.5f);
+		Hit<OntologyTerm> hit_4 = Hit.create(ontologyTerm_4, 1.0f);
+
 		when(ontologyService.getAtomicOntologyTerms(ontologyTerm_1)).thenReturn(Arrays.asList(ontologyTerm_1));
 		when(ontologyService.getAtomicOntologyTerms(ontologyTerm_2)).thenReturn(Arrays.asList(ontologyTerm_2));
 		when(ontologyService.getAtomicOntologyTerms(ontologyTerm_4)).thenReturn(asList(ontologyTerm_1, ontologyTerm_2));
@@ -123,9 +128,9 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 
 		// Case one
 		List<QueryRule> createQueryRulesForOntologyTerms1 = semanticSearchServiceUtils
-				.createQueryRulesForOntologyTerms(Arrays.asList(ontologyTerm_1, ontologyTerm_2), false);
+				.createQueryRulesForOntologyTerms(asList(hit_1, hit_2), false);
 
-		String expectedShouldQueryRuleToString1 = "[DIS_MAX ('label' FUZZY_MATCH 'gcc molgenis label', 'description' FUZZY_MATCH 'gcc molgenis label'), DIS_MAX ('label' FUZZY_MATCH '2 label', 'description' FUZZY_MATCH '2 label', 'label' FUZZY_MATCH '2 genetics molgenis label', 'description' FUZZY_MATCH '2 genetics molgenis label')]";
+		String expectedShouldQueryRuleToString1 = "[DIS_MAX ('label' FUZZY_MATCH 'the^0.1 gcc molgenis label in^0.1', 'description' FUZZY_MATCH 'the^0.1 gcc molgenis label in^0.1'), DIS_MAX ('label' FUZZY_MATCH '2 label', 'description' FUZZY_MATCH '2 label', 'label' FUZZY_MATCH '2 the^0.1 genetics molgenis label in^0.1', 'description' FUZZY_MATCH '2 the^0.1 genetics molgenis label in^0.1')]";
 		assertEquals(createQueryRulesForOntologyTerms1.size(), 2);
 		assertTrue(createQueryRulesForOntologyTerms1.stream()
 				.allMatch(rule -> rule.getOperator().equals(Operator.DIS_MAX)));
@@ -133,9 +138,9 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 
 		// Case two
 		List<QueryRule> createQueryRulesForOntologyTerms2 = semanticSearchServiceUtils
-				.createQueryRulesForOntologyTerms(Arrays.asList(ontologyTerm_4), false);
+				.createQueryRulesForOntologyTerms(asList(hit_4), false);
 
-		String expectedShouldQueryRuleToString2 = "[SHOULD (DIS_MAX ('label' FUZZY_MATCH 'gcc molgenis label', 'description' FUZZY_MATCH 'gcc molgenis label'), DIS_MAX ('label' FUZZY_MATCH '2 label', 'description' FUZZY_MATCH '2 label', 'label' FUZZY_MATCH '2 genetics molgenis label', 'description' FUZZY_MATCH '2 genetics molgenis label'))]";
+		String expectedShouldQueryRuleToString2 = "[SHOULD (DIS_MAX ('label' FUZZY_MATCH 'the^0.1 gcc molgenis label in^0.1', 'description' FUZZY_MATCH 'the^0.1 gcc molgenis label in^0.1'), DIS_MAX ('label' FUZZY_MATCH '2 label', 'description' FUZZY_MATCH '2 label', 'label' FUZZY_MATCH '2 the^0.1 genetics molgenis label in^0.1', 'description' FUZZY_MATCH '2 the^0.1 genetics molgenis label in^0.1'))]";
 		assertEquals(createQueryRulesForOntologyTerms2.size(), 1);
 		assertTrue(createQueryRulesForOntologyTerms2.stream()
 				.allMatch(rule -> rule.getOperator().equals(Operator.SHOULD)));
@@ -143,9 +148,9 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 
 		// Case three
 		List<QueryRule> createQueryRulesForOntologyTerms3 = semanticSearchServiceUtils
-				.createQueryRulesForOntologyTerms(Arrays.asList(ontologyTerm_4), true);
+				.createQueryRulesForOntologyTerms(asList(hit_4), true);
 
-		String expectedShouldQueryRuleToString3 = "[SHOULD (DIS_MAX ('label' FUZZY_MATCH 'gcc molgenis label', 'description' FUZZY_MATCH 'gcc molgenis label'), DIS_MAX ('label' FUZZY_MATCH '2 label', 'description' FUZZY_MATCH '2 label', 'label' FUZZY_MATCH '2 genetics molgenis label', 'description' FUZZY_MATCH '2 genetics molgenis label', 'label' FUZZY_MATCH 'child^0.5', 'description' FUZZY_MATCH 'child^0.5', 'label' FUZZY_MATCH 'child^0.5 molgenis^0.5', 'description' FUZZY_MATCH 'child^0.5 molgenis^0.5'))]";
+		String expectedShouldQueryRuleToString3 = "[SHOULD (DIS_MAX ('label' FUZZY_MATCH 'the^0.1 gcc molgenis label in^0.1', 'description' FUZZY_MATCH 'the^0.1 gcc molgenis label in^0.1'), DIS_MAX ('label' FUZZY_MATCH '2 label', 'description' FUZZY_MATCH '2 label', 'label' FUZZY_MATCH '2 the^0.1 genetics molgenis label in^0.1', 'description' FUZZY_MATCH '2 the^0.1 genetics molgenis label in^0.1', 'label' FUZZY_MATCH 'child^0.25', 'description' FUZZY_MATCH 'child^0.25', 'label' FUZZY_MATCH 'molgenis^0.25 child^0.25', 'description' FUZZY_MATCH 'molgenis^0.25 child^0.25'))]";
 		assertEquals(createQueryRulesForOntologyTerms3.size(), 1);
 		assertTrue(createQueryRulesForOntologyTerms3.stream()
 				.allMatch(rule -> rule.getOperator().equals(Operator.SHOULD)));
@@ -177,21 +182,24 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 		when(ontologyService.getAtomicOntologyTerms(ontologyTerm2)).thenReturn(Arrays.asList(ontologyTerm2));
 		when(ontologyService.getAtomicOntologyTerms(ontologyTerm3)).thenReturn(Arrays.asList(ontologyTerm3));
 
+		List<Hit<OntologyTerm>> ontologyTermHits = tags.values().stream().map(ot -> Hit.create(ot, 1.0f))
+				.collect(Collectors.toList());
+
 		// Case 1
-		QueryRule actualTargetAttributeQueryTerms_1 = semanticSearchServiceUtils.createDisMaxQueryRule(
-				newLinkedHashSet(asList("targetAttribute 1", "Height")), newArrayList(tags.values()), true);
+		QueryRule actualTargetAttributeQueryTerms_1 = semanticSearchServiceUtils
+				.createDisMaxQueryRule(newLinkedHashSet(asList("targetAttribute 1", "Height")), ontologyTermHits, true);
 		String expecteddisMaxQueryRuleToString_1 = "DIS_MAX (DIS_MAX ('label' FUZZY_MATCH '1 targetattribute', 'description' FUZZY_MATCH '1 targetattribute', 'label' FUZZY_MATCH 'height', 'description' FUZZY_MATCH 'height'), DIS_MAX ('label' FUZZY_MATCH 'length body', 'description' FUZZY_MATCH 'length body', 'label' FUZZY_MATCH 'standing height', 'description' FUZZY_MATCH 'standing height'), DIS_MAX ('label' FUZZY_MATCH 'length sitting', 'description' FUZZY_MATCH 'length sitting', 'label' FUZZY_MATCH 'sitting height', 'description' FUZZY_MATCH 'sitting height'), DIS_MAX ('label' FUZZY_MATCH 'sature', 'description' FUZZY_MATCH 'sature', 'label' FUZZY_MATCH 'height', 'description' FUZZY_MATCH 'height'))";
 		assertEquals(actualTargetAttributeQueryTerms_1.toString(), expecteddisMaxQueryRuleToString_1);
 
 		// Case 2
 		QueryRule expecteddisMaxQueryRuleToString_2 = semanticSearchServiceUtils
-				.createDisMaxQueryRule(Sets.newHashSet("Height"), newArrayList(tags.values()), true);
+				.createDisMaxQueryRule(Sets.newHashSet("Height"), ontologyTermHits, true);
 		String expectedTargetAttributeQueryTermsToString_2 = "DIS_MAX (DIS_MAX ('label' FUZZY_MATCH 'height', 'description' FUZZY_MATCH 'height'), DIS_MAX ('label' FUZZY_MATCH 'length body', 'description' FUZZY_MATCH 'length body', 'label' FUZZY_MATCH 'standing height', 'description' FUZZY_MATCH 'standing height'), DIS_MAX ('label' FUZZY_MATCH 'length sitting', 'description' FUZZY_MATCH 'length sitting', 'label' FUZZY_MATCH 'sitting height', 'description' FUZZY_MATCH 'sitting height'), DIS_MAX ('label' FUZZY_MATCH 'sature', 'description' FUZZY_MATCH 'sature', 'label' FUZZY_MATCH 'height', 'description' FUZZY_MATCH 'height'))";
 		assertEquals(expecteddisMaxQueryRuleToString_2.toString(), expectedTargetAttributeQueryTermsToString_2);
 
 		// Case 3
 		QueryRule expecteddisMaxQueryRuleToString_3 = semanticSearchServiceUtils
-				.createDisMaxQueryRule(newHashSet("targetAttribute 3"), newArrayList(tags.values()), true);
+				.createDisMaxQueryRule(newHashSet("targetAttribute 3"), ontologyTermHits, true);
 		String expectedTargetAttributeQueryTermsToString_3 = "DIS_MAX (DIS_MAX ('label' FUZZY_MATCH '3 targetattribute', 'description' FUZZY_MATCH '3 targetattribute'), DIS_MAX ('label' FUZZY_MATCH 'length body', 'description' FUZZY_MATCH 'length body', 'label' FUZZY_MATCH 'standing height', 'description' FUZZY_MATCH 'standing height'), DIS_MAX ('label' FUZZY_MATCH 'length sitting', 'description' FUZZY_MATCH 'length sitting', 'label' FUZZY_MATCH 'sitting height', 'description' FUZZY_MATCH 'sitting height'), DIS_MAX ('label' FUZZY_MATCH 'sature', 'description' FUZZY_MATCH 'sature', 'label' FUZZY_MATCH 'height', 'description' FUZZY_MATCH 'height'))";
 		assertEquals(expecteddisMaxQueryRuleToString_3.toString(), expectedTargetAttributeQueryTermsToString_3);
 	}
@@ -219,7 +227,7 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 
 		List<String> actual_2 = semanticSearchServiceUtils.getQueryTermsFromOntologyTerm(ontologyTerm2, true);
 
-		assertEquals(actual_2, Arrays.asList("height", "length^0.5 body^0.5", "length^0.5"));
+		assertEquals(actual_2, Arrays.asList("height", "length^0.25 body^0.25", "length^0.25"));
 	}
 
 	@Test
@@ -251,14 +259,14 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 	{
 		String description = "falling in the ocean!";
 		String actual = semanticSearchServiceUtils.parseBoostQueryString(description, 0.5);
-		assertEquals(actual, "ocean^0.5 falling^0.5");
+		assertEquals(actual, "ocean^0.5 the^0.1 falling^0.5 in^0.1");
 	}
 
 	@Test
 	public void testRemoveStopWords()
 	{
 		String description = "falling in the ocean!";
-		Set<String> actual = semanticSearchServiceUtils.removeStopWords(description);
+		Set<String> actual = semanticSearchServiceUtils.splitRemoveStopWords(description);
 		Set<String> expected = Sets.newHashSet("falling", "ocean");
 		assertEquals(actual, expected);
 	}
@@ -268,7 +276,7 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 	{
 		String description = "body^0.5 length^0.5";
 		Set<String> expected = Sets.newHashSet("length", "body", "0.5");
-		Set<String> actual = semanticSearchServiceUtils.removeStopWords(description);
+		Set<String> actual = semanticSearchServiceUtils.splitRemoveStopWords(description);
 		assertEquals(actual.size(), 3);
 		assertTrue(actual.containsAll(expected));
 	}
@@ -277,8 +285,8 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 	public void testSearchTilde() throws InterruptedException, ExecutionException
 	{
 		String description = "body~0.5 length~0.5";
-		Set<String> expected = Sets.newHashSet("length~0.5", "body~0.5");
-		Set<String> actual = semanticSearchServiceUtils.removeStopWords(description);
+		Set<String> expected = Sets.newLinkedHashSet(Sets.newHashSet("length~0.5", "body~0.5"));
+		Set<String> actual = semanticSearchServiceUtils.splitRemoveStopWords(description);
 		assertEquals(actual, expected);
 	}
 
@@ -287,7 +295,7 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 	{
 		String description = "body_length";
 		Set<String> expected = Sets.newHashSet("body", "length");
-		Set<String> actual = semanticSearchServiceUtils.removeStopWords(description);
+		Set<String> actual = semanticSearchServiceUtils.splitRemoveStopWords(description);
 		assertEquals(actual, expected);
 	}
 
@@ -381,9 +389,9 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 		OntologyTerm ot3 = OntologyTerm.create("iri3", "National Security Agency", Arrays.asList("NSA"));
 		OntologyTerm ot4 = OntologyTerm.create("iri4", "National Security Advisor", Arrays.asList("NSA"));
 		OntologyTerm ot5 = OntologyTerm.create("iri5", "National Security Area", Arrays.asList("NSA"));
-		OntologyTerm ot6 = OntologyTerm.create("iri6", "Activity", Arrays.asList("ACT"));
+		OntologyTerm ot6 = OntologyTerm.create("iri6", "Movement", Arrays.asList("Moved"));
 
-		Set<String> searchTerms = splitAndStem("NSA has an activity on SEPT4");
+		Set<String> searchTerms = splitAndStem("NSA has a movement on SEPT4");
 
 		List<OntologyTerm> relevantOntologyTerms = Lists.newArrayList(ot, ot0, ot1, ot2, ot3, ot4, ot5, ot6);
 		// Randomize the order of the ontology terms
@@ -394,10 +402,10 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 
 		List<OntologyTerm> actualOntologyTerms = combineOntologyTerms.stream()
 				.map(hit -> hit.getResult().getOntologyTerm()).collect(toList());
-		List<OntologyTerm> expected = Lists.newArrayList(and(and(ot6, ot2), ot3), and(and(ot6, ot2), ot4),
+		List<OntologyTerm> expected = Lists.newArrayList(and(and(ot6, ot2), ot4), and(and(ot6, ot2), ot3),
 				and(and(ot6, ot2), ot5), and(and(ot6, ot1), ot3), and(and(ot6, ot1), ot4), and(and(ot6, ot1), ot5));
 
-		assertTrue(combineOntologyTerms.stream().allMatch(hit -> hit.getScore() == 1.0f));
+		assertTrue(combineOntologyTerms.stream().allMatch(hit -> hit.getScore() == 0.92683f));
 		assertTrue(actualOntologyTerms.containsAll(expected));
 		assertTrue(expected.containsAll(actualOntologyTerms));
 	}
@@ -463,7 +471,7 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 		Mockito.reset(ontologyService);
 		attribute.setDescription("Standing height (m.)");
 
-		when(ontologyService.findOntologyTerms(ontologyIds, newLinkedHashSet(asList("standing", "height", "m")), 20))
+		when(ontologyService.findOntologyTerms(ontologyIds, newLinkedHashSet(asList("standing", "height", "m.")), 20))
 				.thenReturn(ontologyTerms);
 
 		List<Hit<OntologyTermHit>> result = semanticSearchServiceUtils

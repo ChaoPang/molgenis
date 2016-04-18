@@ -107,11 +107,13 @@ public class AlgorithmGeneratorServiceImplTest extends AbstractTestNGSpringConte
 		ExplainedAttributeMetaData explainedWeightAttribute = ExplainedAttributeMetaData.create(weightSourceAttribute,
 				ExplainedQueryString.create("weight", "weight", "weight", 1.0f), true);
 
-		when(attributeMappingExplainService.explainAttributeMapping(Sets.newLinkedHashSet(asList("height", "weight")),
-				targetBMIAttribute, heightSourceAttribute, targetEntityMetaData)).thenReturn(explainedHeightAttribute);
+		when(attributeMappingExplainService.explainAttributeMapping(targetBMIAttribute,
+				Sets.newLinkedHashSet(asList("height", "weight")), heightSourceAttribute, targetEntityMetaData))
+						.thenReturn(explainedHeightAttribute);
 
-		when(attributeMappingExplainService.explainAttributeMapping(Sets.newLinkedHashSet(asList("height", "weight")),
-				targetBMIAttribute, weightSourceAttribute, targetEntityMetaData)).thenReturn(explainedWeightAttribute);
+		when(attributeMappingExplainService.explainAttributeMapping(targetBMIAttribute,
+				Sets.newLinkedHashSet(asList("height", "weight")), weightSourceAttribute, targetEntityMetaData))
+						.thenReturn(explainedWeightAttribute);
 
 		GeneratedAlgorithm generate = algorithmGeneratorService.autoGenerate(targetBMIAttribute, sourceAttributes,
 				targetEntityMetaData, sourceEntityMetaData);

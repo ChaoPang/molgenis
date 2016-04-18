@@ -4,7 +4,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.molgenis.data.AttributeMetaData;
+import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.meta.AttributeMetaDataMetaData;
+import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 
 public class AttributeToMapUtil
 {
@@ -22,5 +24,12 @@ public class AttributeToMapUtil
 			map.put(AttributeMetaDataMetaData.REF_ENTITY, attributeMetaData.getRefEntity().getName());
 		}
 		return map;
+	}
+
+	public static AttributeMetaData explainedAttrToAttributeMetaData(ExplainedAttributeMetaData explainedAttribute,
+			EntityMetaData sourceEntityMetaData)
+	{
+		String attributeName = explainedAttribute.getAttributeMetaData().get(AttributeMetaDataMetaData.NAME).toString();
+		return sourceEntityMetaData.getAttribute(attributeName);
 	}
 }

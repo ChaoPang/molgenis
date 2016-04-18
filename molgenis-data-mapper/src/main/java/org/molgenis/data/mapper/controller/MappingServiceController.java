@@ -53,7 +53,6 @@ import org.molgenis.data.mapper.service.impl.AlgorithmEvaluation;
 import org.molgenis.data.meta.EntityMetaDataMetaData;
 import org.molgenis.data.semantic.Relation;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
-import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.support.AggregateQueryImpl;
@@ -127,9 +126,6 @@ public class MappingServiceController extends MolgenisPluginController
 
 	@Autowired
 	private SemanticSearchService semanticSearchService;
-
-	@Autowired
-	private AttributeMappingExplainService attributeMappingExplainService;
 
 	@Autowired
 	private MenuReaderService menuReaderService;
@@ -584,24 +580,10 @@ public class MappingServiceController extends MolgenisPluginController
 		EntityMetaData sourceEntityMetaData = entityMapping.getSourceEntityMetaData();
 		AttributeMetaData targetAttributeMetaData = targetEntityMetaData.getAttribute(targetAttribute);
 
-		List<AttributeMetaData> relevantAttributes = semanticSearchService.findAttributesLazy(targetAttributeMetaData,
-				targetEntityMetaData, sourceEntityMetaData, searchTerms);
-		List<ExplainedAttributeMetaData> results = new ArrayList<>();
-		for (int i = 0; i < relevantAttributes.size(); i++)
-		{
-			AttributeMetaData sourceAttribute = relevantAttributes.get(i);
-			if (i < 5)
-			{
-				results.add(attributeMappingExplainService.explainAttributeMapping(searchTerms, targetAttributeMetaData,
-						sourceAttribute, targetEntityMetaData));
-			}
-			else
-			{
-				results.add(ExplainedAttributeMetaData.create(sourceAttribute));
-			}
-		}
+		List<ExplainedAttributeMetaData> relevantAttributes = semanticSearchService.findAttributesLazyWithExplanations(
+				targetAttributeMetaData, targetEntityMetaData, sourceEntityMetaData, searchTerms);
 
-		return results;
+		return relevantAttributes;
 	}
 
 	@RequestMapping(method = RequestMethod.POST, value = "/attributemapping/algorithm", consumes = APPLICATION_JSON_VALUE)

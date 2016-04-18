@@ -1,7 +1,7 @@
 package org.molgenis.data.semanticsearch.explain.service.impl;
 
-import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.StreamSupport.stream;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
 import static org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString.create;
 import static org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils.MAX_NUM_TAGS;
@@ -9,19 +9,21 @@ import static org.molgenis.data.semanticsearch.service.impl.SemanticSearchServic
 import static org.molgenis.ontology.core.model.OntologyTerm.create;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 import static org.molgenis.ontology.utils.Stemmer.splitAndStem;
+import static org.molgenis.ontology.utils.Stemmer.stem;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
+import org.molgenis.data.semanticsearch.explain.bean.OntologyTermQueryExpansion;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
@@ -29,7 +31,6 @@ import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
-import org.molgenis.ontology.utils.NGramDistanceAlgorithm;
 import org.molgenis.ontology.utils.Stemmer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +45,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	private final OntologyService ontologyService;
 	private final SemanticSearchServiceUtils semanticSearchServiceUtils;
 	private final Joiner termJoiner = Joiner.on(' ');
-	private final static float HIGH_QUALITY_THRESHOLD = 0.90f;
+	private final static float HIGH_QUALITY_THRESHOLD = 0.85f;
 	private final static OntologyTermHit EMPTY_ONTOLOGYTERM_HIT = OntologyTermHit.create(create(EMPTY, EMPTY), EMPTY);
 
 	private static final Logger LOG = LoggerFactory.getLogger(AttributeMappingExplainServiceImpl.class);
@@ -58,83 +59,53 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	}
 
 	@Override
-	public ExplainedAttributeMetaData explainAttributeMapping(Set<String> userQueries,
-			AttributeMetaData targetAttribute, AttributeMetaData matchedSourceAttribute,
-			EntityMetaData targetEntityMetaData)
+	public ExplainedAttributeMetaData explainAttributeMapping(AttributeMetaData targetAttribute,
+			Set<String> userQueries, AttributeMetaData matchedSourceAttribute, EntityMetaData targetEntityMetaData)
 	{
-		ExplainedAttributeMetaData explainByAttribute = explainByAttribute(userQueries, targetAttribute,
-				matchedSourceAttribute);
+		ExplainedAttributeMetaData explainByAttribute = explainAttributeMapping(targetAttribute, userQueries,
+				matchedSourceAttribute, targetEntityMetaData, false, false);
 		if (explainByAttribute.isHighQuality()) return explainByAttribute;
 
-		explainByAttribute = explainBySynonyms(userQueries, targetAttribute, matchedSourceAttribute,
-				targetEntityMetaData);
+		explainByAttribute = explainAttributeMapping(targetAttribute, userQueries, matchedSourceAttribute,
+				targetEntityMetaData, true, false);
 		if (explainByAttribute.isHighQuality()) return explainByAttribute;
 
-		return explainByAll(userQueries, targetAttribute, matchedSourceAttribute, targetEntityMetaData);
+		return explainAttributeMapping(targetAttribute, userQueries, matchedSourceAttribute, targetEntityMetaData, true,
+				true);
 	}
 
 	@Override
-	public ExplainedAttributeMetaData explainByAttribute(Set<String> userQueries, AttributeMetaData targetAttribute,
-			AttributeMetaData matchedSourceAttribute)
-	{
-		// Collect all terms from the target attribute
-		Set<String> queriesFromTargetAttribute = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute,
-				userQueries);
-		return explainAttributeMappingInternal(queriesFromTargetAttribute, emptyList(), matchedSourceAttribute);
-	}
-
-	@Override
-	public ExplainedAttributeMetaData explainBySynonyms(Set<String> userQueries, AttributeMetaData targetAttribute,
-			AttributeMetaData matchedSourceAttribute, EntityMetaData targetEntityMetaData)
+	public ExplainedAttributeMetaData explainAttributeMapping(AttributeMetaData targetAttribute,
+			Set<String> userQueries, AttributeMetaData matchedSourceAttribute, EntityMetaData targetEntityMetaData,
+			boolean semanticSearchEnabled, boolean childOntologyTermExpansionEnabled)
 	{
 		// Collect all terms from the target attribute
 		Set<String> queriesFromTargetAttribute = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute,
 				userQueries);
 
-		// Collect all the ontology terms that are associated with the target attribute, which were used in query
-		// expansion for finding the relevant source attributes.
-		List<String> ontologyTermIds = ontologyService.getOntologies().stream()
-				.filter(ontology -> !ontology.getIRI().equals(UNIT_ONTOLOGY_IRI)).map(Ontology::getId)
-				.collect(toList());
+		// If semantic search is enabled, collect all the ontology terms that are associated with the target attribute,
+		// which were used in query expansion for finding the relevant source attributes.
+		List<OntologyTermQueryExpansion> ontologyTermQueryExpansions;
+		if (semanticSearchEnabled)
+		{
+			List<String> ontologyTermIds = ontologyService.getOntologies().stream()
+					.filter(ontology -> !ontology.getIRI().equals(UNIT_ONTOLOGY_IRI)).map(Ontology::getId)
+					.collect(toList());
 
-		List<OntologyTerm> ontologyTerms = semanticSearchServiceUtils
-				.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, userQueries, ontologyTermIds).stream()
-				.map(Hit::getResult).collect(toList());
+			ontologyTermQueryExpansions = semanticSearchServiceUtils
+					.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, userQueries, ontologyTermIds)
+					.stream().map(hit -> new OntologyTermQueryExpansion(hit.getResult(), ontologyService,
+							childOntologyTermExpansionEnabled))
+					.collect(toList());
+		}
+		else ontologyTermQueryExpansions = Collections.emptyList();
 
-		// Expand ontology terms by only finding the atomic ontology terms.
-		List<OntologyTerm> relevantOntologyTerms = getAtomicOntologyTerms(ontologyTerms);
-
-		return explainAttributeMappingInternal(queriesFromTargetAttribute, relevantOntologyTerms,
-				matchedSourceAttribute);
-	}
-
-	@Override
-	public ExplainedAttributeMetaData explainByAll(Set<String> userQueries, AttributeMetaData targetAttribute,
-			AttributeMetaData matchedSourceAttribute, EntityMetaData targetEntityMetaData)
-	{
-		// Collect all terms from the target attribute
-		Set<String> queriesFromTargetAttribute = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute,
-				userQueries);
-
-		// Collect all the ontology terms that are associated with the target attribute, which were used in query
-		// expansion for finding the relevant source attributes.
-		List<String> ontologyTermIds = ontologyService.getOntologies().stream()
-				.filter(ontology -> !ontology.getIRI().equals(UNIT_ONTOLOGY_IRI)).map(Ontology::getId)
-				.collect(toList());
-
-		List<OntologyTerm> ontologyTerms = semanticSearchServiceUtils
-				.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, userQueries, ontologyTermIds).stream()
-				.map(Hit::getResult).collect(toList());
-
-		// Expand ontology terms by finding all the atomic ontology terms and their children.
-		List<OntologyTerm> relevantOntologyTerms = getExpandedOntologyTerms(ontologyTerms);
-
-		return explainAttributeMappingInternal(queriesFromTargetAttribute, relevantOntologyTerms,
+		return explainAttributeMappingInternal(queriesFromTargetAttribute, ontologyTermQueryExpansions,
 				matchedSourceAttribute);
 	}
 
 	ExplainedAttributeMetaData explainAttributeMappingInternal(Set<String> queriesFromTargetAttribute,
-			List<OntologyTerm> relevantOntologyTerms, AttributeMetaData matchedSourceAttribute)
+			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, AttributeMetaData matchedSourceAttribute)
 	{
 		// Collect all terms from the source attribute
 		Set<String> queriesFromSourceAttribute = semanticSearchServiceUtils
@@ -144,24 +115,13 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		// target query that yields the highest similarity score.
 		Hit<String> targetQueryTermHit = findBestQueryTerm(queriesFromTargetAttribute, queriesFromSourceAttribute);
 
-		// If the similariy score is high enough by using query terms from the source attribute, we don't explain it
-		// using the ontology terms because collecting all relevant ontology terms is very expensive
-		if (targetQueryTermHit.getScore() >= HIGH_QUALITY_THRESHOLD)
-		{
-			// We get the matched words for the source attribute.
-			List<String> matchedWords = getMatchedWords(targetQueryTermHit.getResult(), queriesFromSourceAttribute);
-			ExplainedQueryString explainedQueryString = create(termJoiner.join(matchedWords),
-					targetQueryTermHit.getResult(), targetQueryTermHit.getResult(), targetQueryTermHit.getScore());
-			return ExplainedAttributeMetaData.create(matchedSourceAttribute, explainedQueryString, true);
-		}
-
 		// Unfortunately the ElasticSearch built-in explain-api doesn't scale up. In order to explain why the source
 		// attribute was matched. Now we take the source attribute as the query and filter/find the best combination
 		// of ontology terms from the relevantOntologyTerms that are associated with the target attribute. By doing
 		// this, we can deduce which ontology terms were used as the expanded queries for finding that particular source
 		// attribute.
 		Hit<OntologyTermHit> ontologyTermHit = filterTagsForAttr(matchedSourceAttribute,
-				ontologyService.getAllOntologiesIds(), relevantOntologyTerms, queriesFromTargetAttribute);
+				ontologyService.getAllOntologiesIds(), ontologyTermQueryExpansions, queriesFromTargetAttribute);
 
 		// Here we check if the source attribute is matched with the original target queries or the expanded
 		// ontology term queries.
@@ -199,19 +159,22 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	 * @return
 	 */
 	private Hit<OntologyTermHit> filterTagsForAttr(AttributeMetaData matchedSourceAttribute, List<String> ontologyIds,
-			List<OntologyTerm> scope, Set<String> queriesFromTargetAttribute)
+			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, Set<String> queriesFromTargetAttribute)
 	{
-		String description = matchedSourceAttribute.getDescription() == null ? matchedSourceAttribute.getLabel()
+		String sourceLabel = matchedSourceAttribute.getDescription() == null ? matchedSourceAttribute.getLabel()
 				: matchedSourceAttribute.getDescription();
-		Set<String> searchTerms = semanticSearchServiceUtils.splitRemoveStopWords(description);
+		Set<String> searchTerms = semanticSearchServiceUtils.splitRemoveStopWords(sourceLabel);
 
 		if (LOG.isDebugEnabled())
 		{
 			LOG.debug("findOntologyTerms({},{},{})", ontologyIds, searchTerms, MAX_NUM_TAGS);
 		}
 
-		List<OntologyTerm> candidates = ontologyService.fileterOntologyTerms(ontologyIds, searchTerms, scope.size(),
-				scope);
+		List<OntologyTerm> ontologyTermScope = new ArrayList<>();
+		ontologyTermQueryExpansions.forEach(expansion -> ontologyTermScope.addAll(expansion.getOntologyTerms()));
+
+		List<OntologyTerm> candidates = ontologyService.fileterOntologyTerms(ontologyIds, searchTerms,
+				ontologyTermScope.size(), ontologyTermScope);
 
 		if (LOG.isDebugEnabled())
 		{
@@ -224,8 +187,10 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		if (combineOntologyTerms.size() > 0)
 		{
 			Hit<OntologyTermHit> hit = combineOntologyTerms.get(0);
-			Optional<Hit<String>> max = StreamSupport.stream(queriesFromTargetAttribute.spliterator(), false)
-					.map(queryTerm -> joinOntologyTermAndAttribute(hit, queryTerm, description))
+
+			Optional<Hit<String>> max = stream(queriesFromTargetAttribute.spliterator(), false)
+					.map(targetQueryTerm -> joinOntologyTermAndAttribute(hit, ontologyTermQueryExpansions,
+							targetQueryTerm, sourceLabel))
 					.max(Comparator.naturalOrder());
 
 			if (max.isPresent())
@@ -241,30 +206,34 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		return Hit.create(EMPTY_ONTOLOGYTERM_HIT, 0.0f);
 	}
 
-	Hit<String> joinOntologyTermAndAttribute(Hit<OntologyTermHit> hit, String targetQueryTerm,
+	Hit<String> joinOntologyTermAndAttribute(Hit<OntologyTermHit> hit,
+			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, String targetQueryTerm,
 			String sourceAttributeDescription)
 	{
-		String joinedSynonym = hit.getResult().getJoinedSynonym();
-		Set<String> joinedSynonymWords = Stemmer.splitAndStem(joinedSynonym);
-		float score = (float) NGramDistanceAlgorithm.stringMatching(joinedSynonym, sourceAttributeDescription, false)
-				/ 100;
-		for (String word : semanticSearchServiceUtils.splitIntoTerms(targetQueryTerm))
-		{
-			String stemmedWord = Stemmer.stem(word);
-			if (!joinedSynonymWords.contains(stemmedWord))
-			{
-				String newJoinedSynonym = termJoiner.join(joinedSynonymWords) + ' ' + stemmedWord;
-				float newScore = (float) NGramDistanceAlgorithm.stringMatching(newJoinedSynonym,
-						sourceAttributeDescription, false) / 100;
-				if (newScore > score)
+		Set<String> unusedOntologyTerms = ontologyTermQueryExpansions.stream()
+				.map(expansion -> expansion.getUnusedOntologyTerms(hit)).sorted(new Comparator<Set<String>>()
 				{
-					joinedSynonymWords = Stemmer.splitAndStem(newJoinedSynonym);
-					joinedSynonym = joinedSynonym + ' ' + word;
-					score = newScore;
-				}
-			}
+					public int compare(Set<String> o1, Set<String> o2)
+					{
+						return Integer.compare(o1.size(), o2.size());
+					}
+				}).findFirst().orElse(Collections.emptySet());
+
+		Set<String> joinedOntologyTermWords = Stemmer
+				.splitAndStem(hit.getResult().getJoinedSynonym() + ' ' + termJoiner.join(unusedOntologyTerms));
+
+		Set<String> additionalMatchedWords = semanticSearchServiceUtils.splitIntoTerms(targetQueryTerm).stream()
+				.filter(word -> !joinedOntologyTermWords.contains(stem(word))).collect(Collectors.toSet());
+
+		String join = hit.getResult().getJoinedSynonym();
+		if (additionalMatchedWords.size() > 0)
+		{
+			join = join + ' ' + termJoiner.join(additionalMatchedWords);
 		}
-		return Hit.create(joinedSynonym, score);
+
+		float score = (float) stringMatching(join, sourceAttributeDescription, false) / 100;
+
+		return Hit.create(join, score);
 	}
 
 	List<String> getMatchedWords(String bestMatchingQuery, Set<String> queriesFromSourceAttribute)

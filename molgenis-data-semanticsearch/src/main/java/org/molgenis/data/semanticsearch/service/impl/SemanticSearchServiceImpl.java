@@ -1,6 +1,7 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.common.collect.Lists.newArrayList;
 import static org.molgenis.data.QueryRule.Operator.IN;
@@ -8,9 +9,12 @@ import static org.molgenis.data.meta.AttributeMetaDataMetaData.ENTITY_NAME;
 import static org.molgenis.data.meta.AttributeMetaDataMetaData.IDENTIFIER;
 import static org.molgenis.data.semanticsearch.semantic.Hit.create;
 import static org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils.UNIT_ONTOLOGY_IRI;
+import static org.molgenis.data.semanticsearch.string.AttributeToMapUtil.explainedAttrToAttributeMetaData;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +48,8 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	private final SemanticSearchServiceUtils semanticSearchServiceUtils;
 	private final AttributeMappingExplainService attributeMappingExplainService;
 
-	private static final int MAX_NUMBER_ATTRIBTUES = 100;
+	public static final int MAX_NUMBER_ATTRIBTUES = 50;
+	public static final int NUMBER_OF_EXPLAINED_ATTRS = 5;
 
 	@Autowired
 	public SemanticSearchServiceImpl(DataService dataService, OntologyService ontologyService,
@@ -61,70 +66,74 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	public List<AttributeMetaData> findAttributesLazy(AttributeMetaData targetAttribute,
 			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, Set<String> searchTerms)
 	{
+		List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations = findAttributesLazyWithExplanations(
+				targetAttribute, targetEntityMetaData, sourceEntityMetaData, searchTerms);
+
+		return findAttributesLazyWithExplanations.stream()
+				.map(explainedAttr -> explainedAttrToAttributeMetaData(explainedAttr, sourceEntityMetaData))
+				.collect(toList());
+	}
+
+	@Override
+	public List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations(AttributeMetaData targetAttribute,
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, Set<String> searchTerms)
+	{
+		boolean semanticSearchEnabled = false;
+		boolean childOntologyTermExpansionEnabled = false;
+
 		// Find attributes by the query terms collected from the target attribute
-		List<AttributeMetaData> matchedSourceAttributes = findAttributes(targetAttribute, emptyList(),
-				sourceEntityMetaData, searchTerms, false);
+		List<AttributeMetaData> matchedSourceAttributes = findAttributes(targetAttribute, searchTerms,
+				targetEntityMetaData, sourceEntityMetaData, semanticSearchEnabled, childOntologyTermExpansionEnabled);
 
-		if (matchedSourceAttributes.size() > 0)
+		// If the matched attribute found by query terms from the target attribute is not good enough, we try to use
+		// the ontology term synonyms to improve the matching result.
+		if (isCurrentMatchBadQuality(targetAttribute, targetEntityMetaData, searchTerms, matchedSourceAttributes,
+				semanticSearchEnabled, childOntologyTermExpansionEnabled))
 		{
-			ExplainedAttributeMetaData explainByAttribute = attributeMappingExplainService
-					.explainByAttribute(searchTerms, targetAttribute, matchedSourceAttributes.get(0));
+			// enable semantic search
+			semanticSearchEnabled = true;
 
-			// If the matched attribute found by query terms from the target attribute is not good enough, we try to use
-			// the ontology term synonyms to improve the matching result.
-			if (!explainByAttribute.isHighQuality())
+			matchedSourceAttributes = findAttributes(targetAttribute, searchTerms, targetEntityMetaData,
+					sourceEntityMetaData, semanticSearchEnabled, childOntologyTermExpansionEnabled);
+
+			// if the matched attribute found by the query terms from the target attribute as well as the
+			// ontology term synonyms is not good enough, we try to use the full set of query terms from the
+			// ontology terms to improve the matchign result.
+			if (isCurrentMatchBadQuality(targetAttribute, targetEntityMetaData, searchTerms, matchedSourceAttributes,
+					semanticSearchEnabled, childOntologyTermExpansionEnabled))
 			{
-				matchedSourceAttributes = findAttributesBySemanticSearch(targetAttribute, targetEntityMetaData,
-						sourceEntityMetaData, searchTerms, false);
+				// enable query expansion for child ontology terms
+				childOntologyTermExpansionEnabled = true;
 
-				if (matchedSourceAttributes.size() > 0)
-				{
-					explainByAttribute = attributeMappingExplainService.explainBySynonyms(searchTerms, targetAttribute,
-							matchedSourceAttributes.get(0), targetEntityMetaData);
-
-					// if the matched attribute found by the query terms from the target attribute as well as the
-					// ontology term synonyms is not good enough, we try to use the full set of query terms from the
-					// ontology terms to improve the matchign result.
-					if (!explainByAttribute.isHighQuality())
-					{
-						matchedSourceAttributes = findAttributesBySemanticSearch(targetAttribute, targetEntityMetaData,
-								sourceEntityMetaData, searchTerms, true);
-					}
-				}
+				matchedSourceAttributes = findAttributes(targetAttribute, searchTerms, targetEntityMetaData,
+						sourceEntityMetaData, semanticSearchEnabled, childOntologyTermExpansionEnabled);
 			}
 		}
 
-		return matchedSourceAttributes;
+		return convertMatchedAttributesToExplainAttributes(targetAttribute, targetEntityMetaData,
+				matchedSourceAttributes, semanticSearchEnabled, childOntologyTermExpansionEnabled);
 	}
 
 	@Override
-	public List<AttributeMetaData> findAttributesBySemanticSearch(AttributeMetaData targetAttribute,
-			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, Set<String> searchTerms,
-			boolean expand)
-	{
-		List<String> ontologyIds = ontologyService.getOntologies().stream()
-				.filter(ontology -> !ontology.getIRI().equals(UNIT_ONTOLOGY_IRI)).map(Ontology::getId)
-				.collect(Collectors.toList());
-		List<Hit<OntologyTerm>> ontologyTerms = semanticSearchServiceUtils.findOntologyTermsForAttr(targetAttribute,
-				targetEntityMetaData, searchTerms, ontologyIds);
-
-		return findAttributes(targetAttribute, ontologyTerms, sourceEntityMetaData, searchTerms, expand);
-	}
-
-	@Override
-	public List<AttributeMetaData> findAttributesByLexicalSearch(AttributeMetaData targetAttribute,
-			EntityMetaData sourceEntityMetaData, Set<String> searchTerms)
-	{
-		return findAttributes(targetAttribute, Collections.emptyList(), sourceEntityMetaData, searchTerms, false);
-	}
-
-	private List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute,
-			List<Hit<OntologyTerm>> ontologyTerms, EntityMetaData sourceEntityMetaData, Set<String> searchTerms,
-			boolean expand)
+	public List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute, Set<String> searchTerms,
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, boolean semanticSearchEnabled,
+			boolean childOntologyTermExpansionEnabled)
 	{
 		Set<String> queryTerms = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, searchTerms);
 
-		QueryRule disMaxQueryRule = semanticSearchServiceUtils.createDisMaxQueryRule(queryTerms, ontologyTerms, expand);
+		List<Hit<OntologyTerm>> ontologyTerms;
+		if (semanticSearchEnabled)
+		{
+			List<String> ontologyIds = ontologyService.getOntologies().stream()
+					.filter(ontology -> !ontology.getIRI().equals(UNIT_ONTOLOGY_IRI)).map(Ontology::getId)
+					.collect(Collectors.toList());
+			ontologyTerms = semanticSearchServiceUtils.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData,
+					searchTerms, ontologyIds);
+		}
+		else ontologyTerms = emptyList();
+
+		QueryRule disMaxQueryRule = semanticSearchServiceUtils.createDisMaxQueryRule(queryTerms, ontologyTerms,
+				semanticSearchEnabled);
 
 		if (disMaxQueryRule != null)
 		{
@@ -194,5 +203,54 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	public List<Hit<OntologyTermHit>> findAllTags(String description, List<String> ontologyIds)
 	{
 		return semanticSearchServiceUtils.findOntologyTermCombination(description, ontologyIds);
+	}
+
+	private boolean isCurrentMatchBadQuality(AttributeMetaData targetAttribute, EntityMetaData targetEntityMetaData,
+			Set<String> searchTerms, List<AttributeMetaData> matchedSourceAttributes, boolean semanticSearchEnabled,
+			boolean childOntologyTermExpansionEnabled)
+	{
+		if (matchedSourceAttributes.size() == 0) return true;
+
+		ExplainedAttributeMetaData explainAttributeMapping = attributeMappingExplainService.explainAttributeMapping(
+				targetAttribute, searchTerms, matchedSourceAttributes.get(0), targetEntityMetaData,
+				semanticSearchEnabled, childOntologyTermExpansionEnabled);
+
+		return !explainAttributeMapping.isHighQuality();
+	}
+
+	private List<ExplainedAttributeMetaData> convertMatchedAttributesToExplainAttributes(
+			AttributeMetaData targetAttribute, EntityMetaData targetEntityMetaData,
+			List<AttributeMetaData> matchedSourceAttributes, boolean semanticSearchEnabled,
+			boolean childOntologyTermExpansionEnabled)
+	{
+		List<ExplainedAttributeMetaData> explainedAttributes = new ArrayList<>(matchedSourceAttributes.size());
+
+		for (int i = 0; i < matchedSourceAttributes.size(); i++)
+		{
+			if (i >= NUMBER_OF_EXPLAINED_ATTRS) break;
+
+			ExplainedAttributeMetaData explainAttributeMapping = attributeMappingExplainService.explainAttributeMapping(
+					targetAttribute, emptySet(), matchedSourceAttributes.get(i), targetEntityMetaData,
+					semanticSearchEnabled, childOntologyTermExpansionEnabled);
+
+			explainedAttributes.add(explainAttributeMapping);
+		}
+
+		explainedAttributes.sort(new Comparator<ExplainedAttributeMetaData>()
+		{
+			public int compare(ExplainedAttributeMetaData o1, ExplainedAttributeMetaData o2)
+			{
+				return Float.compare(o2.getExplainedQueryString().getScore(), o1.getExplainedQueryString().getScore());
+			}
+		});
+
+		if (matchedSourceAttributes.size() > NUMBER_OF_EXPLAINED_ATTRS)
+		{
+			explainedAttributes
+					.addAll(matchedSourceAttributes.subList(NUMBER_OF_EXPLAINED_ATTRS, matchedSourceAttributes.size())
+							.stream().map(ExplainedAttributeMetaData::create).collect(Collectors.toList()));
+		}
+
+		return explainedAttributes;
 	}
 }
