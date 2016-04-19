@@ -60,7 +60,7 @@ public class OntologyTermQueryExpansion
 		return ontologyTerms;
 	}
 
-	public Set<String> getUnusedOntologyTerms(Hit<OntologyTermHit> hit)
+	public Set<String> getUnusedOntologyTermQueries(Hit<OntologyTermHit> hit)
 	{
 		List<OntologyTerm> matcheOntologyTermsToSource = ontologyService
 				.getAtomicOntologyTerms(hit.getResult().getOntologyTerm());
@@ -76,8 +76,8 @@ public class OntologyTermQueryExpansion
 			return synonyms.size() > 0 ? synonyms.get(0) : StringUtils.EMPTY;
 		};
 
-		Predicate<Entry<OntologyTerm, List<OntologyTerm>>> getUnusedOntologyTermFilter = entrySet -> matcheOntologyTermsToSource.stream()
-				.allMatch(ot -> !entrySet.getValue().contains(ot));
+		Predicate<Entry<OntologyTerm, List<OntologyTerm>>> getUnusedOntologyTermFilter = entrySet -> matcheOntologyTermsToSource
+				.stream().allMatch(ot -> !entrySet.getValue().contains(ot));
 
 		Set<String> collect = queryExpansionRelation.entrySet().stream().filter(getUnusedOntologyTermFilter)
 				.map(entry -> newArrayList(entry.getKey().getSynonyms())).map(getShortestSynonymMapper)
