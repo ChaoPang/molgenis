@@ -189,7 +189,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 			Hit<OntologyTermHit> hit = combineOntologyTerms.get(0);
 
 			Optional<Hit<String>> max = stream(queriesFromTargetAttribute.spliterator(), false)
-					.map(targetQueryTerm -> joinOntologyTermAndAttribute(hit, ontologyTermQueryExpansions,
+					.map(targetQueryTerm -> computeAbsoluteScoreForSourceAttribute(hit, ontologyTermQueryExpansions,
 							targetQueryTerm, sourceLabel))
 					.max(Comparator.naturalOrder());
 
@@ -206,12 +206,12 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		return Hit.create(EMPTY_ONTOLOGYTERM_HIT, 0.0f);
 	}
 
-	Hit<String> joinOntologyTermAndAttribute(Hit<OntologyTermHit> hit,
+	Hit<String> computeAbsoluteScoreForSourceAttribute(Hit<OntologyTermHit> hit,
 			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, String targetQueryTerm,
 			String sourceAttributeDescription)
 	{
 		Set<String> unusedOntologyTerms = ontologyTermQueryExpansions.stream()
-				.map(expansion -> expansion.getUnusedOntologyTerms(hit)).sorted(new Comparator<Set<String>>()
+				.map(expansion -> expansion.getUnusedOntologyTermQueries(hit)).sorted(new Comparator<Set<String>>()
 				{
 					public int compare(Set<String> o1, Set<String> o2)
 					{

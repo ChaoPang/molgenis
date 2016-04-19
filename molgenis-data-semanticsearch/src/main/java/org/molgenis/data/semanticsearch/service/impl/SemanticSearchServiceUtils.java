@@ -59,7 +59,7 @@ import static java.util.Objects.requireNonNull;
 
 public class SemanticSearchServiceUtils
 {
-	private static final float LEXICAL_QUERY_BOOSTVALUE = 2.5f;
+	private static final float LEXICAL_QUERY_BOOSTVALUE = 2.0f;
 
 	private static final Logger LOG = LoggerFactory.getLogger(SemanticSearchServiceUtils.class);
 
