@@ -1,7 +1,5 @@
 package org.molgenis.data.semanticsearch.explain.service.impl;
 
-import static com.google.common.collect.Sets.union;
-import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
@@ -16,7 +14,6 @@ import static org.molgenis.ontology.utils.Stemmer.stem;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -205,6 +202,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 				return create;
 			}
 		}
+
 		return Hit.create(EMPTY_ONTOLOGYTERM_HIT, 0.0f);
 	}
 
@@ -212,62 +210,31 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, String targetQueryTerm,
 			String sourceAttributeDescription)
 	{
-		Set<String> unusedOntologyTermQueries = getUnusedOntologyTermQueries(hit, ontologyTermQueryExpansions);
-
-		Set<String> usedOntologyTermQueries = getUsedOntologyTermQueries(hit, targetQueryTerm);
-
-		String joinedOntologyTermQuery = termJoiner.join(union(usedOntologyTermQueries, unusedOntologyTermQueries));
-
-		Set<String> stemmedJoinedOntologyTermWords = Stemmer.splitAndStem(joinedOntologyTermQuery);
-
-		Set<String> additionalMatchedWords = semanticSearchServiceUtils.splitIntoTerms(targetQueryTerm).stream()
-				.filter(word -> !stemmedJoinedOntologyTermWords.contains(stem(word))).collect(Collectors.toSet());
-
-		if (additionalMatchedWords.size() > 0)
-		{
-			joinedOntologyTermQuery = joinedOntologyTermQuery + ' ' + termJoiner.join(additionalMatchedWords);
-		}
-
-		float score = (float) stringMatching(joinedOntologyTermQuery, hit.getResult().getJoinedSynonym(), false)
-				/ 100;
-
-		return Hit.create(joinedOntologyTermQuery, score);
-	}
-
-	Set<String> getUnusedOntologyTermQueries(Hit<OntologyTermHit> hit,
-			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions)
-	{
 		Set<String> unusedOntologyTerms = ontologyTermQueryExpansions.stream()
-				.map(expansion -> expansion.getUnusedOntologyTermQueries(hit)).sorted(new Comparator<Set<String>>()
+				.map(expansion -> expansion.getUnusedOntologyTerms(hit)).sorted(new Comparator<Set<String>>()
 				{
 					public int compare(Set<String> o1, Set<String> o2)
 					{
 						return Integer.compare(o1.size(), o2.size());
 					}
-				}).findFirst().orElse(emptySet());
+				}).findFirst().orElse(Collections.emptySet());
 
-		return unusedOntologyTerms;
-	}
+		Set<String> joinedOntologyTermWords = Stemmer
+				.splitAndStem(hit.getResult().getJoinedSynonym() + ' ' + termJoiner.join(unusedOntologyTerms));
 
-	Set<String> getUsedOntologyTermQueries(Hit<OntologyTermHit> hit, String targetQueryTerm)
-	{
-		List<OntologyTerm> atomicOntologyTerms = ontologyService
-				.getAtomicOntologyTerms(hit.getResult().getOntologyTerm());
-		Set<String> targetQueryTermWords = splitAndStem(targetQueryTerm);
-		Set<String> usedOntologyTermQueries = new LinkedHashSet<>();
-		for (OntologyTerm atomicOntologyTerm : atomicOntologyTerms)
+		Set<String> additionalMatchedWords = semanticSearchServiceUtils.splitIntoTerms(targetQueryTerm).stream()
+				.filter(word -> !joinedOntologyTermWords.contains(stem(word))).collect(Collectors.toSet());
+
+		String join = termJoiner.join(joinedOntologyTermWords);
+
+		if (additionalMatchedWords.size() > 0)
 		{
-			for (String ontologyTermQuery : semanticSearchServiceUtils
-					.getLowerCaseTermsFromOntologyTerm(atomicOntologyTerm))
-			{
-				if (targetQueryTermWords.containsAll(splitAndStem(ontologyTermQuery)))
-				{
-					usedOntologyTermQueries.add(ontologyTermQuery);
-					break;
-				}
-			}
+			join = join + ' ' + termJoiner.join(additionalMatchedWords);
 		}
-		return usedOntologyTermQueries;
+
+		float score = (float) stringMatching(join, hit.getResult().getJoinedSynonym(), false) / 100;
+
+		return Hit.create(join, score);
 	}
 
 	List<String> getMatchedWords(String bestMatchingQuery, Set<String> queriesFromSourceAttribute)
