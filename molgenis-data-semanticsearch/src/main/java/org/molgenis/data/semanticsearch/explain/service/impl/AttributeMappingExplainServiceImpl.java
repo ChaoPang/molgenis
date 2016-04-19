@@ -212,26 +212,26 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, String targetQueryTerm,
 			String sourceAttributeDescription)
 	{
-		Set<String> unusedOntologyTerms = getUnusedOntologyTermQueries(hit, ontologyTermQueryExpansions);
+		Set<String> unusedOntologyTermQueries = getUnusedOntologyTermQueries(hit, ontologyTermQueryExpansions);
 
 		Set<String> usedOntologyTermQueries = getUsedOntologyTermQueries(hit, targetQueryTerm);
 
-		Set<String> joinedOntologyTermWords = Stemmer
-				.splitAndStem(termJoiner.join(union(usedOntologyTermQueries, unusedOntologyTerms)));
+		String joinedOntologyTermQuery = termJoiner.join(union(usedOntologyTermQueries, unusedOntologyTermQueries));
+
+		Set<String> stemmedJoinedOntologyTermWords = Stemmer.splitAndStem(joinedOntologyTermQuery);
 
 		Set<String> additionalMatchedWords = semanticSearchServiceUtils.splitIntoTerms(targetQueryTerm).stream()
-				.filter(word -> !joinedOntologyTermWords.contains(stem(word))).collect(Collectors.toSet());
-
-		String join = termJoiner.join(joinedOntologyTermWords);
+				.filter(word -> !stemmedJoinedOntologyTermWords.contains(stem(word))).collect(Collectors.toSet());
 
 		if (additionalMatchedWords.size() > 0)
 		{
-			join = join + ' ' + termJoiner.join(additionalMatchedWords);
+			joinedOntologyTermQuery = joinedOntologyTermQuery + ' ' + termJoiner.join(additionalMatchedWords);
 		}
 
-		float score = (float) stringMatching(join, hit.getResult().getJoinedSynonym(), false) / 100;
+		float score = (float) stringMatching(joinedOntologyTermQuery, hit.getResult().getJoinedSynonym(), false)
+				/ 100;
 
-		return Hit.create(join, score);
+		return Hit.create(joinedOntologyTermQuery, score);
 	}
 
 	Set<String> getUnusedOntologyTermQueries(Hit<OntologyTermHit> hit,
