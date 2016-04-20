@@ -1,6 +1,5 @@
 package org.molgenis.data.semanticsearch.explain.service.impl;
 
-import static autovalue.shaded.com.google.common.common.collect.Sets.union;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
@@ -223,18 +222,15 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		Set<String> matchedOntologyTermsInTarget = findOntologyTermSynonymsInTarget(
 				queryExpansionSolution.getMatchOntologyTerms(), targetQueryTerm);
 
-		Set<String> unmatchedOntologyTermsInTarget = findOntologyTermSynonymsInTarget(
-				queryExpansionSolution.getUnmatchOntologyTerms(), targetQueryTerm);
+		Set<String> unmatchedWordsInSource = findLeftUnmatchedWords(sourceAttributeDescription,
+				matchedOntologyTermsInSource);
 
-		String joinedOntologyTermsInTarget = termJoiner
-				.join(union(matchedOntologyTermsInTarget, unmatchedOntologyTermsInTarget));
+		String transformedSourceDescription = termJoiner
+				.join(Sets.union(matchedOntologyTermsInTarget, unmatchedWordsInSource));
 
-		Set<String> additionalMatchedWords = findAdditionalMatcheWords(targetQueryTerm, joinedOntologyTermsInTarget,
-				sourceAttributeDescription);
+		float adjustedScore = (float) stringMatching(transformedSourceDescription, targetQueryTerm) / 100;
 
-		String join = termJoiner.join(Sets.union(matchedOntologyTermsInTarget, additionalMatchedWords));
-
-		float adjustedScore = (float) stringMatching(join, targetQueryTerm, false) / 100;
+		Set<String> additionalMatchedWords = findMatchedWords(targetQueryTerm, termJoiner.join(unmatchedWordsInSource));
 
 		if (additionalMatchedWords.size() > 0)
 		{
@@ -244,25 +240,34 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		return Hit.create(matchedOntologyTermsInSource, adjustedScore);
 	}
 
-	private Set<String> findAdditionalMatcheWords(String targetQueryTerm, String joinedOntologyTermsInTarget,
-			String sourceAttributeDescription)
+	private Set<String> findLeftUnmatchedWords(String stringOne, String stringTwo)
 	{
 		Set<String> additionalMatchedWords = new LinkedHashSet<>();
-		Set<String> stemmedOntologyTermsInTarget = splitAndStem(joinedOntologyTermsInTarget);
-		Set<String> stemmedWordsInSource = splitAndStem(sourceAttributeDescription);
-
-		for (String targetWord : semanticSearchServiceUtils.splitIntoTerms(targetQueryTerm))
+		Set<String> stemmedStringOneWords = splitAndStem(stringTwo);
+		for (String sourceWord : semanticSearchServiceUtils.splitIntoTerms(stringOne))
 		{
-			String stemmedTargetWord = Stemmer.stem(targetWord);
-
-			if (!stemmedOntologyTermsInTarget.contains(stemmedTargetWord)
-					&& stemmedWordsInSource.contains(stemmedTargetWord))
+			String stemmedSourceWord = Stemmer.stem(sourceWord);
+			if (!stemmedStringOneWords.contains(stemmedSourceWord))
 			{
-				additionalMatchedWords.add(targetWord);
+				additionalMatchedWords.add(sourceWord);
 			}
 		}
-
 		return additionalMatchedWords;
+	}
+
+	private Set<String> findMatchedWords(String string1, String string2)
+	{
+		Set<String> intersectedWords = new LinkedHashSet<>();
+		Set<String> stemmedwords = splitAndStem(string2);
+		for (String sourceWord : semanticSearchServiceUtils.splitIntoTerms(string1))
+		{
+			String stemmedSourceWord = Stemmer.stem(sourceWord);
+			if (stemmedwords.contains(stemmedSourceWord))
+			{
+				intersectedWords.add(sourceWord);
+			}
+		}
+		return intersectedWords;
 	}
 
 	private Set<String> findOntologyTermSynonymsInTarget(List<OntologyTerm> ontologyTerms, String targetQueryTerm)

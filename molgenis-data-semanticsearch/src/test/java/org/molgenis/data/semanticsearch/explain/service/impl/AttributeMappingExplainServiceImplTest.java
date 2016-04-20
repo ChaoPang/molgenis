@@ -217,6 +217,9 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		when(semanticSearchServiceUtils.splitIntoTerms(targetQueryTerm))
 				.thenReturn(newLinkedHashSet(asList("cold", "cut", "meat", "ham")));
 
+		when(semanticSearchServiceUtils.splitIntoTerms(sourceAttributeDescription))
+				.thenReturn(newLinkedHashSet(asList("incident", "chronic", "obstructive", "pulmonary", "disease")));
+
 		when(ontologyService.getAtomicOntologyTerms(coldDiseaseOntologyTerm))
 				.thenReturn(Arrays.asList(coldDiseaseOntologyTerm));
 
@@ -253,13 +256,14 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 						sourceAttributeDescription);
 
 		assertEquals(computeAbsoluteScoreForSourceAttribute,
-				Hit.create("chronic obstructive pulmonary disease", 0.43478f));
+				Hit.create("chronic obstructive pulmonary disease", 0.34483f));
 	}
 
 	@Test
 	public void testComputeAbsoluteScoreForSourceAttributeCaseTwo()
 	{
-		String sourceAttributeDescription = "Sister diagnosed with infarction under the age of 60";
+		String sourceAttributeDescription1 = "Sister diagnosed with infarction under the age of 60";
+		String sourceAttributeDescription2 = "Father diagnosed with infarction under the age of 60";
 		String targetQueryTerm = "Sibling diagnosed with infarction under the age of 60";
 
 		OntologyTerm sibilingOntologyTerm = OntologyTerm.create("iri1", "sibling");
@@ -268,23 +272,33 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		OntologyTerm infarctionOntologyTerm = OntologyTerm.create("iri4", "infarction");
 		OntologyTerm ageOntologyTerm = OntologyTerm.create("iri5", "age");
 
-		OntologyTerm compositeOntologyTerm = OntologyTerm.and(sibilingOntologyTerm, infarctionOntologyTerm,
+		OntologyTerm compositeOntologyTerm1 = OntologyTerm.and(sibilingOntologyTerm, infarctionOntologyTerm,
 				ageOntologyTerm);
 
-		Hit<OntologyTermHit> hit = Hit.create(OntologyTermHit.create(compositeOntologyTerm, "sister infarction age"),
+		OntologyTerm compositeOntologyTerm2 = OntologyTerm.and(infarctionOntologyTerm, ageOntologyTerm);
+
+		Hit<OntologyTermHit> hit1 = Hit.create(OntologyTermHit.create(compositeOntologyTerm1, "sister infarction age"),
 				0.6f);
+
+		Hit<OntologyTermHit> hit2 = Hit.create(OntologyTermHit.create(compositeOntologyTerm2, "infarction age"), 0.4f);
 
 		when(semanticSearchServiceUtils.splitIntoTerms(targetQueryTerm)).thenReturn(newLinkedHashSet(
 				asList("sibling", "diagnosed", "with", "infarction", "under", "the", "age", "of", "60")));
 
-		when(semanticSearchServiceUtils.splitIntoTerms(sourceAttributeDescription)).thenReturn(newLinkedHashSet(
+		when(semanticSearchServiceUtils.splitIntoTerms(sourceAttributeDescription1)).thenReturn(newLinkedHashSet(
 				asList("sister", "diagnosed", "with", "infarction", "under", "the", "age", "of", "60")));
+
+		when(semanticSearchServiceUtils.splitIntoTerms(sourceAttributeDescription2)).thenReturn(newLinkedHashSet(
+				asList("father", "diagnosed", "with", "infarction", "under", "the", "age", "of", "60")));
 
 		when(ontologyService.getAtomicOntologyTerms(sibilingOntologyTerm))
 				.thenReturn(Arrays.asList(sibilingOntologyTerm));
 
-		when(ontologyService.getAtomicOntologyTerms(compositeOntologyTerm))
+		when(ontologyService.getAtomicOntologyTerms(compositeOntologyTerm1))
 				.thenReturn(Arrays.asList(sibilingOntologyTerm, infarctionOntologyTerm, ageOntologyTerm));
+
+		when(ontologyService.getAtomicOntologyTerms(compositeOntologyTerm2))
+				.thenReturn(Arrays.asList(infarctionOntologyTerm, ageOntologyTerm));
 
 		when(ontologyService.getLevelThreeChildren(sibilingOntologyTerm))
 				.thenReturn(Arrays.asList(brotherOntologyTerm, sisterOntologyTerm));
@@ -298,15 +312,23 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		when(semanticSearchServiceUtils.getLowerCaseTermsFromOntologyTerm(ageOntologyTerm))
 				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("age")));
 
-		List<OntologyTermQueryExpansion> ontologyTermQueryExpansions = Arrays
-				.asList(new OntologyTermQueryExpansion(compositeOntologyTerm, ontologyService, true));
+		List<OntologyTermQueryExpansion> ontologyTermQueryExpansions1 = Arrays
+				.asList(new OntologyTermQueryExpansion(compositeOntologyTerm1, ontologyService, true));
 
-		Hit<String> computeAbsoluteScoreForSourceAttribute = attributeMappingExplainServiceImpl
-				.computeAbsoluteScoreForSourceAttribute(hit, ontologyTermQueryExpansions, targetQueryTerm,
-						sourceAttributeDescription);
+		List<OntologyTermQueryExpansion> ontologyTermQueryExpansions2 = Arrays
+				.asList(new OntologyTermQueryExpansion(compositeOntologyTerm2, ontologyService, true));
 
-		assertEquals(computeAbsoluteScoreForSourceAttribute,
+		Hit<String> computeAbsoluteScoreForSourceAttribute1 = attributeMappingExplainServiceImpl
+				.computeAbsoluteScoreForSourceAttribute(hit1, ontologyTermQueryExpansions1, targetQueryTerm,
+						sourceAttributeDescription1);
+		assertEquals(computeAbsoluteScoreForSourceAttribute1,
 				Hit.create("sister infarction age diagnosed with under the of 60", 1.0f));
+
+		Hit<String> computeAbsoluteScoreForSourceAttribute2 = attributeMappingExplainServiceImpl
+				.computeAbsoluteScoreForSourceAttribute(hit2, ontologyTermQueryExpansions2, targetQueryTerm,
+						sourceAttributeDescription2);
+		assertEquals(computeAbsoluteScoreForSourceAttribute2,
+				Hit.create("infarction age diagnosed with under the of 60", 0.78571f));
 	}
 
 	@Configuration
