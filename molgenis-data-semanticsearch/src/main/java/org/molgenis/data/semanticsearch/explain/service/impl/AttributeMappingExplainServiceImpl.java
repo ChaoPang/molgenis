@@ -244,7 +244,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		return Hit.create(matchedOntologyTermsInSource, adjustedScore);
 	}
 
-	Set<String> findAdditionalMatcheWords(String targetQueryTerm, String joinedOntologyTermsInTarget,
+	private Set<String> findAdditionalMatcheWords(String targetQueryTerm, String joinedOntologyTermsInTarget,
 			String sourceAttributeDescription)
 	{
 		Set<String> additionalMatchedWords = new LinkedHashSet<>();
@@ -265,7 +265,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		return additionalMatchedWords;
 	}
 
-	Set<String> findOntologyTermSynonymsInTarget(List<OntologyTerm> ontologyTerms, String targetQueryTerm)
+	private Set<String> findOntologyTermSynonymsInTarget(List<OntologyTerm> ontologyTerms, String targetQueryTerm)
 	{
 		Set<String> targetQueryTermWords = splitAndStem(targetQueryTerm);
 		Set<String> usedOntologyTermQueries = new LinkedHashSet<>();
@@ -284,7 +284,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		return usedOntologyTermQueries;
 	}
 
-	List<String> getMatchedWords(String bestMatchingQuery, Set<String> queriesFromSourceAttribute)
+	private List<String> getMatchedWords(String bestMatchingQuery, Set<String> queriesFromSourceAttribute)
 	{
 		List<String> matchedWords = new ArrayList<>();
 		Set<String> bestMatchingQueryTokens = splitAndStem(bestMatchingQuery);
@@ -299,27 +299,6 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 			}
 		}
 		return matchedWords;
-	}
-
-	List<OntologyTerm> getAtomicOntologyTerms(List<OntologyTerm> ontologyTerms)
-	{
-		List<OntologyTerm> expandedOntologyTerms = new ArrayList<>();
-		for (OntologyTerm ontologyTerm : ontologyTerms)
-		{
-			expandedOntologyTerms.addAll(ontologyService.getAtomicOntologyTerms(ontologyTerm));
-		}
-		return expandedOntologyTerms;
-	}
-
-	List<OntologyTerm> getExpandedOntologyTerms(List<OntologyTerm> ontologyTerms)
-	{
-		List<OntologyTerm> expandedOntologyTerms = new ArrayList<>();
-		for (OntologyTerm atomicOntologyTerm : getAtomicOntologyTerms(ontologyTerms))
-		{
-			expandedOntologyTerms.add(atomicOntologyTerm);
-			expandedOntologyTerms.addAll(ontologyService.getLevelThreeChildren(atomicOntologyTerm));
-		}
-		return expandedOntologyTerms;
 	}
 
 	Hit<String> findBestQueryTerm(Set<String> queriesFromTargetAttribute, Set<String> queriesFromSourceAttribute)

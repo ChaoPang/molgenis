@@ -194,18 +194,6 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 	}
 
 	@Test
-	public void getExpandedOntologyTerms()
-	{
-		OntologyTerm ot = OntologyTerm.create("iri1,iri2", "hypertension,medication");
-		List<OntologyTerm> actual = attributeMappingExplainServiceImpl.getExpandedOntologyTerms(Arrays.asList(ot));
-		List<OntologyTerm> expected = Arrays.asList(
-				OntologyTerm.create("iri1", "hypertension", Lists.newArrayList("high blood pressure", "HBP")),
-				OntologyTerm.create("iri3", "systolic hypertension"),
-				OntologyTerm.create("iri4", "distolic hypertension"), OntologyTerm.create("iri2", "medication"));
-		assertEquals(actual, expected);
-	}
-
-	@Test
 	public void testComputeAbsoluteScoreForSourceAttributeCaseOne()
 	{
 		String sourceAttributeDescription = "Incident chronic obstructive pulmonary disease";
