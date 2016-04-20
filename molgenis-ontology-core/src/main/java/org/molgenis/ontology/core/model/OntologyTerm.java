@@ -3,7 +3,6 @@ package org.molgenis.ontology.core.model;
 import static com.google.common.collect.ImmutableList.copyOf;
 import static java.util.Arrays.stream;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
 import static org.apache.commons.lang.StringUtils.join;
 
 import java.util.Collections;
@@ -35,7 +34,7 @@ public abstract class OntologyTerm
 
 	public static OntologyTerm create(String iri, String label)
 	{
-		return new AutoValue_OntologyTerm(iri, label, null, singletonList(label), emptyList(), emptyList());
+		return new AutoValue_OntologyTerm(iri, label, null, emptyList(), emptyList(), emptyList());
 	}
 
 	public static OntologyTerm create(String iri, String label, List<String> synonyms)
@@ -45,8 +44,7 @@ public abstract class OntologyTerm
 
 	public static OntologyTerm create(String iri, String label, String description)
 	{
-		return new AutoValue_OntologyTerm(iri, label, description, singletonList(description), emptyList(),
-				emptyList());
+		return new AutoValue_OntologyTerm(iri, label, description, emptyList(), emptyList(), emptyList());
 	}
 
 	public static OntologyTerm create(String iri, String label, String description, List<String> synonyms)

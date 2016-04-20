@@ -18,7 +18,7 @@ public class StemmerTest
 	@Test
 	public void stemPhrase()
 	{
-		assertEquals(Stemmer.cleanStemPhrase("i like smoking!"), "like smoke");
+		assertEquals(Stemmer.cleanStemPhrase("i like smoking!"), "i like smoke");
 		assertEquals(Stemmer.cleanStemPhrase("it`s not possibilities!"), "it not possibl");
 	}
 

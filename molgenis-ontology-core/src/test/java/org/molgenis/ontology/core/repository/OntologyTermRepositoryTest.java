@@ -2,6 +2,7 @@ package org.molgenis.ontology.core.repository;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
 import static org.elasticsearch.common.collect.ImmutableSet.of;
 import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Matchers.eq;
@@ -118,8 +119,7 @@ public class OntologyTermRepositoryTest extends AbstractTestNGSpringContextTests
 		List<OntologyTerm> terms = ontologyTermRepository.findOntologyTerms(asList("1", "2"),
 				of("term1", "term2", "term3"), 100);
 
-		assertEquals(terms, asList(
-				OntologyTerm.create("http://www.test.nl/iri", "Ontology term", null, Arrays.asList("Ontology term"))));
+		assertEquals(terms, asList(OntologyTerm.create("http://www.test.nl/iri", "Ontology term", null, emptyList())));
 		assertEquals(queryCaptor.getValue().toString(),
 				"rules=['ontology' IN [1, 2], AND, ('ontologyTermSynonym' FUZZY_MATCH 'term1', OR, 'ontologyTermSynonym' FUZZY_MATCH 'term2', OR, 'ontologyTermSynonym' FUZZY_MATCH 'term3')], pageSize=100");
 	}
@@ -158,11 +158,11 @@ public class OntologyTermRepositoryTest extends AbstractTestNGSpringContextTests
 		ontologyTermEntity_3.set(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, Arrays.asList(nodePathEntity_3));
 		ontologyTermEntity_3.set(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM, Collections.emptyList());
 
-		OntologyTerm ontologyTerm_1 = OntologyTerm.create("iri 1", "name 1", null, Arrays.asList("name 1"),
+		OntologyTerm ontologyTerm_1 = OntologyTerm.create("iri 1", "name 1", null, emptyList(),
 				Arrays.asList("0[0].1[1]"));
-		OntologyTerm ontologyTerm_2 = OntologyTerm.create("iri 2", "name 2", null, Arrays.asList("name 2"),
+		OntologyTerm ontologyTerm_2 = OntologyTerm.create("iri 2", "name 2", null, emptyList(),
 				Arrays.asList("0[0].1[1].0[2]"));
-		OntologyTerm ontologyTerm_3 = OntologyTerm.create("iri 3", "name 3", null, asList("name 3"),
+		OntologyTerm ontologyTerm_3 = OntologyTerm.create("iri 3", "name 3", null, emptyList(),
 				asList("0[0].1[1].1[2]"));
 
 		when(dataService.findAll(OntologyTermMetaData.ENTITY_NAME,
@@ -240,8 +240,7 @@ public class OntologyTermRepositoryTest extends AbstractTestNGSpringContextTests
 		{ "http://www.test.nl/iri" };
 
 		OntologyTerm ontologyTerm = ontologyTermRepository.getOntologyTerm(iris);
-		assertEquals(ontologyTerm,
-				OntologyTerm.create("http://www.test.nl/iri", "Ontology term", Arrays.asList("Ontology term")));
+		assertEquals(ontologyTerm, OntologyTerm.create("http://www.test.nl/iri", "Ontology term", emptyList()));
 	}
 
 	@Configuration

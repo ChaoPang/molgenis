@@ -1,5 +1,6 @@
 package org.molgenis.data.semanticsearch.explain.service.impl;
 
+import static autovalue.shaded.com.google.common.common.collect.Sets.union;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
@@ -9,11 +10,11 @@ import static org.molgenis.data.semanticsearch.service.impl.SemanticSearchServic
 import static org.molgenis.ontology.core.model.OntologyTerm.create;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 import static org.molgenis.ontology.utils.Stemmer.splitAndStem;
-import static org.molgenis.ontology.utils.Stemmer.stem;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -24,6 +25,7 @@ import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
 import org.molgenis.data.semanticsearch.explain.bean.OntologyTermQueryExpansion;
+import org.molgenis.data.semanticsearch.explain.bean.QueryExpansionSolution;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
@@ -39,6 +41,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.google.common.base.Joiner;
 
 import static java.util.Objects.requireNonNull;
+
+import autovalue.shaded.com.google.common.common.collect.Sets;
 
 public class AttributeMappingExplainServiceImpl implements AttributeMappingExplainService
 {
@@ -202,7 +206,6 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 				return create;
 			}
 		}
-
 		return Hit.create(EMPTY_ONTOLOGYTERM_HIT, 0.0f);
 	}
 
@@ -210,31 +213,75 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, String targetQueryTerm,
 			String sourceAttributeDescription)
 	{
-		Set<String> unusedOntologyTerms = ontologyTermQueryExpansions.stream()
-				.map(expansion -> expansion.getUnusedOntologyTermQueries(hit)).sorted(new Comparator<Set<String>>()
-				{
-					public int compare(Set<String> o1, Set<String> o2)
-					{
-						return Integer.compare(o1.size(), o2.size());
-					}
-				}).findFirst().orElse(Collections.emptySet());
+		QueryExpansionSolution queryExpansionSolution = ontologyTermQueryExpansions.stream()
+				.map(expansion -> expansion.getQueryExpansionSolution(hit)).sorted().findFirst().orElse(null);
 
-		Set<String> joinedOntologyTermWords = Stemmer
-				.splitAndStem(hit.getResult().getJoinedSynonym() + ' ' + termJoiner.join(unusedOntologyTerms));
+		String matchedOntologyTermsInSource = hit.getResult().getJoinedSynonym();
 
-		Set<String> additionalMatchedWords = semanticSearchServiceUtils.splitIntoTerms(targetQueryTerm).stream()
-				.filter(word -> !joinedOntologyTermWords.contains(stem(word))).collect(Collectors.toSet());
+		if (queryExpansionSolution == null) return Hit.create(matchedOntologyTermsInSource, hit.getScore());
 
-		String join = termJoiner.join(joinedOntologyTermWords);
+		Set<String> matchedOntologyTermsInTarget = findOntologyTermSynonymsInTarget(
+				queryExpansionSolution.getMatchOntologyTerms(), targetQueryTerm);
+
+		Set<String> unmatchedOntologyTermsInTarget = findOntologyTermSynonymsInTarget(
+				queryExpansionSolution.getUnmatchOntologyTerms(), targetQueryTerm);
+
+		String joinedOntologyTermsInTarget = termJoiner
+				.join(union(matchedOntologyTermsInTarget, unmatchedOntologyTermsInTarget));
+
+		Set<String> additionalMatchedWords = findAdditionalMatcheWords(targetQueryTerm, joinedOntologyTermsInTarget,
+				sourceAttributeDescription);
+
+		String join = termJoiner.join(Sets.union(matchedOntologyTermsInTarget, additionalMatchedWords));
+
+		float adjustedScore = (float) stringMatching(join, targetQueryTerm, false) / 100;
 
 		if (additionalMatchedWords.size() > 0)
 		{
-			join = join + ' ' + termJoiner.join(additionalMatchedWords);
+			matchedOntologyTermsInSource += ' ' + termJoiner.join(additionalMatchedWords);
 		}
 
-		float score = (float) stringMatching(join, hit.getResult().getJoinedSynonym(), false) / 100;
+		return Hit.create(matchedOntologyTermsInSource, adjustedScore);
+	}
 
-		return Hit.create(join, score);
+	Set<String> findAdditionalMatcheWords(String targetQueryTerm, String joinedOntologyTermsInTarget,
+			String sourceAttributeDescription)
+	{
+		Set<String> additionalMatchedWords = new LinkedHashSet<>();
+		Set<String> stemmedOntologyTermsInTarget = splitAndStem(joinedOntologyTermsInTarget);
+		Set<String> stemmedWordsInSource = splitAndStem(sourceAttributeDescription);
+
+		for (String targetWord : semanticSearchServiceUtils.splitIntoTerms(targetQueryTerm))
+		{
+			String stemmedTargetWord = Stemmer.stem(targetWord);
+
+			if (!stemmedOntologyTermsInTarget.contains(stemmedTargetWord)
+					&& stemmedWordsInSource.contains(stemmedTargetWord))
+			{
+				additionalMatchedWords.add(targetWord);
+			}
+		}
+
+		return additionalMatchedWords;
+	}
+
+	Set<String> findOntologyTermSynonymsInTarget(List<OntologyTerm> ontologyTerms, String targetQueryTerm)
+	{
+		Set<String> targetQueryTermWords = splitAndStem(targetQueryTerm);
+		Set<String> usedOntologyTermQueries = new LinkedHashSet<>();
+
+		for (OntologyTerm ontologyTerm : ontologyTerms)
+		{
+			for (String synonym : semanticSearchServiceUtils.getLowerCaseTermsFromOntologyTerm(ontologyTerm))
+			{
+				if (targetQueryTermWords.containsAll(splitAndStem(synonym)))
+				{
+					usedOntologyTermQueries.add(synonym);
+					break;
+				}
+			}
+		}
+		return usedOntologyTermQueries;
 	}
 
 	List<String> getMatchedWords(String bestMatchingQuery, Set<String> queriesFromSourceAttribute)
