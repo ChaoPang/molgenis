@@ -7,20 +7,19 @@ import static java.util.stream.Collectors.toSet;
 import static java.util.stream.StreamSupport.stream;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
 import static org.apache.commons.lang3.StringUtils.isBlank;
-import static org.elasticsearch.common.collect.Lists.newArrayList;
 import static org.molgenis.data.QueryRule.Operator.AND;
 import static org.molgenis.data.QueryRule.Operator.FUZZY_MATCH;
 import static org.molgenis.data.QueryRule.Operator.IN;
 import static org.molgenis.data.QueryRule.Operator.OR;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ENTITY_NAME;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY;
+import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM_DYNAMIC_ANNOTATION;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM_IRI;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM_NAME;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -32,7 +31,6 @@ import java.util.stream.StreamSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.common.collect.Iterables;
 import org.elasticsearch.common.collect.Lists;
-import org.elasticsearch.common.collect.Sets;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.Query;
@@ -40,11 +38,13 @@ import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.meta.OntologyMetaData;
+import org.molgenis.ontology.core.meta.OntologyTermDynamicAnnotationMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermNodePathMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermSynonymMetaData;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.model.OntologyTermAnnotation;
 import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -464,8 +464,7 @@ public class OntologyTermRepository
 		}
 
 		// Collect synonyms if there are any
-		String ontologyTermName = entity.getString(ONTOLOGY_TERM_NAME);
-		Set<String> synonyms = Sets.newHashSet(ontologyTermName);
+		List<String> synonyms = new ArrayList<>();
 		Iterable<Entity> ontologyTermSynonymEntities = entity.getEntities(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM);
 		if (ontologyTermSynonymEntities != null)
 		{
@@ -474,7 +473,7 @@ public class OntologyTermRepository
 		}
 
 		// Collection nodePaths is there are any
-		Set<String> nodePaths = new HashSet<>();
+		List<String> nodePaths = new ArrayList<>();
 		Iterable<Entity> ontologyTermNodePathEntities = entity
 				.getEntities(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH);
 		if (ontologyTermNodePathEntities != null)
@@ -483,9 +482,21 @@ public class OntologyTermRepository
 					.map(e -> e.getString(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH)).collect(toList()));
 		}
 
-		return OntologyTerm.create(entity.getString(ONTOLOGY_TERM_IRI), ontologyTermName, null, newArrayList(synonyms),
-				newArrayList(nodePaths));
+		// Collect annotations if there are any
+		List<OntologyTermAnnotation> annotations = new ArrayList<>();
+		Iterable<Entity> ontologyTermAnnotationEntities = entity.getEntities(ONTOLOGY_TERM_DYNAMIC_ANNOTATION);
+		if (ontologyTermAnnotationEntities != null)
+		{
+			for (Entity annotationEntity : ontologyTermAnnotationEntities)
+			{
+				String annotationName = annotationEntity.getString(OntologyTermDynamicAnnotationMetaData.NAME);
+				String annotationValue = annotationEntity.getString(OntologyTermDynamicAnnotationMetaData.VALUE);
+				annotations.add(OntologyTermAnnotation.create(annotationName, annotationValue));
+			}
+		}
 
+		return OntologyTerm.create(entity.getString(ONTOLOGY_TERM_IRI), entity.getString(ONTOLOGY_TERM_NAME), null,
+				synonyms, nodePaths, annotations);
 	}
 
 	int penalize(String nodePath)
