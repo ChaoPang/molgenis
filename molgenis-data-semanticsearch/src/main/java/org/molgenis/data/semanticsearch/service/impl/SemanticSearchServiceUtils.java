@@ -387,7 +387,7 @@ public class SemanticSearchServiceUtils
 			shouldQueryRule.getNestedRules().addAll(queryRules);
 		}
 
-		if (shouldQueryRule != null && boostValue != null && boostValue.intValue() != 0)
+		if (shouldQueryRule != null && boostValue != null && boostValue > 0)
 		{
 			shouldQueryRule.setValue(boostValue);
 		}
