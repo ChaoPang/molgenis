@@ -14,7 +14,6 @@ import static org.molgenis.data.semanticsearch.string.AttributeToMapUtil.explain
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -236,13 +235,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 			explainedAttributes.add(explainAttributeMapping);
 		}
 
-		explainedAttributes.sort(new Comparator<ExplainedAttributeMetaData>()
-		{
-			public int compare(ExplainedAttributeMetaData o1, ExplainedAttributeMetaData o2)
-			{
-				return Float.compare(o2.getExplainedQueryString().getScore(), o1.getExplainedQueryString().getScore());
-			}
-		});
+		Collections.sort(explainedAttributes);
 
 		if (matchedSourceAttributes.size() > NUMBER_OF_EXPLAINED_ATTRS)
 		{

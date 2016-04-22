@@ -228,7 +228,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		String transformedSourceDescription = termJoiner
 				.join(Sets.union(matchedOntologyTermsInTarget, unmatchedWordsInSource));
 
-		float adjustedScore = (float) stringMatching(transformedSourceDescription, targetQueryTerm) / 100;
+		float adjustedScore = (float) stringMatching(transformedSourceDescription, targetQueryTerm, false) / 100;
 
 		Set<String> additionalMatchedWords = findMatchedWords(targetQueryTerm, termJoiner.join(unmatchedWordsInSource));
 
@@ -258,13 +258,13 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	private Set<String> findMatchedWords(String string1, String string2)
 	{
 		Set<String> intersectedWords = new LinkedHashSet<>();
-		Set<String> stemmedwords = splitAndStem(string2);
-		for (String sourceWord : semanticSearchServiceUtils.splitIntoTerms(string1))
+		Set<String> stemmedWordsFromString2 = splitAndStem(string2);
+		for (String wordFromString1 : semanticSearchServiceUtils.splitIntoTerms(string1))
 		{
-			String stemmedSourceWord = Stemmer.stem(sourceWord);
-			if (stemmedwords.contains(stemmedSourceWord))
+			String stemmedSourceWord = Stemmer.stem(wordFromString1);
+			if (stemmedWordsFromString2.contains(stemmedSourceWord))
 			{
-				intersectedWords.add(sourceWord);
+				intersectedWords.add(wordFromString1);
 			}
 		}
 		return intersectedWords;

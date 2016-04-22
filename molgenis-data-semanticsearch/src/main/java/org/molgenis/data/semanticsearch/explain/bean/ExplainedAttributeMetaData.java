@@ -13,7 +13,7 @@ import com.google.auto.value.AutoValue;
 
 @AutoValue
 @AutoGson(autoValueClass = AutoValue_ExplainedAttributeMetaData.class)
-public abstract class ExplainedAttributeMetaData
+public abstract class ExplainedAttributeMetaData implements Comparable<ExplainedAttributeMetaData>
 {
 	public static ExplainedAttributeMetaData create(AttributeMetaData attributeMetaData)
 	{
@@ -33,5 +33,10 @@ public abstract class ExplainedAttributeMetaData
 	public abstract ExplainedQueryString getExplainedQueryString();
 
 	public abstract boolean isHighQuality();
+
+	public int compareTo(ExplainedAttributeMetaData other)
+	{
+		return Float.compare(other.getExplainedQueryString().getScore(), getExplainedQueryString().getScore());
+	}
 
 }

@@ -22,7 +22,7 @@ public class TermFrequencyEntityMetaData extends DefaultEntityMetaData
 		super(ENTITY_NAME);
 		addAttributeMetaData(new DefaultAttributeMetaData(ID).setAuto(true), ROLE_ID);
 		addAttributeMetaData(new DefaultAttributeMetaData(TERM).setNillable(false));
-		addAttributeMetaData(new DefaultAttributeMetaData(FREQUENCY, FieldTypeEnum.INT).setNillable(false));
+		addAttributeMetaData(new DefaultAttributeMetaData(FREQUENCY, FieldTypeEnum.DECIMAL).setNillable(false));
 		addAttributeMetaData(new DefaultAttributeMetaData(OCCURRENCE, FieldTypeEnum.DECIMAL).setNillable(false));
 	}
 }

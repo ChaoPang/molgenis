@@ -16,6 +16,7 @@ import org.springframework.scheduling.annotation.Async;
 public class OntologyTermFrequencyServiceImpl implements TermFrequencyService
 {
 	private final static int BATCH_SIZE = 10000;
+	private final static float DEFAULT_BOOSTED_VALUE = 1.0f;
 	private final PubMedTermFrequencyService pubMedTermFrequencyService = new PubMedTermFrequencyService();
 	private final DataService dataService;
 
@@ -27,10 +28,10 @@ public class OntologyTermFrequencyServiceImpl implements TermFrequencyService
 	}
 
 	@Override
-	public Float getTermFrequency(String term)
+	public float getTermFrequency(String term)
 	{
 		String termFrequency = getAttributeValue(term, TermFrequencyEntityMetaData.FREQUENCY);
-		return StringUtils.isNotEmpty(termFrequency) ? Float.parseFloat(termFrequency) : null;
+		return StringUtils.isNotEmpty(termFrequency) ? Float.parseFloat(termFrequency) : DEFAULT_BOOSTED_VALUE;
 	}
 
 	@Override
