@@ -55,6 +55,7 @@ import org.molgenis.data.semantic.Relation;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameters;
 import org.molgenis.data.support.AggregateQueryImpl;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.dataexplorer.controller.DataExplorerController;
@@ -564,11 +565,11 @@ public class MappingServiceController extends MolgenisPluginController
 		String source = requestBody.get("source");
 		String targetAttribute = requestBody.get("targetAttribute");
 		String searchTermsString = requestBody.get("searchTerms");
-		Set<String> searchTerms = new HashSet<String>();
+		Set<String> userQueries = new HashSet<String>();
 
 		if (StringUtils.isNotBlank(searchTermsString))
 		{
-			searchTerms.addAll(Sets.newHashSet(searchTermsString.toLowerCase().split("\\s+or\\s+")).stream()
+			userQueries.addAll(Sets.newHashSet(searchTermsString.toLowerCase().split("\\s+or\\s+")).stream()
 					.filter(term -> StringUtils.isNotBlank(term)).map(term -> term.trim()).collect(Collectors.toSet()));
 		}
 
@@ -580,8 +581,11 @@ public class MappingServiceController extends MolgenisPluginController
 		EntityMetaData sourceEntityMetaData = entityMapping.getSourceEntityMetaData();
 		AttributeMetaData targetAttributeMetaData = targetEntityMetaData.getAttribute(targetAttribute);
 
-		List<ExplainedAttributeMetaData> relevantAttributes = semanticSearchService.findAttributesLazyWithExplanations(
-				targetAttributeMetaData, targetEntityMetaData, sourceEntityMetaData, searchTerms);
+		SemanticSearchParameters semanticSearchParameters = SemanticSearchParameters.create(targetAttributeMetaData,
+				userQueries, targetEntityMetaData, sourceEntityMetaData, false);
+
+		List<ExplainedAttributeMetaData> relevantAttributes = semanticSearchService
+				.findAttributesLazyWithExplanations(semanticSearchParameters);
 
 		return relevantAttributes;
 	}

@@ -28,6 +28,7 @@ import org.molgenis.data.semanticsearch.explain.bean.QueryExpansionSolution;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameters;
 import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -62,30 +63,18 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	}
 
 	@Override
-	public ExplainedAttributeMetaData explainAttributeMapping(AttributeMetaData targetAttribute,
-			Set<String> userQueries, AttributeMetaData matchedSourceAttribute, EntityMetaData targetEntityMetaData)
+	public ExplainedAttributeMetaData explainAttributeMapping(SemanticSearchParameters semanticSearchParameters,
+			AttributeMetaData matchedSourceAttribute)
 	{
-		ExplainedAttributeMetaData explainByAttribute = explainAttributeMapping(targetAttribute, userQueries,
-				matchedSourceAttribute, targetEntityMetaData, false, false);
-		if (explainByAttribute.isHighQuality()) return explainByAttribute;
+		AttributeMetaData targetAttribute = semanticSearchParameters.getTargetAttribute();
+		Set<String> userQueries = semanticSearchParameters.getUserQueries();
+		EntityMetaData targetEntityMetaData = semanticSearchParameters.getTargetEntityMetaData();
+		boolean semanticSearchEnabled = semanticSearchParameters.isSemanticSearchEnabled();
+		boolean childOntologyTermExpansionEnabled = semanticSearchParameters.isChildOntologyTermExpansionEnabled();
 
-		explainByAttribute = explainAttributeMapping(targetAttribute, userQueries, matchedSourceAttribute,
-				targetEntityMetaData, true, false);
-		if (explainByAttribute.isHighQuality()) return explainByAttribute;
-
-		return explainAttributeMapping(targetAttribute, userQueries, matchedSourceAttribute, targetEntityMetaData, true,
-				true);
-	}
-
-	@Override
-	public ExplainedAttributeMetaData explainAttributeMapping(AttributeMetaData targetAttribute,
-			Set<String> userQueries, AttributeMetaData matchedSourceAttribute, EntityMetaData targetEntityMetaData,
-			boolean semanticSearchEnabled, boolean childExpansionEnabled)
-	{
 		// Collect all terms from the target attribute
 		Set<String> queriesFromTargetAttribute = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute,
 				userQueries);
-
 		// If semantic search is enabled, collect all the ontology terms that are associated with the target attribute,
 		// which were used in query expansion for finding the relevant source attributes.
 		List<OntologyTermQueryExpansion> ontologyTermQueryExpansions;
@@ -97,17 +86,16 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 
 			ontologyTermQueryExpansions = semanticSearchServiceUtils
 					.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, userQueries, ontologyTermIds)
-					.stream()
-					.map(hit -> new OntologyTermQueryExpansion(hit.getResult(), ontologyService, childExpansionEnabled))
+					.stream().map(hit -> new OntologyTermQueryExpansion(hit.getResult(), ontologyService,
+							childOntologyTermExpansionEnabled))
 					.collect(toList());
 		}
 		else ontologyTermQueryExpansions = Collections.emptyList();
 
-		return explainAttributeMappingInternal(queriesFromTargetAttribute, ontologyTermQueryExpansions,
-				matchedSourceAttribute);
+		return explainExactMapping(queriesFromTargetAttribute, ontologyTermQueryExpansions, matchedSourceAttribute);
 	}
 
-	ExplainedAttributeMetaData explainAttributeMappingInternal(Set<String> queriesFromTargetAttribute,
+	ExplainedAttributeMetaData explainExactMapping(Set<String> queriesFromTargetAttribute,
 			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, AttributeMetaData matchedSourceAttribute)
 	{
 		// Collect all terms from the source attribute

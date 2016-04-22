@@ -2,13 +2,12 @@ package org.molgenis.data.semanticsearch.service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.molgenis.data.AttributeMetaData;
-import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameters;
 import org.molgenis.ontology.core.model.OntologyTerm;
 
 public interface SemanticSearchService
@@ -26,15 +25,12 @@ public interface SemanticSearchService
 	 * @param searchTerms
 	 * @return
 	 */
-	List<AttributeMetaData> findAttributesLazy(AttributeMetaData targetAttribute, EntityMetaData targetEntityMetaData,
-			EntityMetaData sourceEntityMetaData, Set<String> searchTerms);
+	List<AttributeMetaData> findAttributesLazy(SemanticSearchParameters semanticSearchParameters);
 
-	List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations(AttributeMetaData targetAttribute,
-			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, Set<String> searchTerms);
+	List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations(
+			SemanticSearchParameters semanticSearchParameters);
 
-	List<AttributeMetaData> findAttributes(AttributeMetaData targetAttribute, Set<String> searchTerms,
-			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, boolean semanticSearchEnabled,
-			boolean childOntologyTermExpansionEnabled);
+	List<AttributeMetaData> findAttributes(SemanticSearchParameters semanticSearchParameters);
 
 	/**
 	 * Finds {@link OntologyTerm}s that can be used to tag an attribute.

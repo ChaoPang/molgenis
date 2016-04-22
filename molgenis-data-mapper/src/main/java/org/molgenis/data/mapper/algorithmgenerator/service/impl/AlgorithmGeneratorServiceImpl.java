@@ -32,6 +32,7 @@ import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameters;
 import org.molgenis.script.ScriptParameter;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -74,9 +75,13 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 	}
 
 	@Override
-	public GeneratedAlgorithm autoGenerate(AttributeMetaData targetAttribute, List<AttributeMetaData> sourceAttributes,
-			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData)
+	public GeneratedAlgorithm autoGenerate(SemanticSearchParameters semanticSearchParameters,
+			List<AttributeMetaData> sourceAttributes)
 	{
+		AttributeMetaData targetAttribute = semanticSearchParameters.getTargetAttribute();
+		EntityMetaData targetEntityMetaData = semanticSearchParameters.getTargetEntityMetaData();
+		EntityMetaData sourceEntityMetaData = semanticSearchParameters.getSourceEntityMetaData();
+
 		String algorithm = StringUtils.EMPTY;
 		AlgorithmState algorithmState = null;
 		Set<AttributeMetaData> mappedSourceAttributes = null;
@@ -99,9 +104,10 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 			mappedSourceAttributes = extractSourceAttributesFromAlgorithm(algorithm, sourceEntityMetaData);
 
 			// For each source attribute, an explanation is provided by the explain service.
+
 			List<ExplainedAttributeMetaData> explainedSourceAttributes = mappedSourceAttributes.stream()
-					.map(sourceAttribute -> attributeMappingExplainService.explainAttributeMapping(targetAttribute,
-							additionalQueryTerms, sourceAttribute, targetEntityMetaData))
+					.map(sourceAttribute -> attributeMappingExplainService
+							.explainAttributeMapping(semanticSearchParameters, sourceAttribute))
 					.collect(toList());
 
 			// if all source attributes are matched with high quality, then the algorithm is high quality.

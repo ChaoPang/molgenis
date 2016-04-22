@@ -13,20 +13,27 @@ import com.google.auto.value.AutoValue;
 public abstract class SemanticSearchParameters
 {
 	public static SemanticSearchParameters create(AttributeMetaData targetAttribute, Set<String> userQueries,
-			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, boolean semanticSearchEnabled,
-			boolean childOntologyTermExpansionEnabled, boolean exactMatch)
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, boolean exactMatch)
 	{
 		return new AutoValue_SemanticSearchParameters(targetAttribute, userQueries, targetEntityMetaData,
-				sourceEntityMetaData, semanticSearchEnabled, childOntologyTermExpansionEnabled, exactMatch);
+				sourceEntityMetaData, exactMatch, false, false);
+	}
+
+	public static SemanticSearchParameters create(AttributeMetaData targetAttribute, Set<String> userQueries,
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, boolean exactMatch,
+			boolean semanticSearchEnabled, boolean childOntologyTermExpansionEnabled)
+	{
+		return new AutoValue_SemanticSearchParameters(targetAttribute, userQueries, targetEntityMetaData,
+				sourceEntityMetaData, exactMatch, semanticSearchEnabled, childOntologyTermExpansionEnabled);
 	}
 
 	public static SemanticSearchParameters create(SemanticSearchParameters semanticSearchParameters,
-			boolean semanticSearchEnabled, boolean childOntologyTermExpansionEnabled, boolean exactMatch)
+			boolean semanticSearchEnabled, boolean childOntologyTermExpansionEnabled)
 	{
 		return new AutoValue_SemanticSearchParameters(semanticSearchParameters.getTargetAttribute(),
 				semanticSearchParameters.getUserQueries(), semanticSearchParameters.getTargetEntityMetaData(),
-				semanticSearchParameters.getSourceEntityMetaData(), semanticSearchEnabled,
-				childOntologyTermExpansionEnabled, exactMatch);
+				semanticSearchParameters.getSourceEntityMetaData(), semanticSearchParameters.isExactMatch(),
+				semanticSearchEnabled, childOntologyTermExpansionEnabled);
 	}
 
 	public abstract AttributeMetaData getTargetAttribute();
@@ -37,10 +44,9 @@ public abstract class SemanticSearchParameters
 
 	public abstract EntityMetaData getSourceEntityMetaData();
 
+	public abstract boolean isExactMatch();
+
 	public abstract boolean isSemanticSearchEnabled();
 
 	public abstract boolean isChildOntologyTermExpansionEnabled();
-
-	public abstract boolean isExactMatch();
-
 }

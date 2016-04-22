@@ -176,7 +176,7 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		List<OntologyTermQueryExpansion> collect = Arrays
 				.asList(new OntologyTermQueryExpansion(hypertensionMedicationOntology, ontologyService, true));
 
-		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl.explainAttributeMappingInternal(
+		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl.explainExactMapping(
 				Sets.newHashSet(targetAttribute.getName()), collect, matchedSourceAttribute);
 
 		ExplainedAttributeMetaData expected = create(matchedSourceAttribute, create("high blood pressure medication",
