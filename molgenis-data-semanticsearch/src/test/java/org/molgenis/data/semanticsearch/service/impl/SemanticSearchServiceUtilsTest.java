@@ -390,10 +390,11 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 		OntologyTerm ot4 = OntologyTerm.create("iri4", "National Security Advisor", Arrays.asList("NSA"));
 		OntologyTerm ot5 = OntologyTerm.create("iri5", "National Security Area", Arrays.asList("NSA"));
 		OntologyTerm ot6 = OntologyTerm.create("iri6", "Movement", Arrays.asList("Moved"));
+		OntologyTerm ot7 = OntologyTerm.create("iri7", "NSA movement SEPT4");
 
 		Set<String> searchTerms = splitAndStem("NSA has a movement on SEPT4");
 
-		List<OntologyTerm> relevantOntologyTerms = Lists.newArrayList(ot, ot0, ot1, ot2, ot3, ot4, ot5, ot6);
+		List<OntologyTerm> relevantOntologyTerms = Lists.newArrayList(ot, ot0, ot1, ot2, ot3, ot4, ot5, ot6, ot7);
 		// Randomize the order of the ontology terms
 		Collections.shuffle(relevantOntologyTerms);
 
@@ -402,7 +403,7 @@ public class SemanticSearchServiceUtilsTest extends AbstractTestNGSpringContextT
 
 		List<OntologyTerm> actualOntologyTerms = combineOntologyTerms.stream()
 				.map(hit -> hit.getResult().getOntologyTerm()).collect(toList());
-		List<OntologyTerm> expected = Lists.newArrayList(and(and(ot6, ot2), ot4), and(and(ot6, ot2), ot3),
+		List<OntologyTerm> expected = Lists.newArrayList(ot7, and(and(ot6, ot2), ot4), and(and(ot6, ot2), ot3),
 				and(and(ot6, ot2), ot5), and(and(ot6, ot1), ot3), and(and(ot6, ot1), ot4), and(and(ot6, ot1), ot5));
 
 		assertTrue(combineOntologyTerms.stream().allMatch(hit -> hit.getScore() == 0.92683f));

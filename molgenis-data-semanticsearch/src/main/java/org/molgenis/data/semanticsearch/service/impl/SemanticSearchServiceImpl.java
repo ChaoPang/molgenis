@@ -116,7 +116,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 		Set<String> queryTerms = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, userQueries);
 
-		List<Hit<OntologyTerm>> ontologyTermHits;
+		List<Hit<OntologyTermHit>> ontologyTermHits;
 		if (semanticSearchEnabled)
 		{
 			List<String> ontologyIds = ontologyService.getOntologies().stream()

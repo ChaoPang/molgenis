@@ -86,8 +86,8 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 
 			ontologyTermQueryExpansions = semanticSearchServiceUtils
 					.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, userQueries, ontologyTermIds)
-					.stream().map(hit -> new OntologyTermQueryExpansion(hit.getResult(), ontologyService,
-							childOntologyTermExpansionEnabled))
+					.stream().map(hit -> new OntologyTermQueryExpansion(hit.getResult().getOntologyTerm(),
+							ontologyService, childOntologyTermExpansionEnabled))
 					.collect(toList());
 		}
 		else ontologyTermQueryExpansions = Collections.emptyList();
@@ -173,7 +173,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		}
 
 		List<Hit<OntologyTermHit>> combineOntologyTerms = semanticSearchServiceUtils.combineOntologyTerms(searchTerms,
-				candidates);
+				ontologyIds, candidates);
 
 		if (combineOntologyTerms.size() > 0)
 		{
