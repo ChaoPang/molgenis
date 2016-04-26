@@ -236,7 +236,8 @@ public class SemanticSearchServiceUtils
 
 			// If the new combination of ontology terms is as of good quality as the previous one, then we add this new
 			// combination to the list
-			if (ontologyTermHits.size() == 0 || collect.get(0).getScore() >= collect.get(0).getScore())
+			if (ontologyTermHits.size() == 0
+					|| (ontologyTermHits.size() < 3 && collect.get(0).getScore() >= ontologyTermHits.get(0).getScore()))
 			{
 				ontologyTermHits.addAll(collect);
 
@@ -252,6 +253,8 @@ public class SemanticSearchServiceUtils
 		{
 			LOG.debug("result: {}", ontologyTermHits);
 		}
+
+		LOG.info("result: {}", ontologyTermHits);
 
 		return ontologyTermHits;
 	}

@@ -87,7 +87,10 @@ public class PubMedTermFrequencyService
 		}
 		catch (Exception e)
 		{
-			LOG.error(e.getMessage());
+			if (LOG.isTraceEnabled())
+			{
+				LOG.error(e.getMessage());
+			}
 			return StringUtils.EMPTY;
 		}
 	}
