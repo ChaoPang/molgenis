@@ -67,7 +67,7 @@ import static java.util.Objects.requireNonNull;
 
 public class SemanticSearchServiceUtils
 {
-	private static final float LEXICAL_QUERY_BOOSTVALUE = 1.0f;
+	private static final float LEXICAL_QUERY_BOOSTVALUE = 2.0f;
 
 	private static final Logger LOG = LoggerFactory.getLogger(SemanticSearchServiceUtils.class);
 
@@ -122,10 +122,17 @@ public class SemanticSearchServiceUtils
 			relevantOntologyTerms = ontologyService.findOntologyTerms(ontologyIds, searchTerms, MAX_NUM_TAGS);
 		}
 
+		List<Hit<OntologyTermHit>> orderOntologyTerms = Lists
+				.newArrayList(filterAndSortOntologyTerms(relevantOntologyTerms, searchTerms));
+
+		List<Hit<OntologyTermHit>> findOntologyTermsForMissingTerms = findOntologyTermsForMissingTerms(searchTerms,
+				ontologyIds, orderOntologyTerms);
+
+		orderOntologyTerms.addAll(findOntologyTermsForMissingTerms);
+
 		// TODO: we need to add the part of the string, which didn't get annotated, to the annotation result as a fake
 		// ontology term
-		List<Hit<OntologyTermHit>> ontologyTermHits = combineOntologyTerms(searchTerms, ontologyIds,
-				relevantOntologyTerms);
+		List<Hit<OntologyTermHit>> ontologyTermHits = combineOntologyTerms(searchTerms, orderOntologyTerms);
 
 		if (LOG.isDebugEnabled())
 		{
@@ -144,14 +151,23 @@ public class SemanticSearchServiceUtils
 			LOG.debug("findOntologyTermCombination({},{},{})", ontologyIds, searchTerms, MAX_NUM_TAGS);
 		}
 
-		List<OntologyTerm> candidates = ontologyService.findOntologyTerms(ontologyIds, searchTerms, MAX_NUM_TAGS);
+		List<OntologyTerm> relevantOntologyTerms = ontologyService.findOntologyTerms(ontologyIds, searchTerms,
+				MAX_NUM_TAGS);
+
+		List<Hit<OntologyTermHit>> orderOntologyTermHits = Lists
+				.newArrayList(filterAndSortOntologyTerms(relevantOntologyTerms, searchTerms));
+
+		List<Hit<OntologyTermHit>> findOntologyTermsForMissingTerms = findOntologyTermsForMissingTerms(searchTerms,
+				ontologyIds, orderOntologyTermHits);
+
+		orderOntologyTermHits.addAll(findOntologyTermsForMissingTerms);
 
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Candidates: {}", candidates);
+			LOG.debug("Candidates: {}", orderOntologyTermHits);
 		}
 
-		List<Hit<OntologyTermHit>> ontologyTermHit = combineOntologyTerms(searchTerms, ontologyIds, candidates);
+		List<Hit<OntologyTermHit>> ontologyTermHit = combineOntologyTerms(searchTerms, orderOntologyTermHits);
 
 		if (LOG.isDebugEnabled())
 		{
@@ -168,35 +184,27 @@ public class SemanticSearchServiceUtils
 	 * @param relevantOntologyTerms
 	 * @return
 	 */
-	public List<Hit<OntologyTermHit>> combineOntologyTerms(Set<String> searchTerms, List<String> ontologyIds,
-			List<OntologyTerm> relevantOntologyTerms)
+	public List<Hit<OntologyTermHit>> combineOntologyTerms(Set<String> searchTerms,
+			List<Hit<OntologyTermHit>> individualOntologyTermHits)
 	{
-		List<Hit<OntologyTermHit>> ontologyTermHits = new ArrayList<>();
+		Collections.sort(individualOntologyTermHits);
 
-		Set<String> stemmedSearchTerms = searchTerms.stream().map(Stemmer::stem).filter(StringUtils::isNotBlank)
-				.collect(toSet());
-
-		List<Hit<OntologyTermHit>> orderedIndividualOntologyTermHits = Lists
-				.newArrayList(orderOntologyTerms(relevantOntologyTerms, stemmedSearchTerms));
+		List<Hit<OntologyTermHit>> combinedOntologyTermHits = new ArrayList<>();
 
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Hits: {}", orderedIndividualOntologyTermHits);
+			LOG.debug("Hits: {}", individualOntologyTermHits);
 		}
 
-		while (orderedIndividualOntologyTermHits.size() > 0)
+		while (individualOntologyTermHits.size() > 0)
 		{
-			List<Hit<OntologyTermHit>> ontologyTermsForMissingTerms = findOntologyTermsForMissingTerms(searchTerms,
-					ontologyIds, orderedIndividualOntologyTermHits);
-
-			orderedIndividualOntologyTermHits.addAll(ontologyTermsForMissingTerms);
 			// 1. Create a list of ontology term candidates with the best matching synonym known
 			// 2. Loop through the list of candidates and collect all the possible candidates (all best combinations of
 			// ontology terms)
 			// 3. Compute a list of possible ontology terms.
 			Multimap<String, OntologyTerm> potentialCombinations = LinkedHashMultimap.create();
 
-			for (Hit<OntologyTermHit> hit : ImmutableList.copyOf(orderedIndividualOntologyTermHits))
+			for (Hit<OntologyTermHit> hit : ImmutableList.copyOf(individualOntologyTermHits))
 			{
 				OntologyTermHit ontologyTermHit = hit.getResult();
 
@@ -236,13 +244,13 @@ public class SemanticSearchServiceUtils
 
 			// If the new combination of ontology terms is as of good quality as the previous one, then we add this new
 			// combination to the list
-			if (ontologyTermHits.size() == 0
-					|| (ontologyTermHits.size() < 3 && collect.get(0).getScore() >= ontologyTermHits.get(0).getScore()))
+			if (combinedOntologyTermHits.size() == 0 || (combinedOntologyTermHits.size() < 2
+					&& collect.get(0).getScore() >= combinedOntologyTermHits.get(0).getScore()))
 			{
-				ontologyTermHits.addAll(collect);
+				combinedOntologyTermHits.addAll(collect);
 
 				// Remove the ontology term hits that have been stored in the potential combination map
-				orderedIndividualOntologyTermHits = orderedIndividualOntologyTermHits.stream()
+				individualOntologyTermHits = individualOntologyTermHits.stream()
 						.filter(hit -> !potentialCombinations.containsValue(hit.getResult().getOntologyTerm()))
 						.collect(Collectors.toList());
 			}
@@ -251,17 +259,17 @@ public class SemanticSearchServiceUtils
 
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("result: {}", ontologyTermHits);
+			LOG.debug("result: {}", combinedOntologyTermHits);
 		}
 
-		LOG.info("result: {}", ontologyTermHits);
-
-		return ontologyTermHits;
+		return combinedOntologyTermHits;
 	}
 
-	private List<Hit<OntologyTermHit>> orderOntologyTerms(List<OntologyTerm> relevantOntologyTerms,
-			Set<String> stemmedSearchTerms)
+	public List<Hit<OntologyTermHit>> filterAndSortOntologyTerms(List<OntologyTerm> relevantOntologyTerms,
+			Set<String> searchTerms)
 	{
+		Set<String> stemmedSearchTerms = searchTerms.stream().map(Stemmer::stem).collect(Collectors.toSet());
+
 		List<Hit<OntologyTermHit>> orderedIndividualOntologyTermHits = relevantOntologyTerms.stream()
 				.filter(ontologyTerm -> filterOntologyTerm(stemmedSearchTerms, ontologyTerm))
 				.map(ontologyTerm -> createOntologyTermHit(stemmedSearchTerms, ontologyTerm))
@@ -289,7 +297,7 @@ public class SemanticSearchServiceUtils
 
 			if (ontologyTermsForMissingPart.size() > 0)
 			{
-				return orderOntologyTerms(ontologyTermsForMissingPart, missingSearchTerms);
+				return filterAndSortOntologyTerms(ontologyTermsForMissingPart, missingSearchTerms);
 
 			}
 		}
@@ -685,9 +693,15 @@ public class SemanticSearchServiceUtils
 
 	private String boostLexicalQuery(String queryTerm)
 	{
+		Map<String, Float> collect = splitIntoTerms(queryTerm).stream()
+				.collect(Collectors.toMap(t -> t, t -> termFrequencyService.getTermFrequency(t)));
+		double max = collect.values().stream().mapToDouble(value -> (double) value).max().orElse(1.0d);
+		Map<String, Float> weightedBoostValue = collect.entrySet().stream()
+				.collect(Collectors.toMap(Entry::getKey, entry -> new Float(entry.getValue() / max)));
+
 		List<String> boostedWords = splitIntoTerms(queryTerm).stream()
-				.map(term -> term + CARET_CHARACTER + termFrequencyService.getTermFrequency(term))
-				.collect(Collectors.toList());
+				.map(term -> term + CARET_CHARACTER + weightedBoostValue.get(term)).collect(Collectors.toList());
+
 		return termJoiner.join(boostedWords);
 	}
 

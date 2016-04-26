@@ -111,7 +111,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		// of ontology terms from the relevantOntologyTerms that are associated with the target attribute. By doing
 		// this, we can deduce which ontology terms were used as the expanded queries for finding that particular source
 		// attribute.
-		Hit<OntologyTermHit> ontologyTermHit = filterTagsForAttr(matchedSourceAttribute,
+		Hit<OntologyTermHit> ontologyTermHit = filterOntologyTermsForMatchedAttr(matchedSourceAttribute,
 				ontologyService.getAllOntologiesIds(), ontologyTermQueryExpansions, queriesFromTargetAttribute);
 
 		// Here we check if the source attribute is matched with the original target queries or the expanded
@@ -149,8 +149,9 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	 *            defines a scope of ontology terms in which the search is performed.
 	 * @return
 	 */
-	private Hit<OntologyTermHit> filterTagsForAttr(AttributeMetaData matchedSourceAttribute, List<String> ontologyIds,
-			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, Set<String> queriesFromTargetAttribute)
+	private Hit<OntologyTermHit> filterOntologyTermsForMatchedAttr(AttributeMetaData matchedSourceAttribute,
+			List<String> ontologyIds, List<OntologyTermQueryExpansion> ontologyTermQueryExpansions,
+			Set<String> queriesFromTargetAttribute)
 	{
 		String sourceLabel = matchedSourceAttribute.getDescription() == null ? matchedSourceAttribute.getLabel()
 				: matchedSourceAttribute.getDescription();
@@ -161,19 +162,23 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 			LOG.debug("findOntologyTerms({},{},{})", ontologyIds, searchTerms, MAX_NUM_TAGS);
 		}
 
-		List<OntologyTerm> ontologyTermScope = new ArrayList<>();
-		ontologyTermQueryExpansions.forEach(expansion -> ontologyTermScope.addAll(expansion.getOntologyTerms()));
+		List<OntologyTerm> ontologyTermScope = ontologyTermQueryExpansions.stream()
+				.map(OntologyTermQueryExpansion::getOntologyTerms).flatMap(ots -> ots.stream())
+				.collect(Collectors.toList());
 
-		List<OntologyTerm> candidates = ontologyService.fileterOntologyTerms(ontologyIds, searchTerms,
+		List<OntologyTerm> relevantOntologyTerms = ontologyService.fileterOntologyTerms(ontologyIds, searchTerms,
 				ontologyTermScope.size(), ontologyTermScope);
+
+		List<Hit<OntologyTermHit>> filterAndSortOntologyTermHits = semanticSearchServiceUtils
+				.filterAndSortOntologyTerms(relevantOntologyTerms, searchTerms);
 
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Candidates: {}", candidates);
+			LOG.debug("Candidates: {}", filterAndSortOntologyTermHits);
 		}
 
 		List<Hit<OntologyTermHit>> combineOntologyTerms = semanticSearchServiceUtils.combineOntologyTerms(searchTerms,
-				ontologyIds, candidates);
+				filterAndSortOntologyTermHits);
 
 		if (combineOntologyTerms.size() > 0)
 		{

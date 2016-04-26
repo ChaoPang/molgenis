@@ -29,8 +29,6 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import org.apache.commons.lang3.StringUtils;
-import org.elasticsearch.common.collect.Iterables;
-import org.elasticsearch.common.collect.Lists;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.Query;
@@ -48,7 +46,9 @@ import org.molgenis.ontology.core.model.OntologyTermAnnotation;
 import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 
 import static java.util.Objects.requireNonNull;
 
