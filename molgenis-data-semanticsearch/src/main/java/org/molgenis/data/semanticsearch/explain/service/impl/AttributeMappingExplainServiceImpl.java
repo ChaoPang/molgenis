@@ -315,7 +315,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 
 		for (OntologyTerm ontologyTerm : ontologyTerms)
 		{
-			for (String synonym : ontologyService.collectLowerCaseTerms(ontologyTerm))
+			for (String synonym : semanticSearchServiceUtils.collectLowerCaseTerms(ontologyTerm))
 			{
 				if (targetQueryTermWords.containsAll(splitAndStem(synonym)))
 				{

@@ -15,7 +15,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.common.collect.Lists;
 import org.molgenis.data.MolgenisDataAccessException;
 import org.molgenis.ontology.core.model.ConditionalChildrenRetrieval;
@@ -31,7 +30,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.Sets;
 
 import static java.util.Objects.requireNonNull;
 
@@ -190,15 +188,6 @@ public class OntologyServiceImpl implements OntologyService
 			}
 		}
 		return ontologyTerms;
-	}
-
-	@Override
-	public Set<String> collectLowerCaseTerms(OntologyTerm ontologyTerm)
-	{
-		Set<String> allTerms = Sets.newLinkedHashSet();
-		allTerms.addAll(ontologyTerm.getSynonyms().stream().map(StringUtils::lowerCase).collect(Collectors.toList()));
-		allTerms.add(ontologyTerm.getLabel().toLowerCase());
-		return allTerms;
 	}
 
 	private Set<String> getUniqueSynonyms(OntologyTerm ontologyTerm)
