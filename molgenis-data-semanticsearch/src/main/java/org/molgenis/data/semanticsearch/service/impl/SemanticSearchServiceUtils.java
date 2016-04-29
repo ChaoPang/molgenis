@@ -1,16 +1,14 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
 import static autovalue.shaded.com.google.common.common.collect.Iterables.get;
-import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Sets.newLinkedHashSet;
-import static java.lang.Math.pow;
 import static java.util.Arrays.stream;
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.data.QueryRule.Operator.DIS_MAX;
-import static org.molgenis.data.semanticsearch.service.bean.OntologyTermHit.create;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 import static org.molgenis.ontology.utils.Stemmer.cleanStemPhrase;
@@ -19,15 +17,15 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
+import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.queryparser.classic.QueryParser;
@@ -47,9 +45,11 @@ import org.molgenis.data.semantic.Relation;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
+import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
 import org.molgenis.data.semanticsearch.string.OntologyTermComparator;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.ic.TermFrequencyService;
 import org.molgenis.ontology.utils.Stemmer;
@@ -97,13 +97,15 @@ public class SemanticSearchServiceUtils
 	public List<Hit<OntologyTermHit>> findOntologyTermsForAttr(AttributeMetaData attribute,
 			EntityMetaData entityMetadata, Set<String> searchTerms, List<String> ontologyIds)
 	{
-		Multimap<Relation, OntologyTerm> tagsForAttribute = ontologyTagService.getTagsForAttribute(entityMetadata,
-				attribute);
-		if (!tagsForAttribute.isEmpty())
+		if (entityMetadata != null)
 		{
-			return tagsForAttribute.values().stream()
-					.map(ot -> Hit.create(OntologyTermHit.create(ot, ot.getLabel()), 1.0f))
-					.collect(Collectors.toList());
+			Multimap<Relation, OntologyTerm> tagsForAttribute = ontologyTagService.getTagsForAttribute(entityMetadata,
+					attribute);
+			if (!tagsForAttribute.isEmpty())
+			{
+				return tagsForAttribute.values().stream()
+						.map(ot -> Hit.create(OntologyTermHit.create(ot, ot.getLabel()), 1.0f)).collect(toList());
+			}
 		}
 
 		List<OntologyTerm> relevantOntologyTerms;
@@ -125,13 +127,8 @@ public class SemanticSearchServiceUtils
 		List<Hit<OntologyTermHit>> orderOntologyTerms = Lists
 				.newArrayList(filterAndSortOntologyTerms(relevantOntologyTerms, searchTerms));
 
-		List<Hit<OntologyTermHit>> findOntologyTermsForMissingTerms = findOntologyTermsForMissingTerms(searchTerms,
-				ontologyIds, orderOntologyTerms);
+		orderOntologyTerms.addAll(findOntologyTermsForMissingTerms(searchTerms, ontologyIds, orderOntologyTerms));
 
-		orderOntologyTerms.addAll(findOntologyTermsForMissingTerms);
-
-		// TODO: we need to add the part of the string, which didn't get annotated, to the annotation result as a fake
-		// ontology term
 		List<Hit<OntologyTermHit>> ontologyTermHits = combineOntologyTerms(searchTerms, orderOntologyTerms);
 
 		if (LOG.isDebugEnabled())
@@ -142,7 +139,7 @@ public class SemanticSearchServiceUtils
 		return ontologyTermHits;
 	}
 
-	public List<Hit<OntologyTermHit>> findOntologyTermCombination(String queryString, List<String> ontologyIds)
+	public List<Hit<OntologyTermHit>> findOntologyTermsForQueryString(String queryString, List<String> ontologyIds)
 	{
 		Set<String> searchTerms = splitRemoveStopWords(queryString);
 
@@ -157,10 +154,7 @@ public class SemanticSearchServiceUtils
 		List<Hit<OntologyTermHit>> orderOntologyTermHits = Lists
 				.newArrayList(filterAndSortOntologyTerms(relevantOntologyTerms, searchTerms));
 
-		List<Hit<OntologyTermHit>> findOntologyTermsForMissingTerms = findOntologyTermsForMissingTerms(searchTerms,
-				ontologyIds, orderOntologyTermHits);
-
-		orderOntologyTermHits.addAll(findOntologyTermsForMissingTerms);
+		orderOntologyTermHits.addAll(findOntologyTermsForMissingTerms(searchTerms, ontologyIds, orderOntologyTermHits));
 
 		if (LOG.isDebugEnabled())
 		{
@@ -177,6 +171,68 @@ public class SemanticSearchServiceUtils
 		return ontologyTermHit;
 	}
 
+	public List<Hit<OntologyTermHit>> filterAndSortOntologyTerms(List<OntologyTerm> relevantOntologyTerms,
+			Set<String> searchTerms)
+	{
+		if (relevantOntologyTerms.size() > 0)
+		{
+			Set<String> stemmedSearchTerms = searchTerms.stream().map(Stemmer::stem).collect(Collectors.toSet());
+
+			List<Hit<OntologyTermHit>> orderedIndividualOntologyTermHits = relevantOntologyTerms.stream()
+					.filter(ontologyTerm -> filterOntologyTerm(stemmedSearchTerms, ontologyTerm))
+					.map(ontologyTerm -> createOntologyTermHit(stemmedSearchTerms, ontologyTerm))
+					.sorted(new OntologyTermComparator()).collect(Collectors.toList());
+
+			return orderedIndividualOntologyTermHits;
+		}
+
+		return Collections.emptyList();
+	}
+
+	private Hit<OntologyTermHit> createOntologyTermHit(Set<String> stemmedSearchTerms, OntologyTerm ontologyTerm)
+	{
+		Hit<String> bestMatchingSynonym = bestMatchingSynonym(ontologyTerm, stemmedSearchTerms);
+		OntologyTermHit candidate = OntologyTermHit.create(ontologyTerm, bestMatchingSynonym.getResult());
+		return Hit.<OntologyTermHit> create(candidate, bestMatchingSynonym.getScore());
+	}
+
+	private boolean filterOntologyTerm(Set<String> keywordsFromAttribute, OntologyTerm ontologyTerm)
+	{
+		Set<String> ontologyTermSynonyms = ontologyService.collectLowerCaseTerms(ontologyTerm);
+		for (String synonym : ontologyTermSynonyms)
+		{
+			Set<String> splitIntoTerms = splitRemoveStopWords(synonym).stream().map(Stemmer::stem).collect(toSet());
+			if (splitIntoTerms.size() != 0 && keywordsFromAttribute.containsAll(splitIntoTerms)) return true;
+		}
+		return false;
+	}
+
+	private List<Hit<OntologyTermHit>> findOntologyTermsForMissingTerms(Set<String> searchTerms,
+			List<String> ontologyIds, List<Hit<OntologyTermHit>> potentialCombinations)
+	{
+		if (potentialCombinations.size() > 0 && searchTerms.size() > 0)
+		{
+			String joinedMatchedSynonyms = termJoiner.join(potentialCombinations.stream()
+					.map(hit -> hit.getResult().getJoinedSynonym()).collect(Collectors.toSet()));
+
+			Set<String> joinedSynonymStemmedWords = Stemmer.splitAndStem(joinedMatchedSynonyms);
+
+			Set<String> missingSearchTerms = searchTerms.stream().map(Stemmer::stem)
+					.filter(w -> isNotBlank(w) && !joinedSynonymStemmedWords.contains(w)).collect(toSet());
+
+			List<OntologyTerm> ontologyTermsForMissingPart = ontologyService.findOntologyTerms(ontologyIds,
+					missingSearchTerms, MAX_NUM_TAGS);
+
+			if (ontologyTermsForMissingPart.size() > 0)
+			{
+				return filterAndSortOntologyTerms(ontologyTermsForMissingPart, missingSearchTerms);
+
+			}
+		}
+
+		return emptyList();
+	}
+
 	/**
 	 * Finds the best combinations of @{link OntologyTerm}s based on the given search terms
 	 * 
@@ -187,7 +243,7 @@ public class SemanticSearchServiceUtils
 	public List<Hit<OntologyTermHit>> combineOntologyTerms(Set<String> searchTerms,
 			List<Hit<OntologyTermHit>> individualOntologyTermHits)
 	{
-		Collections.sort(individualOntologyTermHits);
+		individualOntologyTermHits.sort(new OntologyTermComparator());
 
 		List<Hit<OntologyTermHit>> combinedOntologyTermHits = new ArrayList<>();
 
@@ -265,44 +321,24 @@ public class SemanticSearchServiceUtils
 		return combinedOntologyTermHits;
 	}
 
-	public List<Hit<OntologyTermHit>> filterAndSortOntologyTerms(List<OntologyTerm> relevantOntologyTerms,
-			Set<String> searchTerms)
+	List<OntologyTerm> createOntologyTermPairwiseCombination(Multimap<String, OntologyTerm> candidates)
 	{
-		Set<String> stemmedSearchTerms = searchTerms.stream().map(Stemmer::stem).collect(Collectors.toSet());
-
-		List<Hit<OntologyTermHit>> orderedIndividualOntologyTermHits = relevantOntologyTerms.stream()
-				.filter(ontologyTerm -> filterOntologyTerm(stemmedSearchTerms, ontologyTerm))
-				.map(ontologyTerm -> createOntologyTermHit(stemmedSearchTerms, ontologyTerm))
-				.sorted(new OntologyTermComparator()).collect(Collectors.toList());
-
-		return orderedIndividualOntologyTermHits;
-	}
-
-	private List<Hit<OntologyTermHit>> findOntologyTermsForMissingTerms(Set<String> searchTerms,
-			List<String> ontologyIds, List<Hit<OntologyTermHit>> potentialCombinations)
-	{
-		if (potentialCombinations.size() > 0 && searchTerms.size() > 0)
+		List<OntologyTerm> ontologyTerms = new ArrayList<>();
+		for (Entry<String, Collection<OntologyTerm>> entry : candidates.asMap().entrySet())
 		{
-			String joinedMatchedSynonyms = termJoiner.join(potentialCombinations.stream()
-					.map(hit -> hit.getResult().getJoinedSynonym()).collect(Collectors.toSet()));
-
-			Set<String> joinedSynonymStemmedWords = Stemmer.splitAndStem(joinedMatchedSynonyms);
-
-			Set<String> missingSearchTerms = searchTerms.stream().map(Stemmer::stem)
-					.filter(w -> StringUtils.isNotBlank(w) && !joinedSynonymStemmedWords.contains(w))
-					.collect(Collectors.toSet());
-
-			List<OntologyTerm> ontologyTermsForMissingPart = ontologyService.findOntologyTerms(ontologyIds,
-					missingSearchTerms, MAX_NUM_TAGS);
-
-			if (ontologyTermsForMissingPart.size() > 0)
+			if (ontologyTerms.size() == 0)
 			{
-				return filterAndSortOntologyTerms(ontologyTermsForMissingPart, missingSearchTerms);
-
+				ontologyTerms.addAll(entry.getValue());
+			}
+			else
+			{
+				// the pairwise combinations of any sets of ontology terms
+				ontologyTerms = ontologyTerms.stream()
+						.flatMap(ot1 -> entry.getValue().stream().map(ot2 -> OntologyTerm.and(ot1, ot2)))
+						.collect(Collectors.toList());
 			}
 		}
-
-		return Collections.emptyList();
+		return ontologyTerms;
 	}
 
 	/**
@@ -321,7 +357,7 @@ public class SemanticSearchServiceUtils
 		{
 			queryTerms.addAll(userQueries);
 		}
-		else
+		else if (targetAttribute != null)
 		{
 			if (isNotBlank(targetAttribute.getLabel()))
 			{
@@ -345,7 +381,7 @@ public class SemanticSearchServiceUtils
 	 * @return disMaxJunc queryRule
 	 */
 	public QueryRule createDisMaxQueryRule(Set<String> searchTerms, List<Hit<OntologyTermHit>> ontologyTermHits,
-			boolean expand)
+			QueryExpansionParameter ontologyExpansionParameters)
 	{
 		List<QueryRule> rules = new ArrayList<>();
 
@@ -366,11 +402,15 @@ public class SemanticSearchServiceUtils
 		Multimap<String, Hit<OntologyTerm>> combiniationGroupWithSameJoinedSynonym = LinkedHashMultimap.create();
 		ontologyTermHits.forEach(hit -> combiniationGroupWithSameJoinedSynonym.put(hit.getResult().getJoinedSynonym(),
 				Hit.create(hit.getResult().getOntologyTerm(), hit.getScore())));
+
 		for (String joinedSynonym : combiniationGroupWithSameJoinedSynonym.keySet())
 		{
-			List<Hit<OntologyTerm>> ontologyTermCombinations = newArrayList(
-					combiniationGroupWithSameJoinedSynonym.get(joinedSynonym));
-			QueryRule queryRuleForOntologyTerms = createQueryRuleForOntologyTerms(ontologyTermCombinations, expand);
+			List<Hit<OntologyTerm>> ontologyTermCombinations = Lists
+					.newArrayList(combiniationGroupWithSameJoinedSynonym.get(joinedSynonym));
+
+			QueryRule queryRuleForOntologyTerms = createQueryRuleForOntologyTerms(ontologyTermCombinations,
+					ontologyExpansionParameters);
+
 			if (queryRuleForOntologyTerms != null)
 			{
 				rules.add(queryRuleForOntologyTerms);
@@ -383,6 +423,7 @@ public class SemanticSearchServiceUtils
 			disMaxQueryRule = new QueryRule(rules);
 			disMaxQueryRule.setOperator(DIS_MAX);
 		}
+
 		return disMaxQueryRule;
 	}
 
@@ -392,7 +433,8 @@ public class SemanticSearchServiceUtils
 	 * @param ontologyTermHits
 	 * @return
 	 */
-	public QueryRule createQueryRuleForOntologyTerms(List<Hit<OntologyTerm>> ontologyTermHits, boolean expand)
+	public QueryRule createQueryRuleForOntologyTerms(List<Hit<OntologyTerm>> ontologyTermHits,
+			QueryExpansionParameter ontologyExpansionParameters)
 	{
 		QueryRule queryRule = null;
 
@@ -400,33 +442,36 @@ public class SemanticSearchServiceUtils
 		{
 			float score = ontologyTermHits.get(0).getScore();
 
-			// Put ontologyTerms with the same synonym in a list
+			// Put ontologyTerms with the same synonym in a map
 			Multimap<OntologyTerm, OntologyTerm> ontologyTermGroups = groupSimilaryOntologyTerms(ontologyTermHits);
 
 			Set<OntologyTerm> ontologyTermGroupKeys = ontologyTermGroups.keySet();
 
 			if (ontologyTermGroupKeys.size() > 1)
 			{
-				List<QueryRule> shouldQueryRules = new ArrayList<>();
 				Map<OntologyTerm, Float> ontologyTermGroupWeight = getWeightForOntologyTermGroup(ontologyTermGroups);
-				for (OntologyTerm ontologyTermGroupKey : ontologyTermGroupKeys)
-				{
-					List<String> queryTerms = new ArrayList<>();
-					StreamSupport.stream(ontologyTermGroups.get(ontologyTermGroupKey).spliterator(), false)
-							.map(ot -> getQueryTermsFromOntologyTerm(ot, expand))
-							.forEach(terms -> queryTerms.addAll(terms));
-					shouldQueryRules.add(createDisMaxQueryRuleForTerms(queryTerms,
-							ontologyTermGroupWeight.get(ontologyTermGroupKey)));
-				}
-				queryRule = createShouldQueryRule(shouldQueryRules, score);
+
+				Function<OntologyTerm, QueryRule> ontologyTermGroupToQueryRule = groupKey -> {
+
+					List<String> queryTermsFromSameGroup = ontologyTermGroups.get(groupKey).stream()
+							.flatMap(ot -> getExpandedQueriesFromOntologyTerm(ot, ontologyExpansionParameters).stream())
+							.collect(toList());
+
+					return createDisMaxQueryRuleForTerms(queryTermsFromSameGroup,
+							ontologyTermGroupWeight.get(groupKey));
+				};
+
+				queryRule = createShouldQueryRule(
+						ontologyTermGroupKeys.stream().map(ontologyTermGroupToQueryRule).collect(toList()), score);
 			}
 			else
 			{
-				List<String> queryTerms = new ArrayList<>();
 				OntologyTerm firstOntologyTermGroupKey = get(ontologyTermGroupKeys, 0);
-				StreamSupport.stream(ontologyTermGroups.get(firstOntologyTermGroupKey).spliterator(), false)
-						.map(ot -> getQueryTermsFromOntologyTerm(ot, expand))
-						.forEach(terms -> queryTerms.addAll(terms));
+
+				List<String> queryTerms = ontologyTermGroups.get(firstOntologyTermGroupKey).stream()
+						.flatMap(ot -> getExpandedQueriesFromOntologyTerm(ot, ontologyExpansionParameters).stream())
+						.collect(toList());
+
 				queryRule = createDisMaxQueryRuleForTerms(queryTerms, score);
 			}
 		}
@@ -437,15 +482,12 @@ public class SemanticSearchServiceUtils
 	private Map<OntologyTerm, Float> getWeightForOntologyTermGroup(
 			Multimap<OntologyTerm, OntologyTerm> ontologyTermGroups)
 	{
-		Map<OntologyTerm, Double> ontologyTermGroupWeight = new HashMap<>();
+		Function<OntologyTerm, Double> groupKeyToGroupWeight = key -> ontologyTermGroups.get(key).stream()
+				.map(ontologyService::collectLowerCaseTerms).map(this::getBestInverseDocumentFrequency)
+				.mapToDouble(tf -> (double) tf).max().orElse(1.0d);
 
-		for (OntologyTerm ontologyTermGroupKey : ontologyTermGroups.keySet())
-		{
-			Collection<OntologyTerm> ontologyTermGroupMembers = ontologyTermGroups.get(ontologyTermGroupKey);
-			double maxIdfValue = ontologyTermGroupMembers.stream().map(this::getLowerCaseTermsFromOntologyTerm)
-					.map(this::getBestInverseDocumentFrequency).mapToDouble(tf -> (double) tf).max().orElse(1.0d);
-			ontologyTermGroupWeight.put(ontologyTermGroupKey, maxIdfValue);
-		}
+		Map<OntologyTerm, Double> ontologyTermGroupWeight = ontologyTermGroups.keySet().stream()
+				.collect(Collectors.toMap(key -> key, groupKeyToGroupWeight));
 
 		double maxIdfValue = ontologyTermGroupWeight.values().stream().mapToDouble(Double::doubleValue).max()
 				.orElse(1.0d);
@@ -457,26 +499,21 @@ public class SemanticSearchServiceUtils
 	private Multimap<OntologyTerm, OntologyTerm> groupSimilaryOntologyTerms(List<Hit<OntologyTerm>> ontologyTermHits)
 	{
 		Multimap<OntologyTerm, OntologyTerm> multiMap = LinkedHashMultimap.create();
-
 		ontologyService.getAtomicOntologyTerms(ontologyTermHits.get(0).getResult()).forEach(ot -> multiMap.put(ot, ot));
 
-		Set<OntologyTerm> ontologyTermAnnotation = multiMap.keySet();
+		ontologyTermHits.stream().skip(1)
+				.flatMap(hit -> ontologyService.getAtomicOntologyTerms(hit.getResult()).stream())
+				.filter(ot -> !multiMap.containsKey(ot)).forEach(atomicOntologyTerm -> {
 
-		for (Hit<OntologyTerm> ontologyTermHit : ontologyTermHits.stream().skip(1).collect(toList()))
-		{
-			for (OntologyTerm atomicOntologyTerm : ontologyService.getAtomicOntologyTerms(ontologyTermHit.getResult()))
-			{
-				if (!multiMap.containsKey(atomicOntologyTerm))
-				{
-					OntologyTerm ontologyTermInTheMap = ontologyTermAnnotation.stream()
+					OntologyTerm ontologyTermInTheMap = multiMap.keySet().stream()
 							.filter(ot -> hasSameSynonyms(ot, atomicOntologyTerm)).findFirst().orElse(null);
+
 					if (ontologyTermInTheMap != null)
 					{
 						multiMap.put(ontologyTermInTheMap, atomicOntologyTerm);
 					}
-				}
-			}
-		}
+
+				});
 
 		return multiMap;
 	}
@@ -535,35 +572,28 @@ public class SemanticSearchServiceUtils
 	 * @param ontologyTerm
 	 * @return
 	 */
-	public List<String> getQueryTermsFromOntologyTerm(OntologyTerm ontologyTerm, boolean expand)
+	public List<String> getExpandedQueriesFromOntologyTerm(OntologyTerm ontologyTerm,
+			QueryExpansionParameter ontologyExpansionParameters)
 	{
-		List<String> queryTerms = getLowerCaseTermsFromOntologyTerm(ontologyTerm).stream().map(this::parseQueryString)
-				.collect(toList());
-		if (expand)
-		{
-			ontologyService.getLevelThreeChildren(ontologyTerm).forEach(childOt -> {
-				double boostedNumber = ontologyService.getOntologyTermDistance(ontologyTerm, childOt);
-				List<String> collect = getLowerCaseTermsFromOntologyTerm(childOt).stream()
-						.map(query -> parseBoostQueryString(query, pow(0.5, boostedNumber)))
-						.collect(Collectors.toList());
-				queryTerms.addAll(collect);
-			});
-		}
-		return queryTerms;
-	}
+		List<String> queryTerms = ontologyService.collectLowerCaseTerms(ontologyTerm).stream()
+				.map(this::parseQueryString).collect(toList());
 
-	/**
-	 * A helper function to collect synonyms as well as label of ontologyterm in lower case
-	 * 
-	 * @param ontologyTerm
-	 * @return a list of synonyms plus label
-	 */
-	public Set<String> getLowerCaseTermsFromOntologyTerm(OntologyTerm ontologyTerm)
-	{
-		Set<String> allTerms = Sets.newLinkedHashSet();
-		allTerms.addAll(ontologyTerm.getSynonyms().stream().map(StringUtils::lowerCase).collect(Collectors.toList()));
-		allTerms.add(ontologyTerm.getLabel().toLowerCase());
-		return allTerms;
+		if (ontologyExpansionParameters.isChildExpansionEnabled())
+		{
+			OntologyTermChildrenPredicate predicate = new OntologyTermChildrenPredicate(
+					ontologyExpansionParameters.getExpansionLevel(), false, ontologyService);
+
+			Function<OntologyTerm, Stream<String>> mapChildOntologyTermToQueries = child -> ontologyService
+					.collectLowerCaseTerms(child).stream().map(query -> parseBoostQueryString(query,
+							Math.pow(0.5, ontologyService.getOntologyTermDistance(ontologyTerm, child))));
+
+			List<String> collect = ontologyService.getChildren(ontologyTerm, predicate).stream()
+					.flatMap(mapChildOntologyTermToQueries).collect(Collectors.toList());
+
+			queryTerms.addAll(collect);
+		}
+
+		return queryTerms;
 	}
 
 	/**
@@ -616,37 +646,6 @@ public class SemanticSearchServiceUtils
 		return QueryParser.escape(string).replace(ESCAPED_CARET_CHARACTER, CARET_CHARACTER);
 	}
 
-	List<OntologyTerm> createOntologyTermPairwiseCombination(Multimap<String, OntologyTerm> candidates)
-	{
-		List<OntologyTerm> ontologyTerms = new ArrayList<>();
-		for (Entry<String, Collection<OntologyTerm>> entry : candidates.asMap().entrySet())
-		{
-			if (ontologyTerms.size() == 0)
-			{
-				ontologyTerms.addAll(entry.getValue());
-			}
-			else
-			{
-				// the pairwise combinations of any sets of ontology terms
-				ontologyTerms = ontologyTermUnion(ontologyTerms, entry.getValue());
-			}
-		}
-		return ontologyTerms;
-	}
-
-	private List<OntologyTerm> ontologyTermUnion(Collection<OntologyTerm> listOne, Collection<OntologyTerm> listTwo)
-	{
-		List<OntologyTerm> newList = new ArrayList<>(listOne.size() * listTwo.size());
-		for (OntologyTerm ot1 : listOne)
-		{
-			for (OntologyTerm ot2 : listTwo)
-			{
-				newList.add(OntologyTerm.and(ot1, ot2));
-			}
-		}
-		return newList;
-	}
-
 	/**
 	 * Computes the best matching synonym which is closest to a set of search terms.<br/>
 	 * Will stem the {@link OntologyTerm} 's synonyms and the search terms, and then compute the maximum
@@ -660,7 +659,7 @@ public class SemanticSearchServiceUtils
 	 */
 	public Hit<String> bestMatchingSynonym(OntologyTerm ontologyTerm, Set<String> searchTerms)
 	{
-		List<Hit<String>> collect = getLowerCaseTermsFromOntologyTerm(ontologyTerm).stream()
+		List<Hit<String>> collect = ontologyService.collectLowerCaseTerms(ontologyTerm).stream()
 				.map(synonym -> Hit.create(synonym, distanceFrom(synonym, searchTerms))).collect(Collectors.toList());
 		for (Hit<String> hit : collect)
 		{
@@ -695,7 +694,9 @@ public class SemanticSearchServiceUtils
 	{
 		Map<String, Float> collect = splitIntoTerms(queryTerm).stream()
 				.collect(Collectors.toMap(t -> t, t -> termFrequencyService.getTermFrequency(t)));
+
 		double max = collect.values().stream().mapToDouble(value -> (double) value).max().orElse(1.0d);
+
 		Map<String, Float> weightedBoostValue = collect.entrySet().stream()
 				.collect(Collectors.toMap(Entry::getKey, entry -> new Float(entry.getValue() / max)));
 
@@ -707,10 +708,10 @@ public class SemanticSearchServiceUtils
 
 	private boolean hasSameSynonyms(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
 	{
-		List<String> stemmedSynonymsOfOt1 = getLowerCaseTermsFromOntologyTerm(ontologyTerm1).stream()
+		List<String> stemmedSynonymsOfOt1 = ontologyService.collectLowerCaseTerms(ontologyTerm1).stream()
 				.map(Stemmer::cleanStemPhrase).collect(toList());
 
-		return getLowerCaseTermsFromOntologyTerm(ontologyTerm2).stream()
+		return ontologyService.collectLowerCaseTerms(ontologyTerm2).stream()
 				.anyMatch(synonym -> stemmedSynonymsOfOt1.contains(cleanStemPhrase(synonym)));
 	}
 
@@ -744,24 +745,6 @@ public class SemanticSearchServiceUtils
 		}).findFirst();
 
 		return findFirst.isPresent() ? termFrequencyService.getTermFrequency(findFirst.get()) : null;
-	}
-
-	private Hit<OntologyTermHit> createOntologyTermHit(Set<String> stemmedSearchTerms, OntologyTerm ontologyTerm)
-	{
-		Hit<String> bestMatchingSynonym = bestMatchingSynonym(ontologyTerm, stemmedSearchTerms);
-		OntologyTermHit candidate = create(ontologyTerm, bestMatchingSynonym.getResult());
-		return Hit.<OntologyTermHit> create(candidate, bestMatchingSynonym.getScore());
-	}
-
-	private boolean filterOntologyTerm(Set<String> keywordsFromAttribute, OntologyTerm ontologyTerm)
-	{
-		Set<String> ontologyTermSynonyms = getLowerCaseTermsFromOntologyTerm(ontologyTerm);
-		for (String synonym : ontologyTermSynonyms)
-		{
-			Set<String> splitIntoTerms = splitRemoveStopWords(synonym).stream().map(Stemmer::stem).collect(toSet());
-			if (splitIntoTerms.size() != 0 && keywordsFromAttribute.containsAll(splitIntoTerms)) return true;
-		}
-		return false;
 	}
 
 	private float round(float score)

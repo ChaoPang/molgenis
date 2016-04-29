@@ -22,7 +22,7 @@ import org.molgenis.data.mapper.mapping.model.AttributeMapping;
 import org.molgenis.data.mapper.mapping.model.EntityMapping;
 import org.molgenis.data.mapper.service.AlgorithmService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameters;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
 import org.molgenis.data.support.MapEntity;
 import org.molgenis.js.RhinoConfig;
 import org.molgenis.js.ScriptEvaluator;
@@ -73,7 +73,7 @@ public class AlgorithmServiceImpl implements AlgorithmService
 		LOG.debug("createAttributeMappingIfOnlyOneMatch: target= " + targetAttribute.getName());
 
 		// We first search for the source attributes only using query terms collected from the target attribute
-		SemanticSearchParameters semanticSearchParameters = SemanticSearchParameters.create(targetAttribute,
+		SemanticSearchParameter semanticSearchParameters = SemanticSearchParameter.create(targetAttribute,
 				Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, false, false, false);
 
 		List<AttributeMetaData> relevantAttributes = semanticSearchService.findAttributesLazy(semanticSearchParameters);

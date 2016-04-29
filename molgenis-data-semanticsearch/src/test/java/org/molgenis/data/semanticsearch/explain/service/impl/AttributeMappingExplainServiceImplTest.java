@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
-import org.molgenis.data.semanticsearch.explain.bean.OntologyTermQueryExpansion;
+import org.molgenis.data.semanticsearch.explain.bean.QueryExpansion;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
@@ -127,10 +127,10 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		when(semanticSearchServiceUtils.splitIntoTerms(matchedSourceAttribute.getName()))
 				.thenReturn(sourceAttributeTerms);
 
-		when(semanticSearchServiceUtils.getLowerCaseTermsFromOntologyTerm(hypertension))
+		when(semanticSearchServiceUtils.collectLowerCaseTerms(hypertension))
 				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("hypertension", "high blood pressure", "HBP")));
 
-		when(semanticSearchServiceUtils.getLowerCaseTermsFromOntologyTerm(medication))
+		when(semanticSearchServiceUtils.collectLowerCaseTerms(medication))
 				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("medication")));
 	}
 
@@ -173,8 +173,8 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 	@Test
 	public void testExplainAttributeMappingInternal()
 	{
-		List<OntologyTermQueryExpansion> collect = Arrays
-				.asList(new OntologyTermQueryExpansion(hypertensionMedicationOntology, ontologyService, true));
+		List<QueryExpansion> collect = Arrays
+				.asList(new QueryExpansion(hypertensionMedicationOntology, ontologyService, true));
 
 		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl.explainExactMapping(
 				Sets.newHashSet(targetAttribute.getName()), collect, matchedSourceAttribute);
@@ -232,24 +232,24 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		when(ontologyService.getAtomicOntologyTerms(compositeOntologyTerm3))
 				.thenReturn(Arrays.asList(coldDiseaseOntologyTerm, meatOntologyTerm, cutOntologyTerm));
 
-		when(semanticSearchServiceUtils.getLowerCaseTermsFromOntologyTerm(coldDiseaseOntologyTerm))
+		when(semanticSearchServiceUtils.collectLowerCaseTerms(coldDiseaseOntologyTerm))
 				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("chronic obstructive pulmonary disease", "cold")));
 
-		when(semanticSearchServiceUtils.getLowerCaseTermsFromOntologyTerm(incidentOntologyTerm))
+		when(semanticSearchServiceUtils.collectLowerCaseTerms(incidentOntologyTerm))
 				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("incident")));
 
-		when(semanticSearchServiceUtils.getLowerCaseTermsFromOntologyTerm(coldTempOntologyTerm))
+		when(semanticSearchServiceUtils.collectLowerCaseTerms(coldTempOntologyTerm))
 				.thenReturn(Sets.newHashSet("cold"));
 
-		when(semanticSearchServiceUtils.getLowerCaseTermsFromOntologyTerm(meatOntologyTerm))
+		when(semanticSearchServiceUtils.collectLowerCaseTerms(meatOntologyTerm))
 				.thenReturn(Sets.newHashSet("meat"));
 
-		when(semanticSearchServiceUtils.getLowerCaseTermsFromOntologyTerm(cutOntologyTerm))
+		when(semanticSearchServiceUtils.collectLowerCaseTerms(cutOntologyTerm))
 				.thenReturn(Sets.newHashSet("cut"));
 
-		List<OntologyTermQueryExpansion> ontologyTermQueryExpansions = Arrays.asList(
-				new OntologyTermQueryExpansion(compositeOntologyTerm2, ontologyService, false),
-				new OntologyTermQueryExpansion(compositeOntologyTerm3, ontologyService, false));
+		List<QueryExpansion> ontologyTermQueryExpansions = Arrays.asList(
+				new QueryExpansion(compositeOntologyTerm2, ontologyService, false),
+				new QueryExpansion(compositeOntologyTerm3, ontologyService, false));
 
 		Hit<String> computeAbsoluteScoreForSourceAttribute = attributeMappingExplainServiceImpl
 				.computeAbsoluteScoreForSourceAttribute(hit, ontologyTermQueryExpansions, targetQueryTerm,
@@ -303,20 +303,20 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		when(ontologyService.getLevelThreeChildren(sibilingOntologyTerm))
 				.thenReturn(Arrays.asList(brotherOntologyTerm, sisterOntologyTerm));
 
-		when(semanticSearchServiceUtils.getLowerCaseTermsFromOntologyTerm(sibilingOntologyTerm))
+		when(semanticSearchServiceUtils.collectLowerCaseTerms(sibilingOntologyTerm))
 				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("sibling")));
 
-		when(semanticSearchServiceUtils.getLowerCaseTermsFromOntologyTerm(infarctionOntologyTerm))
+		when(semanticSearchServiceUtils.collectLowerCaseTerms(infarctionOntologyTerm))
 				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("infarction")));
 
-		when(semanticSearchServiceUtils.getLowerCaseTermsFromOntologyTerm(ageOntologyTerm))
+		when(semanticSearchServiceUtils.collectLowerCaseTerms(ageOntologyTerm))
 				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("age")));
 
-		List<OntologyTermQueryExpansion> ontologyTermQueryExpansions1 = Arrays
-				.asList(new OntologyTermQueryExpansion(compositeOntologyTerm1, ontologyService, true));
+		List<QueryExpansion> ontologyTermQueryExpansions1 = Arrays
+				.asList(new QueryExpansion(compositeOntologyTerm1, ontologyService, true));
 
-		List<OntologyTermQueryExpansion> ontologyTermQueryExpansions2 = Arrays
-				.asList(new OntologyTermQueryExpansion(compositeOntologyTerm2, ontologyService, true));
+		List<QueryExpansion> ontologyTermQueryExpansions2 = Arrays
+				.asList(new QueryExpansion(compositeOntologyTerm2, ontologyService, true));
 
 		Hit<String> computeAbsoluteScoreForSourceAttribute1 = attributeMappingExplainServiceImpl
 				.computeAbsoluteScoreForSourceAttribute(hit1, ontologyTermQueryExpansions1, targetQueryTerm,

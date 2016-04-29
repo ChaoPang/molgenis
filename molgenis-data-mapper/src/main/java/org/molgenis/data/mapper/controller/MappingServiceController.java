@@ -55,7 +55,7 @@ import org.molgenis.data.semantic.Relation;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameters;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
 import org.molgenis.data.support.AggregateQueryImpl;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.dataexplorer.controller.DataExplorerController;
@@ -581,7 +581,7 @@ public class MappingServiceController extends MolgenisPluginController
 		EntityMetaData sourceEntityMetaData = entityMapping.getSourceEntityMetaData();
 		AttributeMetaData targetAttributeMetaData = targetEntityMetaData.getAttribute(targetAttribute);
 
-		SemanticSearchParameters semanticSearchParameters = SemanticSearchParameters.create(targetAttributeMetaData,
+		SemanticSearchParameter semanticSearchParameters = SemanticSearchParameter.create(targetAttributeMetaData,
 				userQueries, targetEntityMetaData, sourceEntityMetaData, false);
 
 		List<ExplainedAttributeMetaData> relevantAttributes = semanticSearchService

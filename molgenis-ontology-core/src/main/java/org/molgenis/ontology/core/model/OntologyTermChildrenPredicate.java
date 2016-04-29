@@ -15,8 +15,8 @@ public class OntologyTermChildrenPredicate implements BiPredicate<OntologyTerm, 
 	public OntologyTermChildrenPredicate(Integer searchLevel, Boolean allChildren, OntologyService ontologyService)
 	{
 		this.searchLevel = requireNonNull(searchLevel);
-		this.ontologyService = requireNonNull(ontologyService);
 		this.allChildren = requireNonNull(allChildren);
+		this.ontologyService = requireNonNull(ontologyService);
 	}
 
 	@Override

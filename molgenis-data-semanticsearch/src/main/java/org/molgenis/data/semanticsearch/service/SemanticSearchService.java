@@ -7,7 +7,7 @@ import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameters;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
 import org.molgenis.ontology.core.model.OntologyTerm;
 
 public interface SemanticSearchService
@@ -25,12 +25,14 @@ public interface SemanticSearchService
 	 * @param searchTerms
 	 * @return
 	 */
-	List<AttributeMetaData> findAttributesLazy(SemanticSearchParameters semanticSearchParameters);
+	List<AttributeMetaData> findAttributesLazy(SemanticSearchParameter semanticSearchParameters);
 
 	List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations(
-			SemanticSearchParameters semanticSearchParameters);
+			SemanticSearchParameter semanticSearchParameters);
 
-	List<AttributeMetaData> findAttributes(SemanticSearchParameters semanticSearchParameters);
+	List<AttributeMetaData> findAttributes(SemanticSearchParameter semanticSearchParameters);
+
+	List<ExplainedAttributeMetaData> findAttributesWithExplanation(SemanticSearchParameter semanticSearchParameters);
 
 	/**
 	 * Finds {@link OntologyTerm}s that can be used to tag an attribute.

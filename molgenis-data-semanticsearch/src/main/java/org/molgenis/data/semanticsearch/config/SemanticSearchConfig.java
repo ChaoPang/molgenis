@@ -10,11 +10,9 @@ import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainS
 import org.molgenis.data.semanticsearch.explain.service.impl.AttributeMappingExplainServiceImpl;
 import org.molgenis.data.semanticsearch.repository.TagRepository;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
-import org.molgenis.data.semanticsearch.service.OntologyTermSemanticSearch;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.TagService;
 import org.molgenis.data.semanticsearch.service.impl.OntologyTagServiceImpl;
-import org.molgenis.data.semanticsearch.service.impl.OntologyTermSemanticSearchImpl;
 import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceImpl;
 import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils;
 import org.molgenis.data.semanticsearch.service.impl.UntypedTagService;
@@ -78,11 +76,5 @@ public class SemanticSearchConfig
 	AttributeMappingExplainService attributeMappingExplainService()
 	{
 		return new AttributeMappingExplainServiceImpl(ontologyService, semanticSearchServiceUtils());
-	}
-
-	@Bean
-	OntologyTermSemanticSearch ontologyTermBasedSemanticSearch()
-	{
-		return new OntologyTermSemanticSearchImpl(semanticSearchService(), ontologyService);
 	}
 }

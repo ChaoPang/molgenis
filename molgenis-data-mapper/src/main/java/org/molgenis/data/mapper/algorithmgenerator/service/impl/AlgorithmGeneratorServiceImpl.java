@@ -32,7 +32,7 @@ import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameters;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
 import org.molgenis.script.ScriptParameter;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -75,7 +75,7 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 	}
 
 	@Override
-	public GeneratedAlgorithm autoGenerate(SemanticSearchParameters semanticSearchParameters,
+	public GeneratedAlgorithm autoGenerate(SemanticSearchParameter semanticSearchParameters,
 			List<AttributeMetaData> sourceAttributes)
 	{
 		AttributeMetaData targetAttribute = semanticSearchParameters.getTargetAttribute();

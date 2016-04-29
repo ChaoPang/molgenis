@@ -51,10 +51,11 @@ import org.molgenis.ontology.sorta.bean.SortaHit;
 import org.molgenis.ontology.sorta.bean.SortaInput;
 import org.molgenis.ontology.sorta.service.SortaService;
 import org.molgenis.ontology.utils.Stemmer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 
@@ -62,6 +63,8 @@ import static java.util.Objects.requireNonNull;
 
 public class SortaServiceImpl implements SortaService
 {
+	private static final Logger LOG = LoggerFactory.getLogger(SortaServiceImpl.class);
+
 	private static final Set<String> ELASTICSEARCH_RESERVED_WORDS = Sets.newHashSet("or", "and", "if");
 	private static final String NON_WORD_SEPARATOR = "[^a-zA-Z0-9]";
 	private static final String ILLEGAL_CHARACTERS_PATTERN = "[^a-zA-Z0-9 ]";
@@ -170,12 +173,14 @@ public class SortaServiceImpl implements SortaService
 					rulesForOntologyTermFieldsNGram));
 		}
 
-		List<SortaHit> sortHits = Lists.newArrayList(uniequeSortaHits);
+		List<SortaHit> sortHits = uniequeSortaHits.stream().sorted().collect(Collectors.toList());
 
-		Collections.sort(sortHits);
+		if (LOG.isDebugEnabled())
+		{
+			LOG.debug("SortHits {}", sortHits);
+		}
 
 		return sortHits;
-
 	}
 
 	private List<SortaHit> annotationMatchOntologyTerms(SortaInput sortaInput, Ontology ontology,

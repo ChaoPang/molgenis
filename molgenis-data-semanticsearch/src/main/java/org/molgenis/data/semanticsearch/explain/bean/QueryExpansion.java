@@ -5,8 +5,10 @@ import java.util.Collection;
 import java.util.List;
 
 import org.molgenis.data.semanticsearch.semantic.Hit;
+import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
 import org.molgenis.ontology.core.service.OntologyService;
 
 import com.google.common.collect.LinkedHashMultimap;
@@ -15,18 +17,19 @@ import com.google.common.collect.Multimap;
 
 import static java.util.Objects.requireNonNull;
 
-public class OntologyTermQueryExpansion
+public class QueryExpansion
 {
 	private final OntologyTerm ontologyTerm;
 	private final OntologyService ontologyService;
-	private final boolean expanded;
+	private final QueryExpansionParameter ontologyExpansionParameters;
 	private Multimap<OntologyTerm, OntologyTerm> queryExpansionRelation;
 
-	public OntologyTermQueryExpansion(OntologyTerm ontologyTerm, OntologyService ontologyService, boolean expanded)
+	public QueryExpansion(OntologyTerm ontologyTerm, OntologyService ontologyService,
+			QueryExpansionParameter ontologyExpansionParameters)
 	{
 		this.ontologyTerm = requireNonNull(ontologyTerm);
 		this.ontologyService = requireNonNull(ontologyService);
-		this.expanded = requireNonNull(expanded);
+		this.ontologyExpansionParameters = requireNonNull(ontologyExpansionParameters);
 		this.queryExpansionRelation = LinkedHashMultimap.create();
 		populate();
 	}
@@ -68,10 +71,12 @@ public class OntologyTermQueryExpansion
 		for (OntologyTerm atomicOntologyTerm : ontologyService.getAtomicOntologyTerms(ontologyTerm))
 		{
 			queryExpansionRelation.put(atomicOntologyTerm, atomicOntologyTerm);
-			if (expanded)
+			if (ontologyExpansionParameters.isChildExpansionEnabled())
 			{
+				OntologyTermChildrenPredicate continuePredicate = new OntologyTermChildrenPredicate(
+						ontologyExpansionParameters.getExpansionLevel(), false, ontologyService);
 				queryExpansionRelation.putAll(atomicOntologyTerm,
-						ontologyService.getLevelThreeChildren(atomicOntologyTerm));
+						ontologyService.getChildren(atomicOntologyTerm, continuePredicate));
 			}
 		}
 	}

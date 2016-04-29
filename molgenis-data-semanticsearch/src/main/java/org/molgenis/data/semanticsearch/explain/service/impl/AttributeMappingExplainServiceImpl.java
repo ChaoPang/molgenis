@@ -10,25 +10,27 @@ import static org.molgenis.ontology.core.model.OntologyTerm.create;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 import static org.molgenis.ontology.utils.Stemmer.splitAndStem;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
-import org.molgenis.data.semanticsearch.explain.bean.OntologyTermQueryExpansion;
+import org.molgenis.data.semanticsearch.explain.bean.QueryExpansion;
 import org.molgenis.data.semanticsearch.explain.bean.QueryExpansionSolution;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameters;
+import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
 import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -39,6 +41,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
 
 import static java.util.Objects.requireNonNull;
 
@@ -63,21 +66,22 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	}
 
 	@Override
-	public ExplainedAttributeMetaData explainAttributeMapping(SemanticSearchParameters semanticSearchParameters,
+	public ExplainedAttributeMetaData explainAttributeMapping(SemanticSearchParameter semanticSearchParameters,
 			AttributeMetaData matchedSourceAttribute)
 	{
 		AttributeMetaData targetAttribute = semanticSearchParameters.getTargetAttribute();
 		Set<String> userQueries = semanticSearchParameters.getUserQueries();
 		EntityMetaData targetEntityMetaData = semanticSearchParameters.getTargetEntityMetaData();
-		boolean semanticSearchEnabled = semanticSearchParameters.isSemanticSearchEnabled();
-		boolean childOntologyTermExpansionEnabled = semanticSearchParameters.isChildOntologyTermExpansionEnabled();
+		QueryExpansionParameter ontologyExpansionParameters = semanticSearchParameters.getOntologyExpansionParameters();
+		boolean semanticSearchEnabled = ontologyExpansionParameters.isSemanticSearchEnabled();
+		boolean exactMatch = semanticSearchParameters.isExactMatch();
 
 		// Collect all terms from the target attribute
 		Set<String> queriesFromTargetAttribute = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute,
 				userQueries);
 		// If semantic search is enabled, collect all the ontology terms that are associated with the target attribute,
 		// which were used in query expansion for finding the relevant source attributes.
-		List<OntologyTermQueryExpansion> ontologyTermQueryExpansions;
+		List<QueryExpansion> ontologyTermQueryExpansions;
 		if (semanticSearchEnabled)
 		{
 			List<String> ontologyTermIds = ontologyService.getOntologies().stream()
@@ -86,17 +90,55 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 
 			ontologyTermQueryExpansions = semanticSearchServiceUtils
 					.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, userQueries, ontologyTermIds)
-					.stream().map(hit -> new OntologyTermQueryExpansion(hit.getResult().getOntologyTerm(),
-							ontologyService, childOntologyTermExpansionEnabled))
+					.stream().map(hit -> new QueryExpansion(hit.getResult().getOntologyTerm(), ontologyService,
+							ontologyExpansionParameters))
 					.collect(toList());
 		}
 		else ontologyTermQueryExpansions = Collections.emptyList();
 
-		return explainExactMapping(queriesFromTargetAttribute, ontologyTermQueryExpansions, matchedSourceAttribute);
+		ExplainedAttributeMetaData explainedAttibuteMetaData = exactMatch
+				? explainExactMapping(queriesFromTargetAttribute, ontologyTermQueryExpansions, matchedSourceAttribute)
+				: explainPartialMapping(queriesFromTargetAttribute, ontologyTermQueryExpansions,
+						matchedSourceAttribute);
+		return explainedAttibuteMetaData;
+	}
+
+	ExplainedAttributeMetaData explainPartialMapping(Set<String> queriesFromTargetAttribute,
+			List<QueryExpansion> ontologyTermQueryExpansions, AttributeMetaData matchedSourceAttribute)
+	{
+		// Collect all terms from the source attribute
+		Set<String> queriesFromSourceAttribute = semanticSearchServiceUtils
+				.getQueryTermsFromAttribute(matchedSourceAttribute, null);
+
+		Hit<String> targetQueryTermHit = findBestQueryTerm(queriesFromTargetAttribute, queriesFromSourceAttribute);
+
+		Hit<OntologyTermHit> ontologyTermHit = filterOntologyTermsForMatchedAttr(matchedSourceAttribute,
+				ontologyService.getAllOntologiesIds(), ontologyTermQueryExpansions, queriesFromTargetAttribute);
+
+		String bestMatchingQuery = targetQueryTermHit.getScore() >= ontologyTermHit.getScore()
+				? targetQueryTermHit.getResult() : ontologyTermHit.getResult().getJoinedSynonym();
+
+		String queryOrigin = targetQueryTermHit.getScore() >= ontologyTermHit.getScore()
+				? targetQueryTermHit.getResult() : ontologyTermHit.getResult().getOntologyTerm().getLabel();
+
+		Set<String> bestMatchingQueryStemmedWords = Stemmer.splitAndStem(bestMatchingQuery);
+
+		String bestMatchingSourceQueryTerm = queriesFromSourceAttribute.stream()
+				.filter(query -> Stemmer.splitAndStem(query).containsAll(bestMatchingQueryStemmedWords)).findFirst()
+				.orElse(StringUtils.EMPTY);
+
+		boolean isHighQuality = !StringUtils.isBlank(bestMatchingSourceQueryTerm);
+
+		Set<String> matchedWords = findMatchedWords(bestMatchingQuery, bestMatchingSourceQueryTerm);
+
+		ExplainedQueryString explainedQueryString = ExplainedQueryString.create(termJoiner.join(matchedWords),
+				bestMatchingQuery, queryOrigin, 0.0f);
+
+		return ExplainedAttributeMetaData.create(matchedSourceAttribute, explainedQueryString, isHighQuality);
 	}
 
 	ExplainedAttributeMetaData explainExactMapping(Set<String> queriesFromTargetAttribute,
-			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, AttributeMetaData matchedSourceAttribute)
+			List<QueryExpansion> ontologyTermQueryExpansions, AttributeMetaData matchedSourceAttribute)
 	{
 		// Collect all terms from the source attribute
 		Set<String> queriesFromSourceAttribute = semanticSearchServiceUtils
@@ -150,7 +192,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	 * @return
 	 */
 	private Hit<OntologyTermHit> filterOntologyTermsForMatchedAttr(AttributeMetaData matchedSourceAttribute,
-			List<String> ontologyIds, List<OntologyTermQueryExpansion> ontologyTermQueryExpansions,
+			List<String> ontologyIds, List<QueryExpansion> ontologyTermQueryExpansions,
 			Set<String> queriesFromTargetAttribute)
 	{
 		String sourceLabel = matchedSourceAttribute.getDescription() == null ? matchedSourceAttribute.getLabel()
@@ -163,8 +205,12 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		}
 
 		List<OntologyTerm> ontologyTermScope = ontologyTermQueryExpansions.stream()
-				.map(OntologyTermQueryExpansion::getOntologyTerms).flatMap(ots -> ots.stream())
-				.collect(Collectors.toList());
+				.map(QueryExpansion::getOntologyTerms).flatMap(ots -> ots.stream()).collect(Collectors.toList());
+
+		if (LOG.isDebugEnabled())
+		{
+			LOG.debug("OntologyTerms {}", ontologyTermScope);
+		}
 
 		List<OntologyTerm> relevantOntologyTerms = ontologyService.fileterOntologyTerms(ontologyIds, searchTerms,
 				ontologyTermScope.size(), ontologyTermScope);
@@ -202,8 +248,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	}
 
 	Hit<String> computeAbsoluteScoreForSourceAttribute(Hit<OntologyTermHit> hit,
-			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, String targetQueryTerm,
-			String sourceAttributeDescription)
+			List<QueryExpansion> ontologyTermQueryExpansions, String targetQueryTerm, String sourceAttributeDescription)
 	{
 		QueryExpansionSolution queryExpansionSolution = ontologyTermQueryExpansions.stream()
 				.map(expansion -> expansion.getQueryExpansionSolution(hit)).sorted().findFirst().orElse(null);
@@ -270,7 +315,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 
 		for (OntologyTerm ontologyTerm : ontologyTerms)
 		{
-			for (String synonym : semanticSearchServiceUtils.getLowerCaseTermsFromOntologyTerm(ontologyTerm))
+			for (String synonym : ontologyService.collectLowerCaseTerms(ontologyTerm))
 			{
 				if (targetQueryTermWords.containsAll(splitAndStem(synonym)))
 				{
@@ -284,19 +329,16 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 
 	private List<String> getMatchedWords(String bestMatchingQuery, Set<String> queriesFromSourceAttribute)
 	{
-		List<String> matchedWords = new ArrayList<>();
-		Set<String> bestMatchingQueryTokens = splitAndStem(bestMatchingQuery);
+		Set<String> matchedWords = new HashSet<>();
 		for (String queryFromSourceAttribute : queriesFromSourceAttribute)
 		{
-			List<String> collect = semanticSearchServiceUtils.splitIntoTerms(queryFromSourceAttribute).stream()
-					.filter(word -> bestMatchingQueryTokens.contains(Stemmer.stem(word))).collect(Collectors.toList());
-
+			Set<String> collect = findMatchedWords(bestMatchingQuery, queryFromSourceAttribute);
 			if (matchedWords.size() < collect.size())
 			{
 				matchedWords = collect;
 			}
 		}
-		return matchedWords;
+		return Lists.newArrayList(matchedWords);
 	}
 
 	Hit<String> findBestQueryTerm(Set<String> queriesFromTargetAttribute, Set<String> queriesFromSourceAttribute)

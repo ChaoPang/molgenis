@@ -2,7 +2,7 @@ package org.molgenis.data.semanticsearch.explain.service;
 
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameters;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
 
 public interface AttributeMappingExplainService
 {
@@ -14,6 +14,6 @@ public interface AttributeMappingExplainService
 	 * @param matchedSourceAttribute
 	 * @return
 	 */
-	ExplainedAttributeMetaData explainAttributeMapping(SemanticSearchParameters semanticSearchParameters,
+	ExplainedAttributeMetaData explainAttributeMapping(SemanticSearchParameter semanticSearchParameters,
 			AttributeMetaData matchedSourceAttribute);
 }

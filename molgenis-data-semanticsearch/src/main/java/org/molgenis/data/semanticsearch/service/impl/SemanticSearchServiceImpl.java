@@ -30,8 +30,9 @@ import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
+import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameters;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -62,7 +63,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	}
 
 	@Override
-	public List<AttributeMetaData> findAttributesLazy(SemanticSearchParameters semanticSearchParameters)
+	public List<AttributeMetaData> findAttributesLazy(SemanticSearchParameter semanticSearchParameters)
 	{
 		List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations = findAttributesLazyWithExplanations(
 				semanticSearchParameters);
@@ -75,9 +76,9 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 	@Override
 	public List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations(
-			SemanticSearchParameters semanticSearchParameters)
+			SemanticSearchParameter semanticSearchParameters)
 	{
-		semanticSearchParameters = SemanticSearchParameters.create(semanticSearchParameters, false, false);
+		semanticSearchParameters = SemanticSearchParameter.create(semanticSearchParameters, false, false);
 
 		// Find attributes by the query terms collected from the target attribute
 		List<AttributeMetaData> matchedSourceAttributes = findAttributes(semanticSearchParameters);
@@ -87,7 +88,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		if (isCurrentMatchBadQuality(semanticSearchParameters, matchedSourceAttributes))
 		{
 			// enable semantic search
-			semanticSearchParameters = SemanticSearchParameters.create(semanticSearchParameters, true, false);
+			semanticSearchParameters = SemanticSearchParameter.create(semanticSearchParameters, true, false);
 			matchedSourceAttributes = findAttributes(semanticSearchParameters);
 
 			// if the matched attribute found by the query terms from the target attribute as well as the
@@ -96,7 +97,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 			if (isCurrentMatchBadQuality(semanticSearchParameters, matchedSourceAttributes))
 			{
 				// enable query expansion for child ontology terms
-				semanticSearchParameters = SemanticSearchParameters.create(semanticSearchParameters, true, true);
+				semanticSearchParameters = SemanticSearchParameter.create(semanticSearchParameters, true, true);
 				matchedSourceAttributes = findAttributes(semanticSearchParameters);
 			}
 		}
@@ -105,14 +106,23 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	}
 
 	@Override
-	public List<AttributeMetaData> findAttributes(SemanticSearchParameters semanticSearchParameters)
+	public List<ExplainedAttributeMetaData> findAttributesWithExplanation(
+			SemanticSearchParameter semanticSearchParameters)
+	{
+		List<AttributeMetaData> findAttributes = findAttributes(semanticSearchParameters);
+		return convertMatchedAttributesToExplainAttributes(semanticSearchParameters, findAttributes);
+	}
+
+	@Override
+	public List<AttributeMetaData> findAttributes(SemanticSearchParameter semanticSearchParameters)
 	{
 		AttributeMetaData targetAttribute = semanticSearchParameters.getTargetAttribute();
 		Set<String> userQueries = semanticSearchParameters.getUserQueries();
 		EntityMetaData targetEntityMetaData = semanticSearchParameters.getTargetEntityMetaData();
 		EntityMetaData sourceEntityMetaData = semanticSearchParameters.getSourceEntityMetaData();
-		boolean semanticSearchEnabled = semanticSearchParameters.isSemanticSearchEnabled();
-		boolean childOntologyTermExpansionEnabled = semanticSearchParameters.isChildOntologyTermExpansionEnabled();
+		QueryExpansionParameter ontologyExpansionParameters = semanticSearchParameters
+				.getOntologyExpansionParameters();
+		boolean semanticSearchEnabled = ontologyExpansionParameters.isSemanticSearchEnabled();
 
 		Set<String> queryTerms = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, userQueries);
 
@@ -128,7 +138,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		else ontologyTermHits = emptyList();
 
 		QueryRule disMaxQueryRule = semanticSearchServiceUtils.createDisMaxQueryRule(queryTerms, ontologyTermHits,
-				childOntologyTermExpansionEnabled);
+				ontologyExpansionParameters);
 
 		if (disMaxQueryRule != null)
 		{
@@ -197,10 +207,10 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	@Override
 	public List<Hit<OntologyTermHit>> findAllTags(String description, List<String> ontologyIds)
 	{
-		return semanticSearchServiceUtils.findOntologyTermCombination(description, ontologyIds);
+		return semanticSearchServiceUtils.findOntologyTermsForQueryString(description, ontologyIds);
 	}
 
-	private boolean isCurrentMatchBadQuality(SemanticSearchParameters semanticSearchParameters,
+	private boolean isCurrentMatchBadQuality(SemanticSearchParameter semanticSearchParameters,
 			List<AttributeMetaData> matchedSourceAttributes)
 	{
 		if (matchedSourceAttributes.size() == 0) return true;
@@ -212,7 +222,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	}
 
 	private List<ExplainedAttributeMetaData> convertMatchedAttributesToExplainAttributes(
-			SemanticSearchParameters semanticSearchParameters, List<AttributeMetaData> matchedSourceAttributes)
+			SemanticSearchParameter semanticSearchParameters, List<AttributeMetaData> matchedSourceAttributes)
 	{
 		List<ExplainedAttributeMetaData> explainedAttributes = new ArrayList<>(matchedSourceAttributes.size());
 

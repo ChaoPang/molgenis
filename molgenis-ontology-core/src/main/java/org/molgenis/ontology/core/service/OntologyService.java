@@ -141,4 +141,6 @@ public interface OntologyService
 	 * @return
 	 */
 	Double getOntologyTermLexicalSimilarity(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2);
+
+	Set<String> collectLowerCaseTerms(OntologyTerm ontologyTerm);
 }
