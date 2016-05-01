@@ -1,4 +1,5 @@
 .data-discovery-panel {
 	margin : 12px;
-	width : 22%;
+	width : 30%;
+	overflow:auto;  
 }

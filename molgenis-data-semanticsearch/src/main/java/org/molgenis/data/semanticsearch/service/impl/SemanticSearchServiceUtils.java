@@ -447,13 +447,14 @@ public class SemanticSearchServiceUtils
 			float score = ontologyTermHits.get(0).getScore();
 
 			// Put ontologyTerms with the same synonym in a map
-			Multimap<OntologyTerm, OntologyTerm> ontologyTermGroups = groupSimilaryOntologyTerms(ontologyTermHits);
+			Multimap<OntologyTerm, OntologyTerm> ontologyTermGroups = groupOntologyTermsBySynonym(
+					ontologyTermHits);
 
 			Set<OntologyTerm> ontologyTermGroupKeys = ontologyTermGroups.keySet();
 
 			if (ontologyTermGroupKeys.size() > 1)
 			{
-				Map<OntologyTerm, Float> ontologyTermGroupWeight = getWeightForOntologyTermGroup(ontologyTermGroups);
+				Map<OntologyTerm, Float> ontologyTermGroupWeight = calculateBoostValueForOntologyTermGroup(ontologyTermGroups);
 
 				Function<OntologyTerm, QueryRule> ontologyTermGroupToQueryRule = groupKey -> {
 
@@ -483,7 +484,7 @@ public class SemanticSearchServiceUtils
 		return queryRule;
 	}
 
-	private Map<OntologyTerm, Float> getWeightForOntologyTermGroup(
+	private Map<OntologyTerm, Float> calculateBoostValueForOntologyTermGroup(
 			Multimap<OntologyTerm, OntologyTerm> ontologyTermGroups)
 	{
 		Function<OntologyTerm, Double> groupKeyToGroupWeight = key -> ontologyTermGroups.get(key).stream()
@@ -500,7 +501,8 @@ public class SemanticSearchServiceUtils
 				.collect(toMap(Entry::getKey, e -> new Float(e.getValue() / maxIdfValue)));
 	}
 
-	private Multimap<OntologyTerm, OntologyTerm> groupSimilaryOntologyTerms(List<Hit<OntologyTerm>> ontologyTermHits)
+	private Multimap<OntologyTerm, OntologyTerm> groupOntologyTermsBySynonym(
+			List<Hit<OntologyTerm>> ontologyTermHits)
 	{
 		Multimap<OntologyTerm, OntologyTerm> multiMap = LinkedHashMultimap.create();
 		ontologyService.getAtomicOntologyTerms(ontologyTermHits.get(0).getResult()).forEach(ot -> multiMap.put(ot, ot));
@@ -516,7 +518,6 @@ public class SemanticSearchServiceUtils
 					{
 						multiMap.put(ontologyTermInTheMap, atomicOntologyTerm);
 					}
-
 				});
 
 		return multiMap;

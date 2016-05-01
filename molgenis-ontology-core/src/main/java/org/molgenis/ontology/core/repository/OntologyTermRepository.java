@@ -48,7 +48,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 
 import static java.util.Objects.requireNonNull;
 
@@ -57,6 +59,8 @@ import static java.util.Objects.requireNonNull;
  */
 public class OntologyTermRepository
 {
+	private static final String NODEPATH_SEPARATOR = "\\.";
+
 	private final DataService dataService;
 
 	private final static int PENALIZE_EMPTY_PATH = 10;
@@ -332,8 +336,8 @@ public class OntologyTermRepository
 	 */
 	public int calculateNodePathDistance(String nodePath1, String nodePath2)
 	{
-		String[] nodePathFragment1 = isBlank(nodePath1) ? new String[0] : nodePath1.split("\\.");
-		String[] nodePathFragment2 = isBlank(nodePath2) ? new String[0] : nodePath2.split("\\.");
+		String[] nodePathFragment1 = isBlank(nodePath1) ? new String[0] : nodePath1.split(NODEPATH_SEPARATOR);
+		String[] nodePathFragment2 = isBlank(nodePath2) ? new String[0] : nodePath2.split(NODEPATH_SEPARATOR);
 
 		int overlapBlock = calculateOverlapBlock(nodePathFragment1, nodePathFragment2);
 		return penalize(nodePath1) + penalize(nodePath2) + nodePathFragment1.length + nodePathFragment2.length
@@ -342,8 +346,8 @@ public class OntologyTermRepository
 
 	public double calculateRelatedness(String nodePath1, String nodePath2)
 	{
-		String[] nodePathFragment1 = isBlank(nodePath1) ? new String[0] : nodePath1.split("\\.");
-		String[] nodePathFragment2 = isBlank(nodePath2) ? new String[0] : nodePath2.split("\\.");
+		String[] nodePathFragment1 = isBlank(nodePath1) ? new String[0] : nodePath1.split(NODEPATH_SEPARATOR);
+		String[] nodePathFragment2 = isBlank(nodePath2) ? new String[0] : nodePath2.split(NODEPATH_SEPARATOR);
 
 		int overlapBlock = calculateOverlapBlock(nodePathFragment1, nodePathFragment2);
 		overlapBlock = overlapBlock == 0 ? 1 : overlapBlock;
@@ -373,35 +377,29 @@ public class OntologyTermRepository
 	private Iterable<OntologyTerm> getChildrenByPredicate(OntologyTerm ontologyTerm,
 			OntologyTermChildrenPredicate continuePredicate)
 	{
-		Iterable<Entity> ontologyTermEntities = new Iterable<Entity>()
-		{
-			@Override
-			public Iterator<Entity> iterator()
-			{
-				return dataService.findAll(ENTITY_NAME, QueryImpl.EQ(ONTOLOGY_TERM_IRI, ontologyTerm.getIRI()))
-						.iterator();
-			}
-		};
+		Entity ontologyTermEntity = dataService.findOne(ENTITY_NAME,
+				QueryImpl.EQ(ONTOLOGY_TERM_IRI, ontologyTerm.getIRI()));
 
 		Iterable<OntologyTerm> iterable = null;
 
-		for (Entity ontologyTermEntity : ontologyTermEntities)
+		if (ontologyTermEntity != null)
 		{
 			OntologyTerm ot = toOntologyTerm(ontologyTermEntity);
 			Entity ontologyEntity = ontologyTermEntity.getEntity(OntologyTermMetaData.ONTOLOGY);
+
+			Multimap<String, String> nodePathFromSameOntology = LinkedHashMultimap.create();
 			for (String parentNodePath : ot.getNodePaths())
 			{
-				Iterable<OntologyTerm> ontologyTermIterable = childOntologyTermStream(ontologyTerm, ontologyEntity,
-						parentNodePath, continuePredicate);
-				if (iterable == null)
-				{
-					iterable = ontologyTermIterable;
-				}
-				else
-				{
-					iterable = Iterables.concat(iterable, ontologyTermIterable);
-				}
+				String[] split = parentNodePath.split(NODEPATH_SEPARATOR);
+				nodePathFromSameOntology.put(split[split.length - 1], parentNodePath);
 			}
+
+			List<Iterable<OntologyTerm>> collect = nodePathFromSameOntology.keySet().stream()
+					.map(key -> Iterables.get(nodePathFromSameOntology.get(key), 0))
+					.map(nodePath -> childOntologyTermStream(ontologyTerm, ontologyEntity, nodePath, continuePredicate))
+					.collect(Collectors.toList());
+
+			iterable = Iterables.concat(collect);
 		}
 
 		return iterable == null ? emptyList() : iterable;

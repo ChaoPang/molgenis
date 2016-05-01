@@ -7,19 +7,20 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.data.mapper.controller.DataDiscoveryController.URI;
 import static org.molgenis.security.core.Permission.READ;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
+import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
+import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
 import org.molgenis.data.support.DefaultAttributeMetaData;
-import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.security.core.MolgenisPermissionService;
 import org.molgenis.ui.MolgenisPluginController;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +38,7 @@ public class DataDiscoveryController extends MolgenisPluginController
 {
 	private final DataService dataService;
 	private final SemanticSearchService semanticSearchService;
-	private final OntologyService ontologyService;
+	private final AttributeMappingExplainService attributeMappingExplainService;
 	private final MolgenisPermissionService molgenisPermissionService;
 
 	public static final String ID = "datadiscovery";
@@ -47,12 +48,13 @@ public class DataDiscoveryController extends MolgenisPluginController
 
 	@Autowired
 	public DataDiscoveryController(DataService dataService, SemanticSearchService semanticSearchService,
-			OntologyService ontologyService, MolgenisPermissionService molgenisPermissionService)
+			AttributeMappingExplainService attributeMappingExplainService,
+			MolgenisPermissionService molgenisPermissionService)
 	{
 		super(URI);
 		this.dataService = requireNonNull(dataService);
 		this.semanticSearchService = requireNonNull(semanticSearchService);
-		this.ontologyService = requireNonNull(ontologyService);
+		this.attributeMappingExplainService = requireNonNull(attributeMappingExplainService);
 		this.molgenisPermissionService = requireNonNull(molgenisPermissionService);
 	}
 
@@ -79,15 +81,38 @@ public class DataDiscoveryController extends MolgenisPluginController
 						Integer.parseInt(ontologyLevel));
 				SemanticSearchParameter semanticSearchParameters = SemanticSearchParameter.create(attributeMetaData,
 						emptySet(), null, sourceEntityMetaData, exactMatch, create);
-				List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations = semanticSearchService
-						.findAttributesWithExplanation(semanticSearchParameters).stream()
-						.filter(ExplainedAttributeMetaData::isHighQuality).collect(Collectors.toList());
-				searchResult.put(sourceEntityMetaData.getName(), findAttributesLazyWithExplanations);
+
+				List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations = explainAttributes(
+						semanticSearchParameters, semanticSearchService.findAttributes(semanticSearchParameters));
+
+				if (findAttributesLazyWithExplanations.size() > 0)
+				{
+					searchResult.put(sourceEntityMetaData.getName(), findAttributesLazyWithExplanations);
+				}
 			}
 		}
 		model.addAttribute("entityMetaDatas", readableEntityMetaDatas);
 		model.addAttribute("searchResult", searchResult);
 		return VIEW_DATA_DISCOVERY;
+	}
+
+	private List<ExplainedAttributeMetaData> explainAttributes(SemanticSearchParameter semanticSearchParameter,
+			List<AttributeMetaData> matchedAttributes)
+	{
+		List<ExplainedAttributeMetaData> explainedAttributeMetadatas = new ArrayList<>();
+
+		for (AttributeMetaData attr : matchedAttributes)
+		{
+			ExplainedAttributeMetaData explainAttributeMapping = attributeMappingExplainService
+					.explainAttributeMapping(semanticSearchParameter, attr);
+			if (explainAttributeMapping.isHighQuality())
+			{
+				explainedAttributeMetadatas.add(explainAttributeMapping);
+			}
+			else break;
+		}
+
+		return explainedAttributeMetadatas;
 	}
 
 	private List<EntityMetaData> getReadableEntityMetaDatas()

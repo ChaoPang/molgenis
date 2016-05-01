@@ -49,32 +49,32 @@
 		</div>
 	</div>
 	<div class="row">
-		<div class="col-md-offset-2 col-md-8">
+		<div class="col-md-offset-1 col-md-10">
 		<#if searchResult??>
 		<#assign keys = searchResult?keys>
 		<#list keys as key>
 			<#assign index = keys?seq_index_of(key)>
 			<#if index == 0>
 			<div class="row">
-			<#elseif index % 4 == 0>
+			<#elseif index % 3 == 0>
 			</div><div class="row">
 			</#if>
-			<div class="col-md-3 well data-discovery-panel">
+			<div class="col-md-4 well data-discovery-panel">
 				Dataset: ${key}<br>
-				Matched attribtues: ${searchResult[key]?size}
+				Matched attribtues: ${searchResult[key]?size}<br><br>
 				<#if (searchResult[key]?size > 0)>
 					<table class="table">
 						<tr>
-							<th>Attribute</th>
-							<th>Score</th>
+							<th>Name</th>
+							<th>Label</th>
 						</tr>
 						<#list searchResult[key] as matchedAttribute>
 							<#if searchResult[key]?seq_index_of(matchedAttribute) == 3>
 								<#break>
 							</#if>
 						<tr>
+							<td>${matchedAttribute.attributeMetaData.name}</td>
 							<td>${matchedAttribute.attributeMetaData.label}</td>
-							<td>${matchedAttribute.explainedQueryString.score}</td>
 						</tr>
 						</#list>
 					</table>
