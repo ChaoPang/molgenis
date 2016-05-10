@@ -10,18 +10,16 @@ public abstract class QueryExpansionParameter
 {
 	private final static int DEFAULT_SEARCH_LEVEL = 3;
 
-	public static QueryExpansionParameter create(boolean semanticSearchEnabled,
-			boolean childExpansionEnabled)
+	public static QueryExpansionParameter create(boolean semanticSearchEnabled, boolean childExpansionEnabled)
 	{
 		return new AutoValue_QueryExpansionParameter(semanticSearchEnabled, childExpansionEnabled,
 				DEFAULT_SEARCH_LEVEL);
 	}
 
-	public static QueryExpansionParameter create(boolean semanticSearchEnabled,
-			boolean childExpansionEnabled, int expansionLevel)
+	public static QueryExpansionParameter create(boolean semanticSearchEnabled, boolean childExpansionEnabled,
+			int expansionLevel)
 	{
-		return new AutoValue_QueryExpansionParameter(semanticSearchEnabled, childExpansionEnabled,
-				expansionLevel);
+		return new AutoValue_QueryExpansionParameter(semanticSearchEnabled, childExpansionEnabled, expansionLevel);
 	}
 
 	public abstract boolean isSemanticSearchEnabled();

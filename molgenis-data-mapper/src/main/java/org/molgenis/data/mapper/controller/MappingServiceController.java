@@ -7,6 +7,7 @@ import static org.molgenis.data.mapper.mapping.model.CategoryMapping.createEmpty
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -36,9 +37,9 @@ import org.molgenis.data.importer.ImportWizardController;
 import org.molgenis.data.jobs.JobExecution.Status;
 import org.molgenis.data.mapper.data.request.GenerateAlgorithmRequest;
 import org.molgenis.data.mapper.data.request.MappingServiceRequest;
-import org.molgenis.data.mapper.jobs.MappingServiceJob;
-import org.molgenis.data.mapper.jobs.MappingServiceJobExecution;
-import org.molgenis.data.mapper.jobs.MappingServiceJobFactory;
+import org.molgenis.data.mapper.jobs.mappingservice.MappingServiceJob;
+import org.molgenis.data.mapper.jobs.mappingservice.MappingServiceJobExecution;
+import org.molgenis.data.mapper.jobs.mappingservice.MappingServiceJobFactory;
 import org.molgenis.data.mapper.mapping.model.AlgorithmResult;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState;
@@ -260,7 +261,7 @@ public class MappingServiceController extends MolgenisPluginController
 
 			mappingServiceJobExecution.setMappingProject(mappingProjectEntity);
 			mappingServiceJobExecution.setTargetEntity(targetEntityMetaDataEntity);
-			mappingServiceJobExecution.setSourceEntity(sourceEntityMetaDataEntity);
+			mappingServiceJobExecution.setSourceEntity(Arrays.asList(sourceEntityMetaDataEntity));
 			mappingServiceJobExecution.setUser(userAccountService.getCurrentUser());
 			mappingServiceJobExecution.setResultUrl(getMappingServiceMenuUrl() + "/mappingproject/" + mappingProjectId);
 
@@ -456,7 +457,7 @@ public class MappingServiceController extends MolgenisPluginController
 			MappingTarget mappingTarget = mappingProject.getMappingTarget(target);
 
 			List<String> sourceInvolvedInRunningJobs = getRunningJobs(mappingProjectId).stream()
-					.map(entity -> entity.getString(MappingServiceJobExecution.SOURCE_ENTITY))
+					.map(entity -> entity.getString(MappingServiceJobExecution.SOURCE_ENTITIES))
 					.collect(Collectors.toList());
 
 			List<String> sourceNames = mappingTarget.getEntityMappings().stream()

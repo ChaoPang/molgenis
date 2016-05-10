@@ -22,7 +22,7 @@ import org.molgenis.data.IdGenerator;
 import org.molgenis.data.MolgenisDataException;
 import org.molgenis.data.Repository;
 import org.molgenis.data.UnknownEntityException;
-import org.molgenis.data.mapper.jobs.MappingServiceJobExecution;
+import org.molgenis.data.mapper.jobs.mappingservice.MappingServiceJobExecution;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping;
 import org.molgenis.data.mapper.mapping.model.EntityMapping;
 import org.molgenis.data.mapper.mapping.model.MappingProject;

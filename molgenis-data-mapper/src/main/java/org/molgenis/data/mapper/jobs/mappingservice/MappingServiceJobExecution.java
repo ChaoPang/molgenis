@@ -1,11 +1,15 @@
-package org.molgenis.data.mapper.jobs;
+package org.molgenis.data.mapper.jobs.mappingservice;
+
+import java.util.List;
 
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.jobs.JobExecution;
-import org.molgenis.data.mapper.jobs.meta.MappingServiceJobExecutionMeta;
+import org.molgenis.data.mapper.jobs.mappingservice.meta.MappingServiceJobExecutionMeta;
 import org.molgenis.data.mapper.mapping.model.MappingProject;
 import org.molgenis.data.mapper.service.MappingService;
+
+import com.google.common.collect.Lists;
 
 import static java.util.Objects.requireNonNull;
 
@@ -16,7 +20,7 @@ public class MappingServiceJobExecution extends JobExecution
 	public static final String ENTITY_NAME = "MappingServiceJobExecution";
 	public static final String MAPPING_PROJECT = "mappingProject";
 	public static final String TARGET_ENTITY = "targetEntity";
-	public static final String SOURCE_ENTITY = "sourceEntity";
+	public static final String SOURCE_ENTITIES = "sourceEntities";
 	public static final String JOB_TYPE = "MappingService";
 	private final MappingService mappingService;
 
@@ -39,14 +43,14 @@ public class MappingServiceJobExecution extends JobExecution
 		set(TARGET_ENTITY, targetEntityMetaDataEntity);
 	}
 
-	public Entity getSourceEntity()
+	public List<Entity> getSourceEntities()
 	{
-		return getEntity(SOURCE_ENTITY);
+		return Lists.newArrayList(getEntities(SOURCE_ENTITIES));
 	}
 
-	public void setSourceEntity(Entity sourceEntityMetaDataEntity)
+	public void setSourceEntity(List<Entity> sourceEntityMetaDataEntities)
 	{
-		set(SOURCE_ENTITY, sourceEntityMetaDataEntity);
+		set(SOURCE_ENTITIES, sourceEntityMetaDataEntities);
 	}
 
 	public MappingProject getMappingProject()

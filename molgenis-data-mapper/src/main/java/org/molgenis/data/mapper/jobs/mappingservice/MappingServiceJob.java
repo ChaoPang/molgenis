@@ -1,4 +1,4 @@
-package org.molgenis.data.mapper.jobs;
+package org.molgenis.data.mapper.jobs.mappingservice;
 
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;

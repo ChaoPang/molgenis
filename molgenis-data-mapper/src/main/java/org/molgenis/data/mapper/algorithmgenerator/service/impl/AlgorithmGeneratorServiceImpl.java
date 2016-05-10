@@ -78,18 +78,18 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 	public GeneratedAlgorithm autoGenerate(SemanticSearchParameter semanticSearchParameters,
 			List<AttributeMetaData> sourceAttributes)
 	{
-		AttributeMetaData targetAttribute = semanticSearchParameters.getTargetAttribute();
-		EntityMetaData targetEntityMetaData = semanticSearchParameters.getTargetEntityMetaData();
-		EntityMetaData sourceEntityMetaData = semanticSearchParameters.getSourceEntityMetaData();
-
 		String algorithm = StringUtils.EMPTY;
 		AlgorithmState algorithmState = null;
 		Set<AttributeMetaData> mappedSourceAttributes = null;
 		Double score = 0.0d;
 		Set<String> additionalQueryTerms = new LinkedHashSet<>();
 
-		if (sourceAttributes.size() > 0)
+		if (sourceAttributes.size() > 0 && semanticSearchParameters.getSourceEntityMetaDatas().size() > 0)
 		{
+			AttributeMetaData targetAttribute = semanticSearchParameters.getTargetAttribute();
+			EntityMetaData targetEntityMetaData = semanticSearchParameters.getTargetEntityMetaData();
+			EntityMetaData sourceEntityMetaData = semanticSearchParameters.getSourceEntityMetaDatas().get(0);
+
 			algorithm = runAlgorithmTemplate(targetAttribute, sourceAttributes, targetEntityMetaData,
 					sourceEntityMetaData, additionalQueryTerms);
 

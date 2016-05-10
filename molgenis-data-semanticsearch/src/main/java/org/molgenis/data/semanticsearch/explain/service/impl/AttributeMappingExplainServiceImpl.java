@@ -72,7 +72,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		AttributeMetaData targetAttribute = semanticSearchParameters.getTargetAttribute();
 		Set<String> userQueries = semanticSearchParameters.getUserQueries();
 		EntityMetaData targetEntityMetaData = semanticSearchParameters.getTargetEntityMetaData();
-		QueryExpansionParameter ontologyExpansionParameters = semanticSearchParameters.getOntologyExpansionParameters();
+		QueryExpansionParameter ontologyExpansionParameters = semanticSearchParameters.getExpansionParameter();
 		boolean semanticSearchEnabled = ontologyExpansionParameters.isSemanticSearchEnabled();
 		boolean exactMatch = semanticSearchParameters.isExactMatch();
 

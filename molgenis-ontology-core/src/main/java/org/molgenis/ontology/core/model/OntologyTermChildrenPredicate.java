@@ -26,6 +26,11 @@ public class OntologyTermChildrenPredicate implements BiPredicate<OntologyTerm, 
 				|| allChildren;
 	}
 
+	public Integer getSearchLevel()
+	{
+		return searchLevel;
+	}
+
 	@Override
 	public int hashCode()
 	{

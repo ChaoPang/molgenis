@@ -1,4 +1,7 @@
-package org.molgenis.data.mapper.jobs;
+package org.molgenis.data.mapper.jobs.mappingservice;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.molgenis.data.DataService;
 import org.molgenis.data.EntityMetaData;
@@ -47,12 +50,12 @@ public class MappingServiceJobFactory
 	{
 		dataService.add(MappingServiceJobExecution.ENTITY_NAME, mappingServiceJobExecution);
 
-		String sourceEntityName = mappingServiceJobExecution.getSourceEntity()
-				.getString(EntityMetaDataMetaData.FULL_NAME);
+		List<String> sourceEntityNames = mappingServiceJobExecution.getSourceEntities().stream()
+				.map(e -> e.getString(EntityMetaDataMetaData.FULL_NAME)).collect(Collectors.toList());
 		String targetEntityName = mappingServiceJobExecution.getTargetEntity()
 				.getString(EntityMetaDataMetaData.FULL_NAME);
 
-		EntityMetaData sourceEntityMetaData = dataService.getEntityMetaData(sourceEntityName);
+		EntityMetaData sourceEntityMetaData = dataService.getEntityMetaData(sourceEntityNames.get(0));
 		EntityMetaData targetEntityMetaData = dataService.getEntityMetaData(targetEntityName);
 
 		Progress progress = new ProgressImpl(mappingServiceJobExecution, jobExecutionUpdater, mailSender);

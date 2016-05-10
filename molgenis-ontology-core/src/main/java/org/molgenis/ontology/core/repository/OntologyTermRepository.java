@@ -4,9 +4,11 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Stream.of;
 import static java.util.stream.StreamSupport.stream;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
 import static org.apache.commons.lang3.StringUtils.isBlank;
+import static org.apache.commons.lang3.StringUtils.join;
 import static org.molgenis.data.QueryRule.Operator.AND;
 import static org.molgenis.data.QueryRule.Operator.FUZZY_MATCH;
 import static org.molgenis.data.QueryRule.Operator.IN;
@@ -59,7 +61,8 @@ import static java.util.Objects.requireNonNull;
  */
 public class OntologyTermRepository
 {
-	private static final String NODEPATH_SEPARATOR = "\\.";
+	private static final String ESCAPED_NODEPATH_SEPARATOR = "\\.";
+	private static final String NODEPATH_SEPARATOR = ".";
 
 	private final DataService dataService;
 
@@ -336,8 +339,8 @@ public class OntologyTermRepository
 	 */
 	public int calculateNodePathDistance(String nodePath1, String nodePath2)
 	{
-		String[] nodePathFragment1 = isBlank(nodePath1) ? new String[0] : nodePath1.split(NODEPATH_SEPARATOR);
-		String[] nodePathFragment2 = isBlank(nodePath2) ? new String[0] : nodePath2.split(NODEPATH_SEPARATOR);
+		String[] nodePathFragment1 = isBlank(nodePath1) ? new String[0] : nodePath1.split(ESCAPED_NODEPATH_SEPARATOR);
+		String[] nodePathFragment2 = isBlank(nodePath2) ? new String[0] : nodePath2.split(ESCAPED_NODEPATH_SEPARATOR);
 
 		int overlapBlock = calculateOverlapBlock(nodePathFragment1, nodePathFragment2);
 		return penalize(nodePath1) + penalize(nodePath2) + nodePathFragment1.length + nodePathFragment2.length
@@ -346,8 +349,8 @@ public class OntologyTermRepository
 
 	public double calculateRelatedness(String nodePath1, String nodePath2)
 	{
-		String[] nodePathFragment1 = isBlank(nodePath1) ? new String[0] : nodePath1.split(NODEPATH_SEPARATOR);
-		String[] nodePathFragment2 = isBlank(nodePath2) ? new String[0] : nodePath2.split(NODEPATH_SEPARATOR);
+		String[] nodePathFragment1 = isBlank(nodePath1) ? new String[0] : nodePath1.split(ESCAPED_NODEPATH_SEPARATOR);
+		String[] nodePathFragment2 = isBlank(nodePath2) ? new String[0] : nodePath2.split(ESCAPED_NODEPATH_SEPARATOR);
 
 		int overlapBlock = calculateOverlapBlock(nodePathFragment1, nodePathFragment2);
 		overlapBlock = overlapBlock == 0 ? 1 : overlapBlock;
@@ -390,7 +393,7 @@ public class OntologyTermRepository
 			Multimap<String, String> nodePathFromSameOntology = LinkedHashMultimap.create();
 			for (String parentNodePath : ot.getNodePaths())
 			{
-				String[] split = parentNodePath.split(NODEPATH_SEPARATOR);
+				String[] split = parentNodePath.split(ESCAPED_NODEPATH_SEPARATOR);
 				nodePathFromSameOntology.put(split[split.length - 1], parentNodePath);
 			}
 
@@ -453,6 +456,48 @@ public class OntologyTermRepository
 
 		return ontologyTermIterable;
 	}
+
+	public Stream<OntologyTerm> getParents(OntologyTerm ontologyTerm, OntologyTermChildrenPredicate continuePredicate)
+	{
+		return StreamSupport.stream(getParentsByPredicate(ontologyTerm, continuePredicate).spliterator(), false);
+	}
+
+	private Iterable<OntologyTerm> getParentsByPredicate(OntologyTerm ontologyTerm,
+			OntologyTermChildrenPredicate continuePredicate)
+	{
+		List<String> nodePaths = ontologyTerm.getNodePaths();
+		List<String> totalNodePaths = new ArrayList<>();
+		for (int i = 0; i < continuePredicate.getSearchLevel(); i++)
+		{
+			nodePaths = nodePaths.stream().map(this::getParentNodePath).filter(StringUtils::isNotBlank)
+					.collect(toList());
+			totalNodePaths.addAll(nodePaths);
+		}
+
+		return null;
+	}
+
+	private String getParentNodePath(String currentNodePath)
+	{
+		String[] split = currentNodePath.split(ESCAPED_NODEPATH_SEPARATOR);
+		if (split.length > 0)
+		{
+			return join(of(split).limit(split.length - 1).collect(toList()), NODEPATH_SEPARATOR);
+		}
+		return StringUtils.EMPTY;
+	}
+
+	// Iterable<OntologyTerm> parentOntologyTermStream(Entity ontologyEntity, final String parentNodePath,
+	// BiPredicate<OntologyTerm, OntologyTerm> continuePredicate)
+	// {
+	// Query query = new QueryImpl(
+	// new QueryRule(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, FUZZY_MATCH, "\"" + parentNodePath + "\""))
+	// .and().eq(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
+	//
+	// Stream<Entity> ontologyTermEntityStream = dataService.findAll(OntologyTermMetaData.ENTITY_NAME, query);
+	//
+	// return ontologyTermIterable;
+	// }
 
 	private static OntologyTerm toOntologyTerm(Entity entity)
 	{

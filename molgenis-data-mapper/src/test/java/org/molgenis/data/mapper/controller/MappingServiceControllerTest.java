@@ -19,7 +19,7 @@ import org.molgenis.auth.MolgenisUser;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.jobs.JobExecution.Status;
-import org.molgenis.data.mapper.jobs.MappingServiceJobExecution;
+import org.molgenis.data.mapper.jobs.mappingservice.MappingServiceJobExecution;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping;
 import org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState;
 import org.molgenis.data.mapper.mapping.model.EntityMapping;

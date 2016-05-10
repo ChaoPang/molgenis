@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
@@ -72,25 +73,21 @@ public class DataDiscoveryController extends MolgenisPluginController
 	{
 		Map<String, List<ExplainedAttributeMetaData>> searchResult = new LinkedHashMap<>();
 		List<EntityMetaData> readableEntityMetaDatas = getReadableEntityMetaDatas();
+
 		if (isNotBlank(searchTerm))
 		{
-			for (EntityMetaData sourceEntityMetaData : readableEntityMetaDatas)
-			{
-				DefaultAttributeMetaData attributeMetaData = new DefaultAttributeMetaData(searchTerm);
-				QueryExpansionParameter create = QueryExpansionParameter.create(true, true,
-						Integer.parseInt(ontologyLevel));
-				SemanticSearchParameter semanticSearchParameters = SemanticSearchParameter.create(attributeMetaData,
-						emptySet(), null, sourceEntityMetaData, exactMatch, create);
+			DefaultAttributeMetaData attributeMetaData = new DefaultAttributeMetaData(searchTerm);
+			QueryExpansionParameter create = QueryExpansionParameter.create(true, true,
+					Integer.parseInt(ontologyLevel));
 
-				List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations = explainAttributes(
-						semanticSearchParameters, semanticSearchService.findAttributes(semanticSearchParameters));
+			SemanticSearchParameter semanticSearchParameters = SemanticSearchParameter.create(attributeMetaData,
+					emptySet(), null, readableEntityMetaDatas, exactMatch, create);
 
-				if (findAttributesLazyWithExplanations.size() > 0)
-				{
-					searchResult.put(sourceEntityMetaData.getName(), findAttributesLazyWithExplanations);
-				}
-			}
+			searchResult = semanticSearchService.findMultiEntityAttributes(semanticSearchParameters).entrySet().stream()
+					.collect(Collectors.toMap(entry -> entry.getKey().getName(),
+							entry -> explainAttributes(semanticSearchParameters, entry.getValue())));
 		}
+
 		model.addAttribute("entityMetaDatas", readableEntityMetaDatas);
 		model.addAttribute("searchResult", searchResult);
 		return VIEW_DATA_DISCOVERY;
