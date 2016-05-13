@@ -404,6 +404,7 @@ public class SemanticSearchServiceUtils
 		}
 
 		Multimap<String, Hit<OntologyTerm>> combiniationGroupWithSameJoinedSynonym = LinkedHashMultimap.create();
+
 		ontologyTermHits.forEach(hit -> combiniationGroupWithSameJoinedSynonym.put(hit.getResult().getJoinedSynonym(),
 				Hit.create(hit.getResult().getOntologyTerm(), hit.getScore())));
 
@@ -447,14 +448,14 @@ public class SemanticSearchServiceUtils
 			float score = ontologyTermHits.get(0).getScore();
 
 			// Put ontologyTerms with the same synonym in a map
-			Multimap<OntologyTerm, OntologyTerm> ontologyTermGroups = groupOntologyTermsBySynonym(
-					ontologyTermHits);
+			Multimap<OntologyTerm, OntologyTerm> ontologyTermGroups = groupOntologyTermsBySynonym(ontologyTermHits);
 
 			Set<OntologyTerm> ontologyTermGroupKeys = ontologyTermGroups.keySet();
 
 			if (ontologyTermGroupKeys.size() > 1)
 			{
-				Map<OntologyTerm, Float> ontologyTermGroupWeight = calculateBoostValueForOntologyTermGroup(ontologyTermGroups);
+				Map<OntologyTerm, Float> ontologyTermGroupWeight = calculateBoostValueForOntologyTermGroup(
+						ontologyTermGroups);
 
 				Function<OntologyTerm, QueryRule> ontologyTermGroupToQueryRule = groupKey -> {
 
@@ -501,8 +502,7 @@ public class SemanticSearchServiceUtils
 				.collect(toMap(Entry::getKey, e -> new Float(e.getValue() / maxIdfValue)));
 	}
 
-	private Multimap<OntologyTerm, OntologyTerm> groupOntologyTermsBySynonym(
-			List<Hit<OntologyTerm>> ontologyTermHits)
+	private Multimap<OntologyTerm, OntologyTerm> groupOntologyTermsBySynonym(List<Hit<OntologyTerm>> ontologyTermHits)
 	{
 		Multimap<OntologyTerm, OntologyTerm> multiMap = LinkedHashMultimap.create();
 		ontologyService.getAtomicOntologyTerms(ontologyTermHits.get(0).getResult()).forEach(ot -> multiMap.put(ot, ot));
@@ -593,10 +593,15 @@ public class SemanticSearchServiceUtils
 					.stream().map(query -> parseBoostQueryString(query,
 							pow(0.5, ontologyService.getOntologyTermDistance(ontologyTerm, child))));
 
-			List<String> collect = ontologyService.getChildren(ontologyTerm, predicate).stream()
-					.flatMap(mapChildOntologyTermToQueries).collect(Collectors.toList());
+			List<String> queryTermsFromChildOntologyTerms = ontologyService.getChildren(ontologyTerm, predicate)
+					.stream().flatMap(mapChildOntologyTermToQueries).collect(Collectors.toList());
 
-			queryTerms.addAll(collect);
+			queryTerms.addAll(queryTermsFromChildOntologyTerms);
+
+			List<String> queryTermsFromParentOntologyTerms = ontologyService.getParents(ontologyTerm, predicate)
+					.stream().flatMap(mapChildOntologyTermToQueries).collect(Collectors.toList());
+
+			queryTerms.addAll(queryTermsFromParentOntologyTerms);
 		}
 
 		return queryTerms;

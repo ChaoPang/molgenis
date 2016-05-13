@@ -141,4 +141,6 @@ public interface OntologyService
 	 * @return
 	 */
 	Double getOntologyTermLexicalSimilarity(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2);
+
+	List<OntologyTerm> getParents(OntologyTerm ontologyTerm, OntologyTermChildrenPredicate continuePredicate);
 }

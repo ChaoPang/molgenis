@@ -457,24 +457,33 @@ public class OntologyTermRepository
 		return ontologyTermIterable;
 	}
 
-	public Stream<OntologyTerm> getParents(OntologyTerm ontologyTerm, OntologyTermChildrenPredicate continuePredicate)
+	public List<OntologyTerm> getParents(OntologyTerm ontologyTerm, OntologyTermChildrenPredicate continuePredicate)
 	{
-		return StreamSupport.stream(getParentsByPredicate(ontologyTerm, continuePredicate).spliterator(), false);
-	}
+		List<OntologyTerm> parentOntologyTerms = new ArrayList<>();
 
-	private Iterable<OntologyTerm> getParentsByPredicate(OntologyTerm ontologyTerm,
-			OntologyTermChildrenPredicate continuePredicate)
-	{
 		List<String> nodePaths = ontologyTerm.getNodePaths();
-		List<String> totalNodePaths = new ArrayList<>();
+
 		for (int i = 0; i < continuePredicate.getSearchLevel(); i++)
 		{
 			nodePaths = nodePaths.stream().map(this::getParentNodePath).filter(StringUtils::isNotBlank)
 					.collect(toList());
-			totalNodePaths.addAll(nodePaths);
+
+			List<String> parentNodePathEntityIdentifiers = nodePaths.stream()
+					.map(nodePath -> dataService.findOne(OntologyTermNodePathMetaData.ENTITY_NAME,
+							QueryImpl.EQ(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH, nodePath)))
+					.map(entity -> entity.getString(OntologyTermNodePathMetaData.ID)).collect(Collectors.toList());
+
+			List<OntologyTerm> ontologyTerms = dataService
+					.findAll(OntologyTermMetaData.ENTITY_NAME,
+							QueryImpl.IN(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, parentNodePathEntityIdentifiers))
+					.map(OntologyTermRepository::toOntologyTerm).collect(toList());
+
+			nodePaths = ontologyTerms.stream().flatMap(ot -> ot.getNodePaths().stream()).collect(Collectors.toList());
+
+			parentOntologyTerms.addAll(ontologyTerms);
 		}
 
-		return null;
+		return parentOntologyTerms;
 	}
 
 	private String getParentNodePath(String currentNodePath)
@@ -486,18 +495,6 @@ public class OntologyTermRepository
 		}
 		return StringUtils.EMPTY;
 	}
-
-	// Iterable<OntologyTerm> parentOntologyTermStream(Entity ontologyEntity, final String parentNodePath,
-	// BiPredicate<OntologyTerm, OntologyTerm> continuePredicate)
-	// {
-	// Query query = new QueryImpl(
-	// new QueryRule(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, FUZZY_MATCH, "\"" + parentNodePath + "\""))
-	// .and().eq(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
-	//
-	// Stream<Entity> ontologyTermEntityStream = dataService.findAll(OntologyTermMetaData.ENTITY_NAME, query);
-	//
-	// return ontologyTermIterable;
-	// }
 
 	private static OntologyTerm toOntologyTerm(Entity entity)
 	{

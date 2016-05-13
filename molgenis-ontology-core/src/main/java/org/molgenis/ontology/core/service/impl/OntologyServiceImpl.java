@@ -135,6 +135,12 @@ public class OntologyServiceImpl implements OntologyService
 	}
 
 	@Override
+	public List<OntologyTerm> getParents(OntologyTerm ontologyTerm, OntologyTermChildrenPredicate continuePredicate)
+	{
+		return ontologyTermRepository.getParents(ontologyTerm, continuePredicate);
+	}
+
+	@Override
 	public List<OntologyTerm> getLevelThreeChildren(OntologyTerm ontologyTerm)
 	{
 		OntologyTermChildrenPredicate continuePredicate = createRetrieveLevelThreePredicate(this);
