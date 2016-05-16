@@ -152,6 +152,15 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		}
 		else ontologyTermHits = emptyList();
 
+		return findAttributes(queryTerms, ontologyTermHits, ontologyExpansionParameters, sourceEntityMetaDatas);
+	}
+
+	@Override
+	public Map<EntityMetaData, List<AttributeMetaData>> findAttributes(Set<String> queryTerms,
+			List<Hit<OntologyTermHit>> ontologyTermHits, QueryExpansionParameter ontologyExpansionParameters,
+			List<EntityMetaData> sourceEntityMetaDatas)
+	{
+
 		QueryRule disMaxQueryRule = semanticSearchServiceUtils.createDisMaxQueryRule(queryTerms, ontologyTermHits,
 				ontologyExpansionParameters);
 
@@ -180,7 +189,6 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 				matchedAttributes.put(sourceEntityMetaData, attributes);
 			}
-
 			return matchedAttributes;
 		}
 

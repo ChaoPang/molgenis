@@ -9,6 +9,8 @@ import org.molgenis.data.semanticsearch.semantic.OntologyTag;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
 
+import com.google.common.collect.Multimap;
+
 public interface OntologyTagService extends TagService<OntologyTerm, Ontology>
 {
 
@@ -21,4 +23,7 @@ public interface OntologyTagService extends TagService<OntologyTerm, Ontology>
 
 	public Map<String, List<OntologyTerm>> getTagsForAttributes(EntityMetaData entityMetaData,
 			List<AttributeMetaData> attributes);
+
+	public Multimap<String, OntologyTag> batchTagAttributesInEntity(String entity,
+			Multimap<AttributeMetaData, OntologyTerm> attributeTags);
 }

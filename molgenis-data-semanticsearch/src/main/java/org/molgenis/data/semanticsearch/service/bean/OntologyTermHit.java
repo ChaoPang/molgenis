@@ -9,12 +9,14 @@ import com.google.auto.value.AutoValue;
 @AutoGson(autoValueClass = AutoValue_OntologyTermHit.class)
 public abstract class OntologyTermHit
 {
-	public static OntologyTermHit create(OntologyTerm ontologyTerm, String joinedSynonym)
+	public static OntologyTermHit create(OntologyTerm ontologyTerm, String joinedSynonym, String matchedWords)
 	{
-		return new AutoValue_OntologyTermHit(ontologyTerm, joinedSynonym);
+		return new AutoValue_OntologyTermHit(ontologyTerm, joinedSynonym, matchedWords);
 	}
 
 	public abstract OntologyTerm getOntologyTerm();
 
 	public abstract String getJoinedSynonym();
+
+	public abstract String getMatchedWords();
 }

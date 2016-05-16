@@ -1,6 +1,7 @@
 package org.molgenis.data.mapper.controller;
 
 import static com.google.common.collect.Iterables.size;
+import static java.lang.Integer.parseInt;
 import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
@@ -68,7 +69,7 @@ public class DataDiscoveryController extends MolgenisPluginController
 
 	@RequestMapping(method = RequestMethod.POST, value = "/searchTerm")
 	public String searchItems(@RequestParam(required = false) boolean exactMatch,
-			@RequestParam(required = true) String searchTerm, @RequestParam(required = true) String entityNames,
+			@RequestParam(required = true) String searchTerm, @RequestParam(required = false) String[] entityNames,
 			@RequestParam(required = true) String ontologyLevel, Model model)
 	{
 		Map<String, List<ExplainedAttributeMetaData>> searchResult = new LinkedHashMap<>();
@@ -77,8 +78,7 @@ public class DataDiscoveryController extends MolgenisPluginController
 		if (isNotBlank(searchTerm))
 		{
 			DefaultAttributeMetaData attributeMetaData = new DefaultAttributeMetaData(searchTerm);
-			QueryExpansionParameter create = QueryExpansionParameter.create(true, true,
-					Integer.parseInt(ontologyLevel));
+			QueryExpansionParameter create = QueryExpansionParameter.create(true, true, parseInt(ontologyLevel));
 
 			SemanticSearchParameter semanticSearchParameters = SemanticSearchParameter.create(attributeMetaData,
 					emptySet(), null, readableEntityMetaDatas, exactMatch, create);

@@ -1,12 +1,16 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.molgenis.data.meta.EntityMetaDataMetaData.ATTRIBUTES;
 import static org.molgenis.data.meta.EntityMetaDataMetaData.ENTITY_NAME;
+import static org.molgenis.data.semantic.Relation.isAssociatedWith;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +49,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
@@ -200,6 +205,7 @@ public class OntologyTagServiceImpl implements OntologyTagService
 		tagEntity.set(TagMetaData.RELATION_LABEL, relation.getLabel());
 		tagEntity.set(TagMetaData.LABEL, combinedOntologyTerm.getLabel());
 		tagEntity.set(TagMetaData.OBJECT_IRI, combinedOntologyTerm.getIRI());
+
 		dataService.add(TagMetaData.ENTITY_NAME, tagEntity);
 
 		Map<String, Entity> tags = Maps.<String, Entity> newHashMap();
@@ -245,13 +251,88 @@ public class OntologyTagServiceImpl implements OntologyTagService
 		Map<String, OntologyTag> result = new LinkedHashMap<>();
 		for (Entry<AttributeMetaData, OntologyTerm> tag : tags.entrySet())
 		{
-
 			OntologyTerm ontologyTerm = tag.getValue();
 			OntologyTag ontologyTag = addAttributeTag(entity, tag.getKey().getName(),
 					Relation.isAssociatedWith.getIRI(), Collections.singletonList(ontologyTerm.getIRI()));
 			result.put(tag.getKey().getName(), ontologyTag);
 		}
 		return result;
+	}
+
+	@Override
+	public Multimap<String, OntologyTag> batchTagAttributesInEntity(String entity,
+			Multimap<AttributeMetaData, OntologyTerm> attributeTags)
+	{
+		Multimap<String, OntologyTag> result = LinkedListMultimap.create();
+		List<Entity> allTagEntities = new ArrayList<>();
+		Map<String, Entity> attributeEntities = new HashMap<>();
+
+		for (AttributeMetaData attribute : attributeTags.keySet())
+		{
+			Entity attributeEntity = findAttributeEntity(entity, attribute.getName());
+
+			List<Entity> tagEntities = attributeTags.get(attribute).stream().map(ot -> createTagEntity(entity,
+					attribute.getName(), isAssociatedWith.getIRI(), singletonList(ot.getIRI()))).collect(toList());
+
+			List<Entity> newTagEntities = tagEntities.stream()
+					.flatMap(tagEntity -> findNonExistentTags(tagEntity, attributeEntity).stream())
+					.collect(Collectors.toList());
+
+			attributeEntity.set(AttributeMetaDataMetaData.TAGS, newTagEntities);
+			attributeEntities.put(attribute.getName(), attributeEntity);
+			allTagEntities.addAll(tagEntities);
+
+			List<OntologyTag> collect = attributeTags.get(attribute).stream()
+					.map(ot -> OntologyTag.create(ot, isAssociatedWith)).collect(Collectors.toList());
+			result.putAll(attribute.getName(), collect);
+		}
+
+		dataService.add(TagMetaData.ENTITY_NAME, allTagEntities.stream());
+		dataService.update(AttributeMetaDataMetaData.ENTITY_NAME, attributeEntities.values().stream());
+
+		Entity entityEntity = dataService.findOne(EntityMetaDataMetaData.ENTITY_NAME, entity);
+		Iterable<Entity> attributes = entityEntity.getEntities(ATTRIBUTES);
+
+		entityEntity.set(ATTRIBUTES,
+				stream(attributes.spliterator(), false)
+						.map(attr -> attributeEntities.containsKey(attr.getString(AttributeMetaDataMetaData.NAME))
+								? attributeEntities.get(attr.getString(AttributeMetaDataMetaData.NAME)) : attr)
+				.collect(toList()));
+		dataService.update(EntityMetaDataMetaData.ENTITY_NAME, entityEntity);
+
+		return result;
+	}
+
+	private List<Entity> findNonExistentTags(Entity tagEntity, Entity attributeEntity)
+	{
+		Map<String, Entity> tags = Maps.<String, Entity> newHashMap();
+
+		for (Entity tag : attributeEntity.getEntities(AttributeMetaDataMetaData.TAGS))
+		{
+			tags.put(tag.get(TagMetaData.OBJECT_IRI).toString(), tag);
+		}
+		if (!tags.containsKey(tagEntity.get(TagMetaData.OBJECT_IRI).toString()))
+		{
+			tags.put(tagEntity.get(TagMetaData.OBJECT_IRI).toString(), tagEntity);
+		}
+
+		return Lists.newArrayList(tags.values());
+	}
+
+	private Entity createTagEntity(String entity, String attribute, String relationIRI, List<String> ontologyTermIRIs)
+	{
+		Entity attributeEntity = findAttributeEntity(entity, attribute);
+		Entity tagEntity = new DefaultEntity(TagRepository.META_DATA, dataService);
+		Stream<OntologyTerm> terms = ontologyTermIRIs.stream().map(ontologyService::getOntologyTerm);
+		OntologyTerm combinedOntologyTerm = OntologyTerm.and(terms.toArray(OntologyTerm[]::new));
+		Relation relation = Relation.forIRI(relationIRI);
+		tagEntity.set(TagMetaData.IDENTIFIER, idGenerator.generateId());
+		tagEntity.set(TagMetaData.CODE_SYSTEM, null);
+		tagEntity.set(TagMetaData.RELATION_IRI, relation.getIRI());
+		tagEntity.set(TagMetaData.RELATION_LABEL, relation.getLabel());
+		tagEntity.set(TagMetaData.LABEL, combinedOntologyTerm.getLabel());
+		tagEntity.set(TagMetaData.OBJECT_IRI, combinedOntologyTerm.getIRI());
+		return attributeEntity;
 	}
 
 	@Override

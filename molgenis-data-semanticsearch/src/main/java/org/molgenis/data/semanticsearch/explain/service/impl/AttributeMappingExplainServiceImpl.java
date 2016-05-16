@@ -53,7 +53,8 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	private final SemanticSearchServiceUtils semanticSearchServiceUtils;
 	private final Joiner termJoiner = Joiner.on(' ');
 	private final static float HIGH_QUALITY_THRESHOLD = 0.85f;
-	private final static OntologyTermHit EMPTY_ONTOLOGYTERM_HIT = OntologyTermHit.create(create(EMPTY, EMPTY), EMPTY);
+	private final static OntologyTermHit EMPTY_ONTOLOGYTERM_HIT = OntologyTermHit.create(create(EMPTY, EMPTY), EMPTY,
+			EMPTY);
 
 	private static final Logger LOG = LoggerFactory.getLogger(AttributeMappingExplainServiceImpl.class);
 
@@ -118,8 +119,8 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		String bestMatchingQuery = targetQueryTermHit.getScore() >= ontologyTermHit.getScore()
 				? targetQueryTermHit.getResult() : ontologyTermHit.getResult().getJoinedSynonym();
 
-		String queryOrigin = targetQueryTermHit.getScore() >= ontologyTermHit.getScore()
-				? targetQueryTermHit.getResult() : ontologyTermHit.getResult().getOntologyTerm().getLabel();
+		OntologyTerm tagName = targetQueryTermHit.getScore() >= ontologyTermHit.getScore() ? null
+				: ontologyTermHit.getResult().getOntologyTerm();
 
 		Set<String> bestMatchingQueryStemmedWords = Stemmer.splitAndStem(bestMatchingQuery);
 
@@ -132,7 +133,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		Set<String> matchedWords = findMatchedWords(bestMatchingQuery, bestMatchingSourceQueryTerm);
 
 		ExplainedQueryString explainedQueryString = ExplainedQueryString.create(termJoiner.join(matchedWords),
-				bestMatchingQuery, queryOrigin, 0.0f);
+				bestMatchingQuery, tagName, 0.0f);
 
 		return ExplainedAttributeMetaData.create(matchedSourceAttribute, explainedQueryString, isHighQuality);
 	}
@@ -158,8 +159,8 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 
 		// Here we check if the source attribute is matched with the original target queries or the expanded
 		// ontology term queries.
-		String queryOrigin = targetQueryTermHit.getScore() >= ontologyTermHit.getScore()
-				? targetQueryTermHit.getResult() : ontologyTermHit.getResult().getOntologyTerm().getLabel();
+		OntologyTerm tagName = targetQueryTermHit.getScore() >= ontologyTermHit.getScore() ? null
+				: ontologyTermHit.getResult().getOntologyTerm();
 
 		// Here we get the best matching query depending on the origin of the query.
 		String bestMatchingQuery = targetQueryTermHit.getScore() >= ontologyTermHit.getScore()
@@ -174,8 +175,8 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		// We get the matched words for the source attribute.
 		List<String> matchedWords = getMatchedWords(bestMatchingQuery, queriesFromSourceAttribute);
 
-		ExplainedQueryString explainedQueryString = create(termJoiner.join(matchedWords), bestMatchingQuery,
-				queryOrigin, score);
+		ExplainedQueryString explainedQueryString = create(termJoiner.join(matchedWords), bestMatchingQuery, tagName,
+				score);
 
 		return ExplainedAttributeMetaData.create(matchedSourceAttribute, explainedQueryString, isHighQuality);
 	}
@@ -238,9 +239,10 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 			if (max.isPresent())
 			{
 				Hit<String> joinedSynonymHit = max.get();
-				Hit<OntologyTermHit> create = Hit.create(
-						OntologyTermHit.create(hit.getResult().getOntologyTerm(), joinedSynonymHit.getResult()),
-						joinedSynonymHit.getScore());
+				String matchedWords = termJoiner
+						.join(getMatchedWords(joinedSynonymHit.getResult(), Sets.newHashSet(sourceLabel)));
+				Hit<OntologyTermHit> create = Hit.create(OntologyTermHit.create(hit.getResult().getOntologyTerm(),
+						joinedSynonymHit.getResult(), matchedWords), joinedSynonymHit.getScore());
 				return create;
 			}
 		}

@@ -1,6 +1,7 @@
 package org.molgenis.data.semanticsearch.explain.bean;
 
 import org.molgenis.gson.AutoGson;
+import org.molgenis.ontology.core.model.OntologyTerm;
 
 import com.google.auto.value.AutoValue;
 
@@ -12,12 +13,13 @@ public abstract class ExplainedQueryString
 
 	public abstract String getQueryString();
 
-	public abstract String getTagName();
+	public abstract OntologyTerm getOntologyTerm();
 
 	public abstract float getScore();
 
-	public static ExplainedQueryString create(String matchedWords, String queryString, String tagName, float score)
+	public static ExplainedQueryString create(String matchedWords, String queryString, OntologyTerm ontologyTerm,
+			float score)
 	{
-		return new AutoValue_ExplainedQueryString(matchedWords, queryString, tagName, score);
+		return new AutoValue_ExplainedQueryString(matchedWords, queryString, ontologyTerm, score);
 	}
 }

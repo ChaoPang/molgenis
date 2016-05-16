@@ -89,7 +89,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -501,8 +500,7 @@ public class SortaServiceController extends MolgenisPluginController
 			return matchTask(model);
 		}
 
-		SortaJobExecution jobExecution = createJobExecution(inputRepository, jobName, ontologyIri,
-				SecurityContextHolder.getContext());
+		SortaJobExecution jobExecution = createJobExecution(inputRepository, jobName, ontologyIri);
 		SortaJobImpl sortaMatchJob = sortaMatchJobFactory.create(jobExecution);
 		taskExecutor.submit(sortaMatchJob);
 
@@ -525,8 +523,7 @@ public class SortaServiceController extends MolgenisPluginController
 		return jobs;
 	}
 
-	private SortaJobExecution createJobExecution(Repository inputData, String jobName, String ontologyIri,
-			SecurityContext securityContext)
+	private SortaJobExecution createJobExecution(Repository inputData, String jobName, String ontologyIri)
 	{
 		String resultEntityName = idGenerator.generateId();
 

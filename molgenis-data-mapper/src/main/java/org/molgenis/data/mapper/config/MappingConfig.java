@@ -9,13 +9,11 @@ import org.molgenis.data.mapper.repository.impl.EntityMappingRepositoryImpl;
 import org.molgenis.data.mapper.repository.impl.MappingProjectRepositoryImpl;
 import org.molgenis.data.mapper.repository.impl.MappingTargetRepositoryImpl;
 import org.molgenis.data.mapper.service.AlgorithmService;
-import org.molgenis.data.mapper.service.MappingNetworkService;
 import org.molgenis.data.mapper.service.MappingService;
 import org.molgenis.data.mapper.service.UnitResolver;
 import org.molgenis.data.mapper.service.impl.AlgorithmServiceImpl;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplateServiceImpl;
-import org.molgenis.data.mapper.service.impl.MappingNetworkServiceImpl;
 import org.molgenis.data.mapper.service.impl.MappingServiceImpl;
 import org.molgenis.data.mapper.service.impl.UnitResolverImpl;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
@@ -121,11 +119,5 @@ public class MappingConfig
 	public UnitResolver unitResolver()
 	{
 		return new UnitResolverImpl(ontologyService);
-	}
-
-	@Bean
-	public MappingNetworkService mappingNetworkService()
-	{
-		return new MappingNetworkServiceImpl(semanticSearchService, attributeMappingExplainService);
 	}
 }

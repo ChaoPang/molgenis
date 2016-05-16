@@ -2,12 +2,14 @@ package org.molgenis.data.semanticsearch.service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
+import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
 import org.molgenis.ontology.core.model.OntologyTerm;
 
@@ -37,6 +39,10 @@ public interface SemanticSearchService
 
 	Map<EntityMetaData, List<AttributeMetaData>> findMultiEntityAttributes(
 			SemanticSearchParameter semanticSearchParameters);
+
+	Map<EntityMetaData, List<AttributeMetaData>> findAttributes(Set<String> queryTerms,
+			List<Hit<OntologyTermHit>> ontologyTermHits, QueryExpansionParameter ontologyExpansionParameters,
+			List<EntityMetaData> sourceEntityMetaDatas);
 
 	/**
 	 * Finds {@link OntologyTerm}s that can be used to tag an attribute.
@@ -74,4 +80,5 @@ public interface SemanticSearchService
 	List<Hit<OntologyTermHit>> findAllTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds);
 
 	List<Hit<OntologyTermHit>> findAllTags(String description, List<String> ontologyIds);
+
 }

@@ -108,7 +108,8 @@ public class SemanticSearchServiceUtils
 			if (!tagsForAttribute.isEmpty())
 			{
 				return tagsForAttribute.values().stream()
-						.map(ot -> Hit.create(OntologyTermHit.create(ot, ot.getLabel()), 1.0f)).collect(toList());
+						.map(ot -> Hit.create(OntologyTermHit.create(ot, ot.getLabel(), ot.getLabel()), 1.0f))
+						.collect(toList());
 			}
 		}
 
@@ -196,8 +197,19 @@ public class SemanticSearchServiceUtils
 	private Hit<OntologyTermHit> createOntologyTermHit(Set<String> stemmedSearchTerms, OntologyTerm ontologyTerm)
 	{
 		Hit<String> bestMatchingSynonym = bestMatchingSynonym(ontologyTerm, stemmedSearchTerms);
-		OntologyTermHit candidate = OntologyTermHit.create(ontologyTerm, bestMatchingSynonym.getResult());
+		Set<String> matchedWords = getMatchedWords(termJoiner.join(stemmedSearchTerms),
+				bestMatchingSynonym.getResult());
+		OntologyTermHit candidate = OntologyTermHit.create(ontologyTerm, bestMatchingSynonym.getResult(),
+				termJoiner.join(matchedWords));
 		return Hit.<OntologyTermHit> create(candidate, bestMatchingSynonym.getScore());
+	}
+
+	private Set<String> getMatchedWords(String join, String result)
+	{
+		Set<String> splitAndStem = Stemmer.splitAndStem(join);
+		Set<String> splitAndStem2 = Stemmer.splitAndStem(result);
+		splitAndStem.retainAll(splitAndStem2);
+		return splitAndStem;
 	}
 
 	private boolean filterOntologyTerm(Set<String> keywordsFromAttribute, OntologyTerm ontologyTerm)
@@ -296,9 +308,10 @@ public class SemanticSearchServiceUtils
 			}
 
 			String joinedSynonym = termJoiner.join(potentialCombinations.keySet());
+			String matchedWords = termJoiner.join(getMatchedWords(termJoiner.join(searchTerms), joinedSynonym));
 
 			List<Hit<OntologyTermHit>> collect = createOntologyTermPairwiseCombination(potentialCombinations).stream()
-					.map(ontologyTerm -> Hit.create(OntologyTermHit.create(ontologyTerm, joinedSynonym),
+					.map(ontologyTerm -> Hit.create(OntologyTermHit.create(ontologyTerm, joinedSynonym, matchedWords),
 							distanceFrom(joinedSynonym, searchTerms)))
 					.collect(toList());
 
