@@ -12,7 +12,7 @@ public interface BiobankUniverseService
 
 	public abstract BiobankUniverse createBiobankUniverse(String universeName, MolgenisUser owner);
 
-	public abstract List<BiobankUniverse> getAllUniverses();
+	public abstract List<BiobankUniverse> getBiobankUniverses();
 
-	public abstract BiobankUniverse getUniverse(String identifier);
+	public abstract BiobankUniverse getBiobankUniverse(String identifier);
 }

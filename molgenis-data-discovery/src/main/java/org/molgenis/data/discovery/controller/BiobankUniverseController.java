@@ -82,7 +82,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 			submit(universe, collect);
 		}
 
-		model.addAttribute("biobankUniverses", biobankUniverseService.getAllUniverses());
+		model.addAttribute("biobankUniverses", biobankUniverseService.getBiobankUniverses());
 
 		return VIEW_NAME;
 	}
@@ -97,7 +97,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 	public String addMembers(@RequestParam(required = true) String biobankUniverseId,
 			@RequestParam(required = false) String[] entityNames, Model model)
 	{
-		BiobankUniverse universe = biobankUniverseService.getUniverse(biobankUniverseId);
+		BiobankUniverse universe = biobankUniverseService.getBiobankUniverse(biobankUniverseId);
 
 		if (universe != null && entityNames != null)
 		{

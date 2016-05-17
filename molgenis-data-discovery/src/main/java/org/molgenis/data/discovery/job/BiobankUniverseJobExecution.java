@@ -39,7 +39,7 @@ public class BiobankUniverseJobExecution extends JobExecution
 	public BiobankUniverse getUniverse()
 	{
 		Entity biobankUniverseEntity = getEntity(UNIVERSE);
-		return biobankUniverseService.getUniverse(biobankUniverseEntity.getIdValue().toString());
+		return biobankUniverseService.getBiobankUniverse(biobankUniverseEntity.getIdValue().toString());
 	}
 
 	public void setUniverse(BiobankUniverse biobankUniverse)

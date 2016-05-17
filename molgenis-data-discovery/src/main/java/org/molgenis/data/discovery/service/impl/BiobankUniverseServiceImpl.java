@@ -1,6 +1,7 @@
 package org.molgenis.data.discovery.service.impl;
 
 import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
 
 import java.util.List;
 
@@ -9,10 +10,14 @@ import org.molgenis.data.DataService;
 import org.molgenis.data.IdGenerator;
 import org.molgenis.data.discovery.model.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.BiobankUniverse;
+import org.molgenis.data.discovery.model.TaggedAttribute;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
+import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
+import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
+import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -41,30 +46,38 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	}
 
 	@Override
-	public List<AttributeMappingCandidate> findAttributeMappingCandidates(String queryTerm)
-	{
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
 	public BiobankUniverse createBiobankUniverse(String universeName, MolgenisUser owner)
 	{
 		BiobankUniverse biobankUniverse = BiobankUniverse.create(idGenerator.generateId(), universeName, emptyList(),
 				owner);
-		biobankUniverseRepository.createBiobankUniverse(biobankUniverse);
+		biobankUniverseRepository.addBiobankUniverse(biobankUniverse);
 		return biobankUniverse;
 	}
 
 	@Override
-	public List<BiobankUniverse> getAllUniverses()
+	public List<BiobankUniverse> getBiobankUniverses()
 	{
 		return biobankUniverseRepository.getAllUniverses();
 	}
 
 	@Override
-	public BiobankUniverse getUniverse(String identifier)
+	public BiobankUniverse getBiobankUniverse(String identifier)
 	{
 		return biobankUniverseRepository.getUniverse(identifier);
+	}
+
+	@Override
+	public List<AttributeMappingCandidate> findAttributeMappingCandidates(String queryTerm)
+	{
+		List<Hit<OntologyTermHit>> findAllTags = semanticSearchService.findAllTags(queryTerm,
+				ontologyService.getAllOntologiesIds());
+
+		List<OntologyTerm> ontologyTerms = findAllTags.stream()
+				.flatMap(hit -> ontologyService.getAtomicOntologyTerms(hit.getResult().getOntologyTerm()).stream())
+				.collect(toList());
+
+		List<TaggedAttribute> taggedAttributes = biobankUniverseRepository.findTaggedAttributes(ontologyTerms);
+
+		return null;
 	}
 }

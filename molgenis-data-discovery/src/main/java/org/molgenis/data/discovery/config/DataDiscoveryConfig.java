@@ -3,41 +3,47 @@ package org.molgenis.data.discovery.config;
 import org.molgenis.data.DataService;
 import org.molgenis.data.IdGenerator;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
+import org.molgenis.data.discovery.repo.impl.BiobankUniverseRepositoryImpl;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.discovery.service.impl.BiobankUniverseServiceImpl;
+import org.molgenis.data.semanticsearch.config.SemanticSearchConfig;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
+import org.molgenis.ontology.core.config.OntologyConfig;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.security.user.MolgenisUserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Configurable;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
-@Configurable
+@Configuration
+@Import(
+{ OntologyConfig.class, SemanticSearchConfig.class })
 public class DataDiscoveryConfig
 {
 	@Autowired
-	private DataService dataService;
+	DataService dataService;
 
 	@Autowired
-	private OntologyService ontologyService;
+	OntologyService ontologyService;
 
 	@Autowired
-	private MolgenisUserService molgenisUserService;
+	MolgenisUserService molgenisUserService;
 
 	@Autowired
-	private IdGenerator idGenerator;
+	IdGenerator idGenerator;
 
 	@Autowired
-	private AttributeMappingExplainService attributeMappingExplainService;
+	AttributeMappingExplainService attributeMappingExplainService;
 
 	@Autowired
-	private SemanticSearchService semanticSearchService;
+	SemanticSearchService semanticSearchService;
 
 	@Bean
 	public BiobankUniverseRepository biobankUniverseRepository()
 	{
-		return new BiobankUniverseRepository(dataService, ontologyService, molgenisUserService);
+		return new BiobankUniverseRepositoryImpl(dataService, ontologyService, molgenisUserService);
 	}
 
 	@Bean
