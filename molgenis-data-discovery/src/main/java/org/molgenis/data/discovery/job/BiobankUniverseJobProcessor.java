@@ -26,7 +26,6 @@ import org.molgenis.data.meta.AttributeMetaDataMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
-import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
@@ -98,7 +97,7 @@ public class BiobankUniverseJobProcessor
 				for (AttributeMetaData targetAttribute : entityMetaData.getAtomicAttributes())
 				{
 					// tag the target attribute with ontology terms
-					List<Hit<OntologyTermHit>> ontologyTermHits = semanticSearchService
+					List<OntologyTermHit> ontologyTermHits = semanticSearchService
 							.findAllTagsForAttr(targetAttribute, ontologyService.getAllOntologiesIds()).stream()
 							.collect(Collectors.toList());
 
@@ -174,16 +173,15 @@ public class BiobankUniverseJobProcessor
 				ngramScore);
 	}
 
-	private List<MappingExplanation> createExplanations(List<Hit<OntologyTermHit>> ontologyTermHits)
+	private List<MappingExplanation> createExplanations(List<OntologyTermHit> ontologyTermHits)
 	{
 		List<MappingExplanation> explanations = new ArrayList<>();
-		for (Hit<OntologyTermHit> hit : ontologyTermHits)
+		for (OntologyTermHit hit : ontologyTermHits)
 		{
-			OntologyTerm ontologyTerm = hit.getResult().getOntologyTerm();
+			OntologyTerm ontologyTerm = hit.getOntologyTerm();
 			List<OntologyTerm> atomicOntologyTerms = ontologyService.getAtomicOntologyTerms(ontologyTerm);
 			MappingExplanation mappingExplanation = MappingExplanation.create(idGenerator.generateId(),
-					atomicOntologyTerms, hit.getResult().getJoinedSynonym(), hit.getResult().getMatchedWords(),
-					hit.getScore());
+					atomicOntologyTerms, hit.getJoinedSynonym(), hit.getMatchedWords(), hit.getScore());
 			explanations.add(mappingExplanation);
 		}
 		return explanations;

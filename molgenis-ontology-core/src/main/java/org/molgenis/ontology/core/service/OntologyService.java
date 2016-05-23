@@ -133,14 +133,5 @@ public interface OntologyService
 	 */
 	List<String> getAllOntologiesIds();
 
-	/**
-	 * Compute best lexical similarity score between two ontology terms
-	 * 
-	 * @param ontologyTerm1
-	 * @param ontologyTerm2
-	 * @return
-	 */
-	Double getOntologyTermLexicalSimilarity(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2);
-
 	List<OntologyTerm> getParents(OntologyTerm ontologyTerm, OntologyTermChildrenPredicate continuePredicate);
 }

@@ -1,4 +1,4 @@
-package org.molgenis.data.semanticsearch.string;
+package org.molgenis.data.semanticsearch.utils;
 
 import java.text.DecimalFormat;
 

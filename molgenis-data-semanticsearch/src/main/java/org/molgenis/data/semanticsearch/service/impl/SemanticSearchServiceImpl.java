@@ -7,8 +7,7 @@ import static org.molgenis.data.QueryRule.Operator.IN;
 import static org.molgenis.data.meta.AttributeMetaDataMetaData.ENTITY_NAME;
 import static org.molgenis.data.meta.AttributeMetaDataMetaData.IDENTIFIER;
 import static org.molgenis.data.semanticsearch.semantic.Hit.create;
-import static org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils.UNIT_ONTOLOGY_IRI;
-import static org.molgenis.data.semanticsearch.string.AttributeToMapUtil.explainedAttrToAttributeMetaData;
+import static org.molgenis.data.semanticsearch.utils.AttributeToMapUtil.explainedAttrToAttributeMetaData;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,19 +19,26 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.molgenis.MolgenisFieldTypes;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityMetaData;
+import org.molgenis.data.MolgenisDataAccessException;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
+import org.molgenis.data.meta.AttributeMetaDataMetaData;
+import org.molgenis.data.meta.EntityMetaDataMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
+import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
+import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
+import org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -45,20 +51,23 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 {
 	private final DataService dataService;
 	private final OntologyService ontologyService;
-	private final SemanticSearchServiceUtils semanticSearchServiceUtils;
+	private final TagGroupGenerator tagGroupGenerator;
+	private final QueryExpansionService queryExpansionService;
 	private final AttributeMappingExplainService attributeMappingExplainService;
 
 	public static final int MAX_NUMBER_ATTRIBTUES = 50;
 	public static final int NUMBER_OF_EXPLAINED_ATTRS = 5;
+	public static final String UNIT_ONTOLOGY_IRI = "http://purl.obolibrary.org/obo/uo.owl";
 
 	@Autowired
 	public SemanticSearchServiceImpl(DataService dataService, OntologyService ontologyService,
-			SemanticSearchServiceUtils semanticSearchServiceUtils,
+			TagGroupGenerator tagGroupGenerator, QueryExpansionService queryExpansionService,
 			AttributeMappingExplainService attributeMappingExplainService)
 	{
 		this.dataService = requireNonNull(dataService);
 		this.ontologyService = requireNonNull(ontologyService);
-		this.semanticSearchServiceUtils = requireNonNull(semanticSearchServiceUtils);
+		this.tagGroupGenerator = requireNonNull(tagGroupGenerator);
+		this.queryExpansionService = requireNonNull(queryExpansionService);
 		this.attributeMappingExplainService = requireNonNull(attributeMappingExplainService);
 	}
 
@@ -139,16 +148,16 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		QueryExpansionParameter ontologyExpansionParameters = semanticSearchParameters.getExpansionParameter();
 		boolean semanticSearchEnabled = ontologyExpansionParameters.isSemanticSearchEnabled();
 
-		Set<String> queryTerms = semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, userQueries);
+		Set<String> queryTerms = SemanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, userQueries);
 
-		List<Hit<OntologyTermHit>> ontologyTermHits;
+		List<OntologyTermHit> ontologyTermHits;
 		if (semanticSearchEnabled)
 		{
 			List<String> ontologyIds = ontologyService.getOntologies().stream()
 					.filter(ontology -> !ontology.getIRI().equals(UNIT_ONTOLOGY_IRI)).map(Ontology::getId)
 					.collect(Collectors.toList());
-			ontologyTermHits = semanticSearchServiceUtils.findOntologyTermsForAttr(targetAttribute,
-					targetEntityMetaData, userQueries, ontologyIds);
+			ontologyTermHits = tagGroupGenerator.findTagGroups(targetAttribute, targetEntityMetaData, userQueries,
+					ontologyIds);
 		}
 		else ontologyTermHits = emptyList();
 
@@ -157,11 +166,11 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 	@Override
 	public Map<EntityMetaData, List<AttributeMetaData>> findAttributes(Set<String> queryTerms,
-			List<Hit<OntologyTermHit>> ontologyTermHits, QueryExpansionParameter ontologyExpansionParameters,
+			List<OntologyTermHit> ontologyTermHits, QueryExpansionParameter ontologyExpansionParameters,
 			List<EntityMetaData> sourceEntityMetaDatas)
 	{
 
-		QueryRule disMaxQueryRule = semanticSearchServiceUtils.createDisMaxQueryRule(queryTerms, ontologyTermHits,
+		QueryRule disMaxQueryRule = queryExpansionService.expand(queryTerms, ontologyTermHits,
 				ontologyExpansionParameters);
 
 		if (disMaxQueryRule != null)
@@ -170,8 +179,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 			for (EntityMetaData sourceEntityMetaData : sourceEntityMetaDatas)
 			{
-				Iterable<String> attributeIdentifiers = semanticSearchServiceUtils
-						.getAttributeIdentifiers(sourceEntityMetaData);
+				Iterable<String> attributeIdentifiers = getAttributeIdentifiers(sourceEntityMetaData);
 
 				List<QueryRule> finalQueryRules = newArrayList(new QueryRule(IDENTIFIER, IN, attributeIdentifiers));
 
@@ -183,9 +191,8 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 				Stream<Entity> attributeMetaDataEntities = dataService.findAll(ENTITY_NAME,
 						new QueryImpl(finalQueryRules).pageSize(MAX_NUMBER_ATTRIBTUES));
 
-				List<AttributeMetaData> attributes = attributeMetaDataEntities.map(
-						entity -> semanticSearchServiceUtils.entityToAttributeMetaData(entity, sourceEntityMetaData))
-						.collect(toList());
+				List<AttributeMetaData> attributes = attributeMetaDataEntities
+						.map(entity -> entityToAttributeMetaData(entity, sourceEntityMetaData)).collect(toList());
 
 				matchedAttributes.put(sourceEntityMetaData, attributes);
 			}
@@ -214,30 +221,30 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	@Override
 	public Hit<OntologyTerm> findTagForAttr(AttributeMetaData attribute, List<String> ontologyIds)
 	{
-		List<Hit<OntologyTermHit>> ontologyTermHits = findAllTagsForAttr(attribute, ontologyIds);
-		return ontologyTermHits.stream().findFirst()
-				.map(otHit -> create(otHit.getResult().getOntologyTerm(), otHit.getScore())).orElse(null);
+		List<OntologyTermHit> ontologyTermHits = findAllTagsForAttr(attribute, ontologyIds);
+		return ontologyTermHits.stream().findFirst().map(otHit -> create(otHit.getOntologyTerm(), otHit.getScore()))
+				.orElse(null);
 	}
 
 	@Override
 	public Hit<OntologyTerm> findTag(String description, List<String> ontologyIds)
 	{
-		List<Hit<OntologyTermHit>> ontologyTermHits = findAllTags(description, ontologyIds);
-		return ontologyTermHits.stream().findFirst()
-				.map(otHit -> create(otHit.getResult().getOntologyTerm(), otHit.getScore())).orElse(null);
+		List<OntologyTermHit> ontologyTermHits = findAllTags(description, ontologyIds);
+		return ontologyTermHits.stream().findFirst().map(otHit -> create(otHit.getOntologyTerm(), otHit.getScore()))
+				.orElse(null);
 	}
 
 	@Override
-	public List<Hit<OntologyTermHit>> findAllTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds)
+	public List<OntologyTermHit> findAllTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds)
 	{
 		String description = attribute.getDescription() == null ? attribute.getLabel() : attribute.getDescription();
 		return findAllTags(description, ontologyIds);
 	}
 
 	@Override
-	public List<Hit<OntologyTermHit>> findAllTags(String description, List<String> ontologyIds)
+	public List<OntologyTermHit> findAllTags(String description, List<String> ontologyIds)
 	{
-		return semanticSearchServiceUtils.findOntologyTermsForQueryString(description, ontologyIds);
+		return tagGroupGenerator.findTagGroups(description, ontologyIds);
 	}
 
 	private boolean isCurrentMatchBadQuality(SemanticSearchParameter semanticSearchParameters,
@@ -281,4 +288,58 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 		return explainedAttributes;
 	}
+
+	/**
+	 * A helper function that gets identifiers of all the attributes from one entityMetaData
+	 * 
+	 * @param sourceEntityMetaData
+	 * @return
+	 */
+	public List<String> getAttributeIdentifiers(EntityMetaData sourceEntityMetaData)
+	{
+		Entity entityMetaDataEntity = dataService.findOne(EntityMetaDataMetaData.ENTITY_NAME,
+				new QueryImpl().eq(EntityMetaDataMetaData.FULL_NAME, sourceEntityMetaData.getName()));
+
+		if (entityMetaDataEntity == null) throw new MolgenisDataAccessException(
+				"Could not find EntityMetaDataEntity by the name of " + sourceEntityMetaData.getName());
+
+		List<String> attributeIdentifiers = new ArrayList<String>();
+
+		recursivelyCollectAttributeIdentifiers(entityMetaDataEntity.getEntities(EntityMetaDataMetaData.ATTRIBUTES),
+				attributeIdentifiers);
+
+		return attributeIdentifiers;
+	}
+
+	private void recursivelyCollectAttributeIdentifiers(Iterable<Entity> attributeEntities,
+			List<String> attributeIdentifiers)
+	{
+		for (Entity attributeEntity : attributeEntities)
+		{
+			if (!attributeEntity.getString(AttributeMetaDataMetaData.DATA_TYPE)
+					.equals(MolgenisFieldTypes.COMPOUND.toString()))
+			{
+				attributeIdentifiers.add(attributeEntity.getString(AttributeMetaDataMetaData.IDENTIFIER));
+			}
+			Iterable<Entity> entities = attributeEntity.getEntities(AttributeMetaDataMetaData.PARTS);
+
+			if (entities != null)
+			{
+				recursivelyCollectAttributeIdentifiers(entities, attributeIdentifiers);
+			}
+		}
+	}
+
+	private AttributeMetaData entityToAttributeMetaData(Entity attributeEntity, EntityMetaData entityMetaData)
+	{
+		String attributeName = attributeEntity.getString(AttributeMetaDataMetaData.NAME);
+		AttributeMetaData attribute = entityMetaData.getAttribute(attributeName);
+		if (attribute == null)
+		{
+			throw new MolgenisDataAccessException("The attributeMetaData : " + attributeName
+					+ " does not exsit in EntityMetaData : " + entityMetaData.getName());
+		}
+		return attribute;
+	}
+
 }

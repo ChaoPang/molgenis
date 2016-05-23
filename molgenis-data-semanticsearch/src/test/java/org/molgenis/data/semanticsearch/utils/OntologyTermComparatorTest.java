@@ -1,3 +1,4 @@
+package org.molgenis.data.semanticsearch.utils;
 // package org.molgenis.data.semanticsearch.string;
 //
 // import static org.testng.Assert.assertEquals;

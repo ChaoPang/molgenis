@@ -1,15 +1,11 @@
 package org.molgenis.data.semanticsearch.explain.service.impl;
 
-import static com.google.common.collect.Sets.newLinkedHashSet;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData.create;
-import static org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString.create;
-import static org.molgenis.data.semanticsearch.semantic.Hit.create;
-import static org.molgenis.data.semanticsearch.service.bean.OntologyTermHit.create;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 import static org.testng.Assert.assertEquals;
 
@@ -22,8 +18,8 @@ import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.QueryExpansion;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
+import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
-import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.molgenis.ontology.core.model.Ontology;
@@ -50,17 +46,23 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 	OntologyService ontologyService;
 
 	@Autowired
-	SemanticSearchServiceUtils semanticSearchServiceUtils;
+	AttributeMappingExplainServiceImpl attributeMappingExplainServiceImpl;
 
 	@Autowired
-	AttributeMappingExplainServiceImpl attributeMappingExplainServiceImpl;
+	TagGroupGenerator tagGroupGenerator;
 
 	private Ontology ontology;
 	private OntologyTerm hypertension;
 	private OntologyTerm medication;
 	private OntologyTerm systolicHypertension;
 	private OntologyTerm distolicHypertension;
-	private OntologyTerm hypertensionMedicationOntology;
+	private OntologyTerm hypertensionMedication;
+
+	private OntologyTermHit hypertensionHit;
+	private OntologyTermHit medicationHit;
+	private OntologyTermHit systolicHypertensionHit;
+	private OntologyTermHit distolicHypertensionHit;
+	private OntologyTermHit hypertensionMedicationHit;
 
 	private DefaultAttributeMetaData targetAttribute;
 	private DefaultAttributeMetaData matchedSourceAttribute;
@@ -72,7 +74,8 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 	public void init()
 	{
 		ontology = Ontology.create("1", "iri", "name");
-		hypertensionMedicationOntology = OntologyTerm.create("iri1,iri2", "hypertension,medication");
+
+		hypertensionMedication = OntologyTerm.create("iri1,iri2", "hypertension,medication");
 		hypertension = OntologyTerm.create("iri1", "hypertension", Lists.newArrayList("high blood pressure", "HBP"));
 		medication = OntologyTerm.create("iri2", "medication");
 		systolicHypertension = OntologyTerm.create("iri3", "systolic hypertension");
@@ -82,6 +85,11 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		matchedSourceAttribute = new DefaultAttributeMetaData("high blood pressure medication");
 		targetEntityMetaData = new DefaultEntityMetaData("target entity");
 
+		hypertensionHit = OntologyTermHit.create(hypertension, "high blood pressure", "high blood pressure");
+
+		hypertensionMedicationHit = OntologyTermHit.create(hypertensionMedication, "high blood pressure medication",
+				"high blood pressure medication");
+
 		allOntologyIds = Arrays.asList("1");
 		ontologyTerms = asList(hypertension, systolicHypertension, distolicHypertension, medication);
 		Set<String> sourceAttributeTerms = Sets.newLinkedHashSet(asList(matchedSourceAttribute.getName().split(" ")));
@@ -90,7 +98,7 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 
 		when(ontologyService.getAllOntologiesIds()).thenReturn(allOntologyIds);
 
-		when(ontologyService.getAtomicOntologyTerms(hypertensionMedicationOntology))
+		when(ontologyService.getAtomicOntologyTerms(hypertensionMedication))
 				.thenReturn(Arrays.asList(hypertension, medication));
 
 		when(ontologyService.getAtomicOntologyTerms(hypertension)).thenReturn(Arrays.asList(hypertension));
@@ -108,30 +116,12 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		when(ontologyService.fileterOntologyTerms(allOntologyIds, sourceAttributeTerms, 2,
 				Arrays.asList(hypertension, medication))).thenReturn(Arrays.asList(hypertension, medication));
 
-		when(semanticSearchServiceUtils.combineOntologyTerms(sourceAttributeTerms, asList(hypertension, medication)))
-				.thenReturn(
-						asList(create(create(hypertensionMedicationOntology, "high blood pressure medication"), 1.0f)));
+		when(tagGroupGenerator.generateTagGroups(sourceAttributeTerms, asList(hypertensionMedicationHit)))
+				.thenReturn(asList(Hit.create(OntologyTermHit.create(hypertensionMedication,
+						"high blood pressure medication", "high blood pressure medication"), 1.0f)));
 
-		when(semanticSearchServiceUtils.findOntologyTermsForAttr(targetAttribute, targetEntityMetaData, emptySet(),
-				allOntologyIds)).thenReturn(Arrays.asList(Hit.create(hypertensionMedicationOntology, 1.0f)));
-
-		when(semanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, emptySet()))
-				.thenReturn(Sets.newHashSet(targetAttribute.getName()));
-
-		when(semanticSearchServiceUtils.getQueryTermsFromAttribute(matchedSourceAttribute, null))
-				.thenReturn(Sets.newHashSet(matchedSourceAttribute.getName()));
-
-		when(semanticSearchServiceUtils.splitRemoveStopWords(matchedSourceAttribute.getName()))
-				.thenReturn(sourceAttributeTerms);
-
-		when(semanticSearchServiceUtils.splitIntoTerms(matchedSourceAttribute.getName()))
-				.thenReturn(sourceAttributeTerms);
-
-		when(semanticSearchServiceUtils.collectLowerCaseTerms(hypertension))
-				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("hypertension", "high blood pressure", "HBP")));
-
-		when(semanticSearchServiceUtils.collectLowerCaseTerms(medication))
-				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("medication")));
+		when(tagGroupGenerator.findTagGroups(targetAttribute, targetEntityMetaData, emptySet(), allOntologyIds))
+				.thenReturn(Arrays.asList(Hit.create(hypertensionMedication, 1.0f)));
 	}
 
 	@Test
@@ -173,11 +163,10 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 	@Test
 	public void testExplainAttributeMappingInternal()
 	{
-		List<QueryExpansion> collect = Arrays
-				.asList(new QueryExpansion(hypertensionMedicationOntology, ontologyService, true));
+		List<QueryExpansion> collect = Arrays.asList(new QueryExpansion(hypertensionMedication, ontologyService, true));
 
-		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl.explainExactMapping(
-				Sets.newHashSet(targetAttribute.getName()), collect, matchedSourceAttribute);
+		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl
+				.explainExactMapping(Sets.newHashSet(targetAttribute.getName()), collect, matchedSourceAttribute);
 
 		ExplainedAttributeMetaData expected = create(matchedSourceAttribute, create("high blood pressure medication",
 				"high blood pressure medication", "hypertension,medication", 1.0f), true);
@@ -214,12 +203,6 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		Hit<OntologyTermHit> hit = Hit
 				.create(OntologyTermHit.create(coldDiseaseOntologyTerm, "chronic obstructive pulmonary disease"), 0.8f);
 
-		when(semanticSearchServiceUtils.splitIntoTerms(targetQueryTerm))
-				.thenReturn(newLinkedHashSet(asList("cold", "cut", "meat", "ham")));
-
-		when(semanticSearchServiceUtils.splitIntoTerms(sourceAttributeDescription))
-				.thenReturn(newLinkedHashSet(asList("incident", "chronic", "obstructive", "pulmonary", "disease")));
-
 		when(ontologyService.getAtomicOntologyTerms(coldDiseaseOntologyTerm))
 				.thenReturn(Arrays.asList(coldDiseaseOntologyTerm));
 
@@ -231,21 +214,6 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 
 		when(ontologyService.getAtomicOntologyTerms(compositeOntologyTerm3))
 				.thenReturn(Arrays.asList(coldDiseaseOntologyTerm, meatOntologyTerm, cutOntologyTerm));
-
-		when(semanticSearchServiceUtils.collectLowerCaseTerms(coldDiseaseOntologyTerm))
-				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("chronic obstructive pulmonary disease", "cold")));
-
-		when(semanticSearchServiceUtils.collectLowerCaseTerms(incidentOntologyTerm))
-				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("incident")));
-
-		when(semanticSearchServiceUtils.collectLowerCaseTerms(coldTempOntologyTerm))
-				.thenReturn(Sets.newHashSet("cold"));
-
-		when(semanticSearchServiceUtils.collectLowerCaseTerms(meatOntologyTerm))
-				.thenReturn(Sets.newHashSet("meat"));
-
-		when(semanticSearchServiceUtils.collectLowerCaseTerms(cutOntologyTerm))
-				.thenReturn(Sets.newHashSet("cut"));
 
 		List<QueryExpansion> ontologyTermQueryExpansions = Arrays.asList(
 				new QueryExpansion(compositeOntologyTerm2, ontologyService, false),
@@ -282,15 +250,6 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 
 		Hit<OntologyTermHit> hit2 = Hit.create(OntologyTermHit.create(compositeOntologyTerm2, "infarction age"), 0.4f);
 
-		when(semanticSearchServiceUtils.splitIntoTerms(targetQueryTerm)).thenReturn(newLinkedHashSet(
-				asList("sibling", "diagnosed", "with", "infarction", "under", "the", "age", "of", "60")));
-
-		when(semanticSearchServiceUtils.splitIntoTerms(sourceAttributeDescription1)).thenReturn(newLinkedHashSet(
-				asList("sister", "diagnosed", "with", "infarction", "under", "the", "age", "of", "60")));
-
-		when(semanticSearchServiceUtils.splitIntoTerms(sourceAttributeDescription2)).thenReturn(newLinkedHashSet(
-				asList("father", "diagnosed", "with", "infarction", "under", "the", "age", "of", "60")));
-
 		when(ontologyService.getAtomicOntologyTerms(sibilingOntologyTerm))
 				.thenReturn(Arrays.asList(sibilingOntologyTerm));
 
@@ -302,15 +261,6 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 
 		when(ontologyService.getLevelThreeChildren(sibilingOntologyTerm))
 				.thenReturn(Arrays.asList(brotherOntologyTerm, sisterOntologyTerm));
-
-		when(semanticSearchServiceUtils.collectLowerCaseTerms(sibilingOntologyTerm))
-				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("sibling")));
-
-		when(semanticSearchServiceUtils.collectLowerCaseTerms(infarctionOntologyTerm))
-				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("infarction")));
-
-		when(semanticSearchServiceUtils.collectLowerCaseTerms(ageOntologyTerm))
-				.thenReturn(Sets.newLinkedHashSet(Arrays.asList("age")));
 
 		List<QueryExpansion> ontologyTermQueryExpansions1 = Arrays
 				.asList(new QueryExpansion(compositeOntologyTerm1, ontologyService, true));
@@ -347,15 +297,15 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		}
 
 		@Bean
-		public SemanticSearchServiceUtils semanticSearchServiceHelper()
+		public TagGroupGenerator tagGroupGenerator()
 		{
-			return mock(SemanticSearchServiceUtils.class);
+			return mock(TagGroupGenerator.class);
 		}
 
 		@Bean
 		public AttributeMappingExplainServiceImpl attributeMappingExplainService()
 		{
-			return new AttributeMappingExplainServiceImpl(ontologyService(), semanticSearchServiceHelper());
+			return new AttributeMappingExplainServiceImpl(ontologyService(), tagGroupGenerator());
 		}
 	}
 }

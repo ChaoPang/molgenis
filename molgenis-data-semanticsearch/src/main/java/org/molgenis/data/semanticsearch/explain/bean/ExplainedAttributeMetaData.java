@@ -1,6 +1,6 @@
 package org.molgenis.data.semanticsearch.explain.bean;
 
-import static org.molgenis.data.semanticsearch.string.AttributeToMapUtil.attributeToMap;
+import static org.molgenis.data.semanticsearch.utils.AttributeToMapUtil.attributeToMap;
 
 import java.util.Map;
 

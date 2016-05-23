@@ -41,7 +41,7 @@ public interface SemanticSearchService
 			SemanticSearchParameter semanticSearchParameters);
 
 	Map<EntityMetaData, List<AttributeMetaData>> findAttributes(Set<String> queryTerms,
-			List<Hit<OntologyTermHit>> ontologyTermHits, QueryExpansionParameter ontologyExpansionParameters,
+			List<OntologyTermHit> ontologyTermHits, QueryExpansionParameter ontologyExpansionParameters,
 			List<EntityMetaData> sourceEntityMetaDatas);
 
 	/**
@@ -77,8 +77,8 @@ public interface SemanticSearchService
 	 * @param ontologyIds
 	 * @return
 	 */
-	List<Hit<OntologyTermHit>> findAllTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds);
+	List<OntologyTermHit> findAllTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds);
 
-	List<Hit<OntologyTermHit>> findAllTags(String description, List<String> ontologyIds);
+	List<OntologyTermHit> findAllTags(String description, List<String> ontologyIds);
 
 }

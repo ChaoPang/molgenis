@@ -26,13 +26,24 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.elasticsearch.common.collect.Sets;
+import org.molgenis.MolgenisFieldTypes;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.DataService;
+import org.molgenis.data.Entity;
+import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.QueryRule;
+import org.molgenis.data.meta.AttributeMetaDataMetaData;
+import org.molgenis.data.meta.EntityMetaDataMetaData;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
-import org.molgenis.data.semanticsearch.semantic.Hit;
+import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
+import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
+import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
+import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
+import org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils;
 import org.molgenis.data.support.DefaultAttributeMetaData;
+import org.molgenis.data.support.DefaultEntity;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.molgenis.data.support.MapEntity;
 import org.molgenis.data.support.QueryImpl;
@@ -55,19 +66,21 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 	private OntologyService ontologyService;
 
 	@Autowired
-	private SemanticSearchServiceUtils semanticSearchServiceUtils;
-
-	@Autowired
 	private DataService dataService;
 
 	@Autowired
 	private SemanticSearchServiceImpl semanticSearchService;
 
+	@Autowired
+	private TagGroupGenerator tagGroupGenerator;
+
+	@Autowired
+	private QueryExpansionService queryExpansionService;
+
 	private List<String> ontologyIds;
 	private OntologyTerm standingHeight;
 	private OntologyTerm bodyWeight;
 	private List<Ontology> ontologies;
-	private DefaultAttributeMetaData attribute;
 
 	@BeforeTest
 	public void beforeTest()
@@ -78,14 +91,11 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 				Arrays.asList("Body weight", "Mass in kilograms"));
 		ontologies = asList(create("1", "ontology iri 1", "ontoloyg 1"), create("2", "ontology iri 2", "ontoloyg 2"));
 		ontologyIds = ontologies.stream().map(Ontology::getId).collect(Collectors.toList());
-		attribute = new DefaultAttributeMetaData("attr1").setLabel("attribute 1");
 	}
 
 	@BeforeMethod
 	public void init()
 	{
-		when(semanticSearchServiceUtils.splitRemoveStopWords(attribute.getLabel()))
-				.thenReturn(newHashSet("attribute", "1"));
 		when(ontologyService.getOntologies()).thenReturn(ontologies);
 		when(ontologyService.getAllOntologiesIds()).thenReturn(ontologyIds);
 	}
@@ -99,11 +109,33 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 		targetWeight.setLabel("body weight");
 		DefaultEntityMetaData targetEntityMetaData = new DefaultEntityMetaData("targetEntityMetaData");
 
+		MapEntity targetHeightEntity = new MapEntity();
+		targetHeightEntity.set(AttributeMetaDataMetaData.IDENTIFIER, "1");
+		targetHeightEntity.set(AttributeMetaDataMetaData.NAME, "targetHeight");
+		targetHeightEntity.set(AttributeMetaDataMetaData.DATA_TYPE, MolgenisFieldTypes.DECIMAL);
+		targetHeightEntity.set(AttributeMetaDataMetaData.LABEL, "standing height");
+
+		MapEntity targetWeightEntity = new MapEntity();
+		targetWeightEntity.set(AttributeMetaDataMetaData.IDENTIFIER, "2");
+		targetWeightEntity.set(AttributeMetaDataMetaData.NAME, "targetWeight");
+		targetWeightEntity.set(AttributeMetaDataMetaData.DATA_TYPE, MolgenisFieldTypes.DECIMAL);
+		targetWeightEntity.set(AttributeMetaDataMetaData.LABEL, "body weight");
+
 		DefaultEntityMetaData sourceEntityMetaData = new DefaultEntityMetaData("sourceEntityMetaData");
 		AttributeMetaData sourceAttributeHeight = new DefaultAttributeMetaData("height_0");
 		AttributeMetaData sourceAttributeWeight = new DefaultAttributeMetaData("weight_0");
 		sourceEntityMetaData.addAttributeMetaData(sourceAttributeHeight);
 		sourceEntityMetaData.addAttributeMetaData(sourceAttributeWeight);
+
+		MapEntity sourceEntityMetaDataEntity = new MapEntity();
+		sourceEntityMetaDataEntity.set(EntityMetaDataMetaData.FULL_NAME, "sourceEntityMetaData");
+		sourceEntityMetaDataEntity.set(EntityMetaDataMetaData.ATTRIBUTES,
+				Arrays.asList(targetHeightEntity, targetWeightEntity));
+
+		OntologyTermHit standingHeightHit = OntologyTermHit.create(standingHeight, "standing height", "standing height",
+				1.0f);
+
+		OntologyTermHit bodyWeightHit = OntologyTermHit.create(bodyWeight, "body weight", "body weight", 1.0f);
 
 		MapEntity entityHeight = new MapEntity(
 				of(NAME, "height_0", LABEL, "height", DESCRIPTION, "this is a height measurement in m!"));
@@ -132,16 +164,15 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 		QueryRule disMaxQueryRuleForWeight = new QueryRule(Arrays.asList(queryRule3, queryRule4));
 		disMaxQueryRuleForWeight.setOperator(DIS_MAX);
 
-		when(semanticSearchServiceUtils.getQueryTermsFromAttribute(targetHeight, emptySet()))
-				.thenReturn(Sets.newHashSet(targetHeight.getLabel()));
+		when(dataService.findOne(EntityMetaDataMetaData.ENTITY_NAME,
+				new QueryImpl().eq(EntityMetaDataMetaData.FULL_NAME, sourceEntityMetaData.getName())))
+						.thenReturn(sourceEntityMetaDataEntity);
 
-		when(semanticSearchServiceUtils.findOntologyTermsForAttr(targetHeight, targetEntityMetaData, emptySet(),
-				ontologyIds)).thenReturn(Arrays.asList(Hit.create(standingHeight, 0.5f)));
+		when(tagGroupGenerator.findTagGroups(targetHeight, targetEntityMetaData, emptySet(), ontologyIds))
+				.thenReturn(Arrays.asList(standingHeightHit));
 
-		when(semanticSearchServiceUtils.createDisMaxQueryRule(Sets.newHashSet(targetHeight.getLabel()),
-				Arrays.asList(Hit.create(standingHeight, 0.5f)), true)).thenReturn(disMaxQueryRuleForHeight);
-
-		when(semanticSearchServiceUtils.getAttributeIdentifiers(sourceEntityMetaData)).thenReturn(attributeIdentifiers);
+		when(queryExpansionService.expand(Sets.newHashSet(targetHeight.getLabel()), Arrays.asList(standingHeightHit),
+				QueryExpansionParameter.create(true, true))).thenReturn(disMaxQueryRuleForHeight);
 
 		when(dataService
 				.findAll(ENTITY_NAME,
@@ -149,21 +180,17 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 								disMaxQueryRuleForHeight)).pageSize(MAX_NUMBER_ATTRIBTUES)))
 										.thenReturn(of(entityHeight));
 
-		when(semanticSearchServiceUtils.entityToAttributeMetaData(entityHeight, sourceEntityMetaData))
-				.thenReturn(sourceAttributeHeight);
-
-		assertEquals(semanticSearchService.findAttributes(targetHeight, Collections.emptySet(), targetEntityMetaData,
-				sourceEntityMetaData, true, false), asList(sourceAttributeHeight));
+		assertEquals(
+				semanticSearchService.findAttributes(SemanticSearchParameter.create(targetHeight,
+						Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, true, true, true)),
+				asList(sourceAttributeHeight));
 
 		// Case 2: mock the createDisMaxQueryRule method for the attribute Weight
-		when(semanticSearchServiceUtils.getQueryTermsFromAttribute(targetWeight, emptySet()))
-				.thenReturn(newHashSet(targetWeight.getLabel()));
+		when(tagGroupGenerator.findTagGroups(targetWeight, targetEntityMetaData, emptySet(), ontologyIds))
+				.thenReturn(asList(bodyWeightHit));
 
-		when(semanticSearchServiceUtils.findOntologyTermsForAttr(targetWeight, targetEntityMetaData, emptySet(),
-				ontologyIds)).thenReturn(asList(Hit.create(bodyWeight, 1.0f)));
-
-		when(semanticSearchServiceUtils.createDisMaxQueryRule(newHashSet(targetWeight.getLabel()),
-				asList(Hit.create(bodyWeight, 1.0f)), true)).thenReturn(disMaxQueryRuleForWeight);
+		when(queryExpansionService.expand(newHashSet(targetWeight.getLabel()), asList(bodyWeightHit),
+				QueryExpansionParameter.create(true, true))).thenReturn(disMaxQueryRuleForWeight);
 
 		when(dataService
 				.findAll(ENTITY_NAME,
@@ -171,11 +198,33 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 								disMaxQueryRuleForWeight)).pageSize(MAX_NUMBER_ATTRIBTUES)))
 										.thenReturn(of(entityWeight));
 
-		when(semanticSearchServiceUtils.entityToAttributeMetaData(entityWeight, sourceEntityMetaData))
-				.thenReturn(sourceAttributeWeight);
+		assertEquals(
+				semanticSearchService.findAttributes(SemanticSearchParameter.create(targetWeight,
+						Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, true, true, true)),
+				asList(sourceAttributeWeight));
+	}
 
-		assertEquals(semanticSearchService.findAttributes(targetWeight, emptySet(), targetEntityMetaData,
-				sourceEntityMetaData, true, false), asList(sourceAttributeWeight));
+	@Test
+	public void testGetAttributeIdentifiers()
+	{
+		EntityMetaData sourceEntityMetaData = new DefaultEntityMetaData("sourceEntityMetaData");
+		Entity entityMetaDataEntity = mock(DefaultEntity.class);
+
+		when(dataService.findOne(EntityMetaDataMetaData.ENTITY_NAME,
+				new QueryImpl().eq(EntityMetaDataMetaData.FULL_NAME, sourceEntityMetaData.getName())))
+						.thenReturn(entityMetaDataEntity);
+
+		Entity attributeEntity1 = new MapEntity();
+		attributeEntity1.set(AttributeMetaDataMetaData.IDENTIFIER, "1");
+		attributeEntity1.set(AttributeMetaDataMetaData.DATA_TYPE, "string");
+		Entity attributeEntity2 = new MapEntity();
+		attributeEntity2.set(AttributeMetaDataMetaData.IDENTIFIER, "2");
+		attributeEntity2.set(AttributeMetaDataMetaData.DATA_TYPE, "string");
+		when(entityMetaDataEntity.getEntities(EntityMetaDataMetaData.ATTRIBUTES))
+				.thenReturn(Arrays.<Entity> asList(attributeEntity1, attributeEntity2));
+
+		List<String> expactedAttributeIdentifiers = Arrays.<String> asList("1", "2");
+		assertEquals(semanticSearchService.getAttributeIdentifiers(sourceEntityMetaData), expactedAttributeIdentifiers);
 	}
 
 	@Configuration
@@ -190,8 +239,20 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 		@Bean
 		SemanticSearchService semanticSearchService()
 		{
-			return new SemanticSearchServiceImpl(dataService(), ontologyService(), semanticSearchServiceUtils(),
-					attributeMappingExplainService());
+			return new SemanticSearchServiceImpl(dataService(), ontologyService(), tagGroupGenerator(),
+					queryExpansionService(), attributeMappingExplainService());
+		}
+
+		@Bean
+		TagGroupGenerator tagGroupGenerator()
+		{
+			return mock(TagGroupGenerator.class);
+		}
+
+		@Bean
+		QueryExpansionService queryExpansionService()
+		{
+			return mock(QueryExpansionService.class);
 		}
 
 		@Bean

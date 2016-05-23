@@ -10,11 +10,14 @@ import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainS
 import org.molgenis.data.semanticsearch.explain.service.impl.AttributeMappingExplainServiceImpl;
 import org.molgenis.data.semanticsearch.repository.TagRepository;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
+import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
+import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
 import org.molgenis.data.semanticsearch.service.TagService;
 import org.molgenis.data.semanticsearch.service.impl.OntologyTagServiceImpl;
+import org.molgenis.data.semanticsearch.service.impl.QueryExpansionServiceImpl;
 import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceImpl;
-import org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceUtils;
+import org.molgenis.data.semanticsearch.service.impl.TagGroupGeneratorImpl;
 import org.molgenis.data.semanticsearch.service.impl.UntypedTagService;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.ic.TermFrequencyService;
@@ -40,11 +43,11 @@ public class SemanticSearchConfig
 	@Autowired
 	EmbeddedElasticSearchServiceFactory embeddedElasticSearchServiceFactory;
 
-	@Bean
-	public SemanticSearchServiceUtils semanticSearchServiceUtils()
-	{
-		return new SemanticSearchServiceUtils(dataService, ontologyService, ontologyTagService(), termFrequencyService);
-	}
+	// @Bean
+	// public SemanticSearchServiceUtils semanticSearchServiceUtils()
+	// {
+	// return new SemanticSearchServiceUtils(dataService, ontologyService, ontologyTagService(), termFrequencyService);
+	// }
 
 	@Bean
 	public OntologyTagService ontologyTagService()
@@ -55,8 +58,20 @@ public class SemanticSearchConfig
 	@Bean
 	public SemanticSearchService semanticSearchService()
 	{
-		return new SemanticSearchServiceImpl(dataService, ontologyService, semanticSearchServiceUtils(),
+		return new SemanticSearchServiceImpl(dataService, ontologyService, tagGroupGenerator(), queryExpansionService(),
 				attributeMappingExplainService());
+	}
+
+	@Bean
+	public TagGroupGenerator tagGroupGenerator()
+	{
+		return new TagGroupGeneratorImpl(ontologyService, ontologyTagService());
+	}
+
+	@Bean
+	public QueryExpansionService queryExpansionService()
+	{
+		return new QueryExpansionServiceImpl(ontologyService, termFrequencyService);
 	}
 
 	@Bean
@@ -75,6 +90,6 @@ public class SemanticSearchConfig
 	@Bean
 	AttributeMappingExplainService attributeMappingExplainService()
 	{
-		return new AttributeMappingExplainServiceImpl(ontologyService, semanticSearchServiceUtils());
+		return new AttributeMappingExplainServiceImpl(ontologyService, tagGroupGenerator());
 	}
 }

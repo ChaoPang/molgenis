@@ -1,4 +1,4 @@
-package org.molgenis.data.semanticsearch.string;
+package org.molgenis.data.semanticsearch.utils;
 
 import java.util.Comparator;
 import java.util.List;
@@ -6,17 +6,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
-import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.ontology.utils.Stemmer;
 
-public class OntologyTermComparator implements Comparator<Hit<OntologyTermHit>>
+public class OntologyTermComparator implements Comparator<OntologyTermHit>
 {
 	@Override
-	public int compare(Hit<OntologyTermHit> o2, Hit<OntologyTermHit> o1)
+	public int compare(OntologyTermHit o2, OntologyTermHit o1)
 	{
-		String synonym1 = o1.getResult().getJoinedSynonym();
-		String synonym2 = o2.getResult().getJoinedSynonym();
+		String synonym1 = o1.getJoinedSynonym();
+		String synonym2 = o2.getJoinedSynonym();
 
 		float score1 = o1.getScore();
 		float score2 = o2.getScore();
@@ -40,9 +39,9 @@ public class OntologyTermComparator implements Comparator<Hit<OntologyTermHit>>
 				if (!isOntologyTermNameMatched(o1) && !isOntologyTermNameMatched(o2))
 				{
 					float informationContent1 = calculateInformationContent(synonym1,
-							o1.getResult().getOntologyTerm().getSynonyms());
+							o1.getOntologyTerm().getSynonyms());
 					float informationContent2 = calculateInformationContent(synonym2,
-							o2.getResult().getOntologyTerm().getSynonyms());
+							o2.getOntologyTerm().getSynonyms());
 					return Float.compare(informationContent1, informationContent2);
 				}
 			}
@@ -70,8 +69,8 @@ public class OntologyTermComparator implements Comparator<Hit<OntologyTermHit>>
 				|| Stemmer.cleanStemPhrase(synonym1).equalsIgnoreCase(Stemmer.cleanStemPhrase(synonym2));
 	}
 
-	boolean isOntologyTermNameMatched(Hit<OntologyTermHit> hit)
+	boolean isOntologyTermNameMatched(OntologyTermHit hit)
 	{
-		return hit.getResult().getOntologyTerm().getLabel().equalsIgnoreCase(hit.getResult().getJoinedSynonym());
+		return hit.getOntologyTerm().getLabel().equalsIgnoreCase(hit.getJoinedSynonym());
 	}
 }
