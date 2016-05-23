@@ -5,6 +5,8 @@ import org.molgenis.ontology.core.model.OntologyTerm;
 
 import com.google.auto.value.AutoValue;
 
+import edu.umd.cs.findbugs.annotations.Nullable;
+
 @AutoValue
 @AutoGson(autoValueClass = AutoValue_ExplainedQueryString.class)
 public abstract class ExplainedQueryString
@@ -13,6 +15,7 @@ public abstract class ExplainedQueryString
 
 	public abstract String getQueryString();
 
+	@Nullable
 	public abstract OntologyTerm getOntologyTerm();
 
 	public abstract float getScore();

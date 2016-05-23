@@ -22,7 +22,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
@@ -78,7 +77,6 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		EntityMetaData targetEntityMetaData = semanticSearchParameters.getTargetEntityMetaData();
 		QueryExpansionParameter ontologyExpansionParameters = semanticSearchParameters.getExpansionParameter();
 		boolean semanticSearchEnabled = ontologyExpansionParameters.isSemanticSearchEnabled();
-		boolean exactMatch = semanticSearchParameters.isExactMatch();
 
 		// Collect all terms from the target attribute
 		Set<String> queriesFromTargetAttribute = getQueryTermsFromAttribute(targetAttribute, userQueries);
@@ -98,44 +96,7 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		}
 		else ontologyTermQueryExpansions = Collections.emptyList();
 
-		ExplainedAttributeMetaData explainedAttibuteMetaData = exactMatch
-				? explainExactMapping(queriesFromTargetAttribute, ontologyTermQueryExpansions, matchedSourceAttribute)
-				: explainPartialMapping(queriesFromTargetAttribute, ontologyTermQueryExpansions,
-						matchedSourceAttribute);
-		return explainedAttibuteMetaData;
-	}
-
-	ExplainedAttributeMetaData explainPartialMapping(Set<String> queriesFromTargetAttribute,
-			List<QueryExpansion> ontologyTermQueryExpansions, AttributeMetaData matchedSourceAttribute)
-	{
-		// Collect all terms from the source attribute
-		Set<String> queriesFromSourceAttribute = getQueryTermsFromAttribute(matchedSourceAttribute, null);
-
-		Hit<String> targetQueryTermHit = findBestQueryTerm(queriesFromTargetAttribute, queriesFromSourceAttribute);
-
-		OntologyTermHit ontologyTermHit = filterOntologyTermsForMatchedAttr(matchedSourceAttribute,
-				ontologyService.getAllOntologiesIds(), ontologyTermQueryExpansions, queriesFromTargetAttribute);
-
-		String bestMatchingQuery = targetQueryTermHit.getScore() >= ontologyTermHit.getScore()
-				? targetQueryTermHit.getResult() : ontologyTermHit.getJoinedSynonym();
-
-		OntologyTerm tagName = targetQueryTermHit.getScore() >= ontologyTermHit.getScore() ? null
-				: ontologyTermHit.getOntologyTerm();
-
-		Set<String> bestMatchingQueryStemmedWords = Stemmer.splitAndStem(bestMatchingQuery);
-
-		String bestMatchingSourceQueryTerm = queriesFromSourceAttribute.stream()
-				.filter(query -> Stemmer.splitAndStem(query).containsAll(bestMatchingQueryStemmedWords)).findFirst()
-				.orElse(StringUtils.EMPTY);
-
-		boolean isHighQuality = !StringUtils.isBlank(bestMatchingSourceQueryTerm);
-
-		Set<String> matchedWords = findMatchedWords(bestMatchingQuery, bestMatchingSourceQueryTerm);
-
-		ExplainedQueryString explainedQueryString = ExplainedQueryString.create(termJoiner.join(matchedWords),
-				bestMatchingQuery, tagName, 0.0f);
-
-		return ExplainedAttributeMetaData.create(matchedSourceAttribute, explainedQueryString, isHighQuality);
+		return explainExactMapping(queriesFromTargetAttribute, ontologyTermQueryExpansions, matchedSourceAttribute);
 	}
 
 	ExplainedAttributeMetaData explainExactMapping(Set<String> queriesFromTargetAttribute,
