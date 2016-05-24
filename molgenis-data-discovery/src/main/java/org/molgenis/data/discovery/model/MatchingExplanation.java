@@ -8,8 +8,8 @@ import org.molgenis.ontology.core.model.OntologyTerm;
 import com.google.auto.value.AutoValue;
 
 @AutoValue
-@AutoGson(autoValueClass = AutoValue_MappingExplanation.class)
-public abstract class MappingExplanation
+@AutoGson(autoValueClass = AutoValue_MatchingExplanation.class)
+public abstract class MatchingExplanation
 {
 	public abstract String getIdentifier();
 
@@ -21,9 +21,9 @@ public abstract class MappingExplanation
 
 	public abstract double getNgramScore();
 
-	public static MappingExplanation create(String identifier, List<OntologyTerm> ontologyTerms, String queryString,
+	public static MatchingExplanation create(String identifier, List<OntologyTerm> ontologyTerms, String queryString,
 			String matchedWords, double ngramScore)
 	{
-		return new AutoValue_MappingExplanation(identifier, ontologyTerms, queryString, matchedWords, ngramScore);
+		return new AutoValue_MatchingExplanation(identifier, ontologyTerms, queryString, matchedWords, ngramScore);
 	}
 }

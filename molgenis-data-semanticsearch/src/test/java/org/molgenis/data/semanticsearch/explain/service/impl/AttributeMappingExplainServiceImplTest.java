@@ -6,7 +6,6 @@ import static java.util.Collections.emptySet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData.create;
-import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 import static org.testng.Assert.assertEquals;
 
 import java.util.Arrays;
@@ -14,15 +13,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
-import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
 import org.molgenis.data.semanticsearch.explain.bean.QueryExpansion;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
-import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
+import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.molgenis.ontology.core.model.Ontology;
@@ -61,11 +60,7 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 	private OntologyTerm distolicHypertension;
 	private OntologyTerm hypertensionMedication;
 
-	// private OntologyTermHit hypertensionHit;
-	// private OntologyTermHit medicationHit;
-	// private OntologyTermHit systolicHypertensionHit;
-	// private OntologyTermHit distolicHypertensionHit;
-	private OntologyTermHit hypertensionMedicationHit;
+	private TagGroup hypertensionMedicationHit;
 
 	private DefaultAttributeMetaData targetAttribute;
 	private DefaultAttributeMetaData matchedSourceAttribute;
@@ -90,8 +85,7 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		targetEntityMetaData = new DefaultEntityMetaData("target entity");
 		sourceEntityMetaData = new DefaultEntityMetaData("source entity");
 
-		hypertensionMedicationHit = OntologyTermHit.create(hypertensionMedication, "high blood pressure medication",
-				"high blood pressure medication", 1.0f);
+		hypertensionMedicationHit = TagGroup.create(hypertensionMedication, "high blood pressure medication", 1.0f);
 
 		allOntologyIds = Arrays.asList("1");
 		ontologyTerms = asList(hypertension, systolicHypertension, distolicHypertension, medication);
@@ -136,13 +130,13 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 	public void testExplainByAttribute()
 	{
 		SemanticSearchParameter semanticSearchParameter = SemanticSearchParameter.create(targetAttribute,
-				Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, false, false, false);
+				Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, false, false);
 
 		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl
 				.explainAttributeMapping(semanticSearchParameter, matchedSourceAttribute);
 
 		ExplainedAttributeMetaData expected = create(matchedSourceAttribute,
-				ExplainedQueryString.create("medication", "hypertension medication", null, 0.34146f), false);
+				AttributeMatchExplanation.create("medication", "hypertension medication", null, 0.34146f), false);
 
 		assertEquals(actual, expected);
 	}
@@ -151,13 +145,13 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 	public void testExplainBySynonyms()
 	{
 		SemanticSearchParameter semanticSearchParameter = SemanticSearchParameter.create(targetAttribute,
-				Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, false, true, false);
+				Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, true, false);
 
 		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl
 				.explainAttributeMapping(semanticSearchParameter, matchedSourceAttribute);
 
 		ExplainedAttributeMetaData expected = create(matchedSourceAttribute,
-				ExplainedQueryString.create("high blood pressure medication", "high blood pressure medication",
+				AttributeMatchExplanation.create("high blood pressure medication", "high blood pressure medication",
 						hypertensionMedication, 1.0f),
 				true);
 
@@ -168,13 +162,13 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 	public void testExplainByAll()
 	{
 		SemanticSearchParameter semanticSearchParameter = SemanticSearchParameter.create(targetAttribute,
-				Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, false, true, true);
+				Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, true, true);
 
 		ExplainedAttributeMetaData actual = attributeMappingExplainServiceImpl
 				.explainAttributeMapping(semanticSearchParameter, matchedSourceAttribute);
 
 		ExplainedAttributeMetaData expected = create(matchedSourceAttribute,
-				ExplainedQueryString.create("high blood pressure medication", "high blood pressure medication",
+				AttributeMatchExplanation.create("high blood pressure medication", "high blood pressure medication",
 						hypertensionMedication, 1.0f),
 				true);
 
@@ -191,7 +185,7 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 				.explainExactMapping(Sets.newHashSet(targetAttribute.getName()), collect, matchedSourceAttribute);
 
 		ExplainedAttributeMetaData expected = create(matchedSourceAttribute,
-				ExplainedQueryString.create("high blood pressure medication", "high blood pressure medication",
+				AttributeMatchExplanation.create("high blood pressure medication", "high blood pressure medication",
 						hypertensionMedication, 1.0f),
 				true);
 		assertEquals(actual, expected);
@@ -200,10 +194,9 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 	@Test
 	public void findBestQueryTerm()
 	{
-		Hit<String> findBestQueryTerm = attributeMappingExplainServiceImpl.findBestQueryTerm(
+		AttributeMatchExplanation lexicalBasedExplanation = attributeMappingExplainServiceImpl.createLexicalBasedExplanation(
 				Sets.newHashSet("high blood pressure", "hypertension"), Sets.newHashSet("Hypertensive", "HBP"));
-		assertEquals(findBestQueryTerm,
-				Hit.<String> create("hypertension", (float) stringMatching("hypertension", "Hypertensive") / 100));
+		assertEquals(lexicalBasedExplanation, AttributeMatchExplanation.create("hypertension", "hypertension", null, 1.0f));
 	}
 
 	@Test
@@ -224,8 +217,7 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		OntologyTerm compositeOntologyTerm3 = OntologyTerm.and(coldDiseaseOntologyTerm, cutOntologyTerm,
 				meatOntologyTerm);
 
-		OntologyTermHit hit = OntologyTermHit.create(coldDiseaseOntologyTerm, "chronic obstructive pulmonary disease",
-				"chronic obstructive pulmonary disease", 0.8f);
+		TagGroup hit = TagGroup.create(coldDiseaseOntologyTerm, "chronic obstructive pulmonary disease", 0.8f);
 
 		when(ontologyService.getAtomicOntologyTerms(coldDiseaseOntologyTerm))
 				.thenReturn(Arrays.asList(coldDiseaseOntologyTerm));
@@ -270,10 +262,9 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 
 		OntologyTerm compositeOntologyTerm2 = OntologyTerm.and(infarctionOntologyTerm, ageOntologyTerm);
 
-		OntologyTermHit hit1 = OntologyTermHit.create(compositeOntologyTerm1, "sister infarction age",
-				"sister infarction age", 0.6f);
+		TagGroup hit1 = TagGroup.create(compositeOntologyTerm1, "sister infarction age", 0.6f);
 
-		OntologyTermHit hit2 = OntologyTermHit.create(compositeOntologyTerm2, "infarction age", "infarction age", 0.4f);
+		TagGroup hit2 = TagGroup.create(compositeOntologyTerm2, "infarction age", 0.4f);
 
 		when(ontologyService.getAtomicOntologyTerms(sibilingOntologyTerm))
 				.thenReturn(Arrays.asList(sibilingOntologyTerm));

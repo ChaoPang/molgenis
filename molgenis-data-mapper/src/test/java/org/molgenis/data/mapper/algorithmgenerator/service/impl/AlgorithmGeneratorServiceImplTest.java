@@ -20,7 +20,7 @@ import org.molgenis.data.mapper.service.impl.AlgorithmTemplate;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
 import org.molgenis.data.mapper.service.impl.UnitResolverImpl;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
-import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
+import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
@@ -102,10 +102,10 @@ public class AlgorithmGeneratorServiceImplTest extends AbstractTestNGSpringConte
 		when(algorithmTemplateService.find(targetBMIAttribute, sourceAttributes)).thenReturn(Stream.of(template));
 
 		ExplainedAttributeMetaData explainedHeightAttribute = ExplainedAttributeMetaData.create(heightSourceAttribute,
-				ExplainedQueryString.create("height", "height", "height", 1.0f), true);
+				AttributeMatchExplanation.create("height", "height", "height", 1.0f), true);
 
 		ExplainedAttributeMetaData explainedWeightAttribute = ExplainedAttributeMetaData.create(weightSourceAttribute,
-				ExplainedQueryString.create("weight", "weight", "weight", 1.0f), true);
+				AttributeMatchExplanation.create("weight", "weight", "weight", 1.0f), true);
 
 		when(attributeMappingExplainService.explainAttributeMapping(targetBMIAttribute,
 				Sets.newLinkedHashSet(asList("height", "weight")), heightSourceAttribute, targetEntityMetaData))

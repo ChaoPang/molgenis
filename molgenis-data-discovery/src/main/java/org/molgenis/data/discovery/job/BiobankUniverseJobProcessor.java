@@ -1,8 +1,5 @@
 package org.molgenis.data.discovery.job;
 
-import static com.google.common.collect.Iterables.size;
-import static java.util.stream.Collectors.toList;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -17,19 +14,20 @@ import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.IdGenerator;
 import org.molgenis.data.discovery.controller.BiobankUniverseController;
 import org.molgenis.data.discovery.model.AttributeMappingCandidate;
+import org.molgenis.data.discovery.model.BiobankSampleAttribute;
+import org.molgenis.data.discovery.model.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.BiobankUniverse;
-import org.molgenis.data.discovery.model.MappingExplanation;
-import org.molgenis.data.discovery.model.TaggedAttribute;
+import org.molgenis.data.discovery.model.MatchingExplanation;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.jobs.Progress;
 import org.molgenis.data.meta.AttributeMetaDataMetaData;
+import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
-import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
-import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
+import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.security.core.runas.RunAsSystemProxy;
@@ -42,7 +40,7 @@ public class BiobankUniverseJobProcessor
 	private static final int PROGRESS_UPDATE_BATCH_SIZE = 50;
 
 	private final BiobankUniverse biobankUniverse;
-	private final List<EntityMetaData> members;
+	private final List<BiobankSampleCollection> members;
 	private final BiobankUniverseRepository biobankUniverseRepository;
 	private final SemanticSearchService semanticSearchService;
 	private final AttributeMappingExplainService attributeMappingExplainService;
@@ -53,7 +51,7 @@ public class BiobankUniverseJobProcessor
 	private final Progress progress;
 	private final MenuReaderService menuReaderService;
 
-	public BiobankUniverseJobProcessor(BiobankUniverse biobankUniverse, List<EntityMetaData> members,
+	public BiobankUniverseJobProcessor(BiobankUniverse biobankUniverse, List<BiobankSampleCollection> members,
 			BiobankUniverseRepository biobankUniverseRepository, SemanticSearchService semanticSearchService,
 			AttributeMappingExplainService attributeMappingExplainService, OntologyService ontologyService,
 			IdGenerator idGenerator, Progress progress, MenuReaderService menuReaderService)
@@ -74,30 +72,32 @@ public class BiobankUniverseJobProcessor
 	{
 		RunAsSystemProxy.runAsSystem(() -> {
 
-			List<EntityMetaData> existingMembers = biobankUniverse.getMembers();
+			List<BiobankSampleCollection> existingMembers = biobankUniverse.getMembers();
 
-			List<EntityMetaData> newMembers = members.stream().filter(member -> !existingMembers.contains(member))
-					.collect(Collectors.toList());
+			List<BiobankSampleCollection> newMembers = members.stream()
+					.filter(member -> !existingMembers.contains(member)).collect(Collectors.toList());
 
-			int totalNumberOfAttributes = newMembers.stream().map(member -> size(member.getAtomicAttributes()))
+			int totalNumberOfAttributes = newMembers.stream()
+					.map(member -> biobankUniverseRepository.getAttributesFromCollection(member).size())
 					.mapToInt(Integer::intValue).sum();
 
 			progress.setProgressMax(totalNumberOfAttributes);
 
-			for (EntityMetaData entityMetaData : newMembers)
+			for (BiobankSampleCollection biobankSampleCollection : newMembers)
 			{
 				// Add the member to the universe
-				biobankUniverseRepository.addUniverseMembers(biobankUniverse, Arrays.asList(entityMetaData));
+				biobankUniverseRepository.addUniverseMembers(biobankUniverse, Arrays.asList(biobankSampleCollection));
 
 				// Start tagging attributes for each entity
 				List<TaggedAttribute> taggedAttributes = new ArrayList<>();
 
 				List<AttributeMappingCandidate> candidates = new ArrayList<>();
 
-				for (AttributeMetaData targetAttribute : entityMetaData.getAtomicAttributes())
+				for (BiobankSampleAttribute biobankSampleAttribute : biobankUniverseRepository
+						.getAttributesFromCollection(biobankSampleCollection))
 				{
 					// tag the target attribute with ontology terms
-					List<OntologyTermHit> ontologyTermHits = semanticSearchService
+					List<TagGroup> ontologyTermHits = semanticSearchService
 							.findAllTagsForAttr(targetAttribute, ontologyService.getAllOntologiesIds()).stream()
 							.collect(Collectors.toList());
 
@@ -106,7 +106,7 @@ public class BiobankUniverseJobProcessor
 
 					// SemanticSearch finding all the relevant attributes from existing entities
 					SemanticSearchParameter semanticSearchParameter = SemanticSearchParameter.create(targetAttribute,
-							null, entityMetaData, existingMembers, true, QueryExpansionParameter.create(true, true));
+							null, biobankSampleCollection, existingMembers, QueryExpansionParameter.create(true, true));
 
 					Map<EntityMetaData, List<AttributeMetaData>> candidateAttributes = semanticSearchService
 							.findMultiEntityAttributes(semanticSearchParameter);
@@ -121,7 +121,7 @@ public class BiobankUniverseJobProcessor
 								.sorted().collect(toList());
 
 						candidates.addAll(convertExplainedAttributeToCandidate(targetAttribute.getName(),
-								entityMetaData, sourceEntityMetaData, explainedAttributes));
+								biobankSampleCollection, sourceEntityMetaData, explainedAttributes));
 					}
 
 					// Update the progress only when the progress proceeds the threshold
@@ -132,7 +132,7 @@ public class BiobankUniverseJobProcessor
 
 				}
 
-				biobankUniverseRepository.addTaggedAttributes(entityMetaData, taggedAttributes);
+				biobankUniverseRepository.addTaggedAttributes(biobankSampleCollection, taggedAttributes);
 
 				biobankUniverseRepository.addAttributeMappingCandidates(candidates);
 			}
@@ -153,7 +153,7 @@ public class BiobankUniverseJobProcessor
 			String source = explainedAttributeMetaData.getAttributeMetaData().get(AttributeMetaDataMetaData.NAME)
 					.toString();
 
-			MappingExplanation mappingExplanation = explainedQueryStringToMappingExplanation(
+			MatchingExplanation mappingExplanation = explainedQueryStringToMappingExplanation(
 					explainedAttributeMetaData.getExplainedQueryString());
 
 			candidates.add(AttributeMappingCandidate.create(idGenerator.generateId(), target, source,
@@ -162,25 +162,25 @@ public class BiobankUniverseJobProcessor
 		return candidates;
 	}
 
-	private MappingExplanation explainedQueryStringToMappingExplanation(ExplainedQueryString explainedQueryString)
+	private MatchingExplanation explainedQueryStringToMappingExplanation(AttributeMatchExplanation explainedQueryString)
 	{
 		String matchedWords = explainedQueryString.getMatchedWords();
 		String queryString = explainedQueryString.getQueryString();
 		float ngramScore = explainedQueryString.getScore();
 		List<OntologyTerm> ontologyTerms = ontologyService
 				.getAtomicOntologyTerms(explainedQueryString.getOntologyTerm());
-		return MappingExplanation.create(idGenerator.generateId(), ontologyTerms, queryString, matchedWords,
+		return MatchingExplanation.create(idGenerator.generateId(), ontologyTerms, queryString, matchedWords,
 				ngramScore);
 	}
 
-	private List<MappingExplanation> createExplanations(List<OntologyTermHit> ontologyTermHits)
+	private List<MatchingExplanation> createExplanations(List<TagGroup> ontologyTermHits)
 	{
-		List<MappingExplanation> explanations = new ArrayList<>();
-		for (OntologyTermHit hit : ontologyTermHits)
+		List<MatchingExplanation> explanations = new ArrayList<>();
+		for (TagGroup hit : ontologyTermHits)
 		{
 			OntologyTerm ontologyTerm = hit.getOntologyTerm();
 			List<OntologyTerm> atomicOntologyTerms = ontologyService.getAtomicOntologyTerms(ontologyTerm);
-			MappingExplanation mappingExplanation = MappingExplanation.create(idGenerator.generateId(),
+			MatchingExplanation mappingExplanation = MatchingExplanation.create(idGenerator.generateId(),
 					atomicOntologyTerms, hit.getJoinedSynonym(), hit.getMatchedWords(), hit.getScore());
 			explanations.add(mappingExplanation);
 		}

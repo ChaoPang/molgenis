@@ -38,9 +38,9 @@ import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainS
 import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
-import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
+import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntity;
@@ -132,10 +132,9 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 		sourceEntityMetaDataEntity.set(EntityMetaDataMetaData.ATTRIBUTES,
 				Arrays.asList(targetHeightEntity, targetWeightEntity));
 
-		OntologyTermHit standingHeightHit = OntologyTermHit.create(standingHeight, "standing height", "standing height",
-				1.0f);
+		TagGroup standingHeightHit = TagGroup.create(standingHeight, "standing height", 1.0f);
 
-		OntologyTermHit bodyWeightHit = OntologyTermHit.create(bodyWeight, "body weight", "body weight", 1.0f);
+		TagGroup bodyWeightHit = TagGroup.create(bodyWeight, "body weight", 1.0f);
 
 		MapEntity entityHeight = new MapEntity(
 				of(NAME, "height_0", LABEL, "height", DESCRIPTION, "this is a height measurement in m!"));
@@ -182,7 +181,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 
 		assertEquals(
 				semanticSearchService.findAttributes(SemanticSearchParameter.create(targetHeight,
-						Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, true, true, true)),
+						Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, true, true)),
 				asList(sourceAttributeHeight));
 
 		// Case 2: mock the createDisMaxQueryRule method for the attribute Weight
@@ -200,7 +199,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 
 		assertEquals(
 				semanticSearchService.findAttributes(SemanticSearchParameter.create(targetWeight,
-						Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, true, true, true)),
+						Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, true, true)),
 				asList(sourceAttributeWeight));
 	}
 

@@ -21,7 +21,7 @@ public abstract class ExplainedAttributeMetaData implements Comparable<Explained
 	}
 
 	public static ExplainedAttributeMetaData create(AttributeMetaData attributeMetaData,
-			ExplainedQueryString explainedQueryString, boolean highQuality)
+			AttributeMatchExplanation explainedQueryString, boolean highQuality)
 	{
 		return new AutoValue_ExplainedAttributeMetaData(attributeToMap(attributeMetaData), explainedQueryString,
 				highQuality);
@@ -30,7 +30,7 @@ public abstract class ExplainedAttributeMetaData implements Comparable<Explained
 	public abstract Map<String, Object> getAttributeMetaData();
 
 	@Nullable
-	public abstract ExplainedQueryString getExplainedQueryString();
+	public abstract AttributeMatchExplanation getExplainedQueryString();
 
 	public abstract boolean isHighQuality();
 

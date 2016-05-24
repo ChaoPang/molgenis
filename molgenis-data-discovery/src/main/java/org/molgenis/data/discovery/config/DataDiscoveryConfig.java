@@ -2,10 +2,6 @@ package org.molgenis.data.discovery.config;
 
 import org.molgenis.data.DataService;
 import org.molgenis.data.IdGenerator;
-import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
-import org.molgenis.data.discovery.repo.impl.BiobankUniverseRepositoryImpl;
-import org.molgenis.data.discovery.service.BiobankUniverseService;
-import org.molgenis.data.discovery.service.impl.BiobankUniverseServiceImpl;
 import org.molgenis.data.semanticsearch.config.SemanticSearchConfig;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
@@ -13,7 +9,6 @@ import org.molgenis.ontology.core.config.OntologyConfig;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.security.user.MolgenisUserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
@@ -40,16 +35,16 @@ public class DataDiscoveryConfig
 	@Autowired
 	SemanticSearchService semanticSearchService;
 
-	@Bean
-	public BiobankUniverseRepository biobankUniverseRepository()
-	{
-		return new BiobankUniverseRepositoryImpl(dataService, ontologyService, molgenisUserService);
-	}
-
-	@Bean
-	public BiobankUniverseService biobankUniverseService()
-	{
-		return new BiobankUniverseServiceImpl(idGenerator, biobankUniverseRepository(), dataService, ontologyService,
-				semanticSearchService, attributeMappingExplainService);
-	}
+	// @Bean
+	// public BiobankUniverseRepository biobankUniverseRepository()
+	// {
+	// return new BiobankUniverseRepositoryImpl(dataService, ontologyService, molgenisUserService);
+	// }
+	//
+	// @Bean
+	// public BiobankUniverseService biobankUniverseService()
+	// {
+	// return new BiobankUniverseServiceImpl(idGenerator, biobankUniverseRepository(), dataService, ontologyService,
+	// semanticSearchService, attributeMappingExplainService);
+	// }
 }

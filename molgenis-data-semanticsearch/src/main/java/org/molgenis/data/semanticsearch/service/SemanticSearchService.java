@@ -8,9 +8,9 @@ import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.semantic.Hit;
-import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
+import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.core.model.OntologyTerm;
 
 public interface SemanticSearchService
@@ -41,7 +41,7 @@ public interface SemanticSearchService
 			SemanticSearchParameter semanticSearchParameters);
 
 	Map<EntityMetaData, List<AttributeMetaData>> findAttributes(Set<String> queryTerms,
-			List<OntologyTermHit> ontologyTermHits, QueryExpansionParameter ontologyExpansionParameters,
+			List<TagGroup> ontologyTermHits, QueryExpansionParameter ontologyExpansionParameters,
 			List<EntityMetaData> sourceEntityMetaDatas);
 
 	/**
@@ -69,16 +69,16 @@ public interface SemanticSearchService
 	Hit<OntologyTerm> findTag(String description, List<String> ontologyIds);
 
 	/**
-	 * Finds all {@link OntologyTermHit}s for an attribute with in all ontology terms for the specified ontologies.
-	 * {@link OntologyTermHit} contains the best combination of ontology terms that yields the highest lexical
+	 * Finds all {@link TagGroup}s for an attribute with in all ontology terms for the specified ontologies.
+	 * {@link TagGroup} contains the best combination of ontology terms that yields the highest lexical
 	 * similarity score.
 	 * 
 	 * @param attribute
 	 * @param ontologyIds
 	 * @return
 	 */
-	List<OntologyTermHit> findAllTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds);
+	List<TagGroup> findAllTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds);
 
-	List<OntologyTermHit> findAllTags(String description, List<String> ontologyIds);
+	List<TagGroup> findAllTags(String description, List<String> ontologyIds);
 
 }

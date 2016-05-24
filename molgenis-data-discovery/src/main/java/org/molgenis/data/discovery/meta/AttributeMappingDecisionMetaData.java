@@ -6,7 +6,6 @@ import static org.molgenis.data.EntityMetaData.AttributeRole.ROLE_ID;
 import java.util.stream.Stream;
 
 import org.molgenis.MolgenisFieldTypes;
-import org.molgenis.auth.MolgenisUserMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.springframework.stereotype.Component;
 
@@ -44,7 +43,7 @@ public class AttributeMappingDecisionMetaData extends DefaultEntityMetaData
 		addAttribute(IDENTIFIER, ROLE_ID);
 		addAttribute(DECISION).setDataType(MolgenisFieldTypes.ENUM)
 				.setEnumOptions(Stream.of(DecisionOptions.values()).map(DecisionOptions::toString).collect(toList()));
-		addAttribute(COMMENT).setDataType(MolgenisFieldTypes.TEXT);
-		addAttribute(OWNER).setDataType(MolgenisFieldTypes.XREF).setRefEntity(new MolgenisUserMetaData());
+		addAttribute(COMMENT).setDataType(MolgenisFieldTypes.TEXT).setNillable(true);
+		addAttribute(OWNER);
 	}
 }

@@ -8,17 +8,17 @@ import org.molgenis.ontology.core.meta.OntologyTermMetaData;
 import org.springframework.stereotype.Component;
 
 @Component
-public class MappingExplanationMetaData extends DefaultEntityMetaData
+public class MatchingExplanationMetaData extends DefaultEntityMetaData
 {
-	public static final String ENTITY_NAME = "MappingExplanation";
+	public static final String ENTITY_NAME = "MatchingExplanation";
 	public static final String IDENTIFIER = "identifier";
 	public static final String ONTOLOGY_TERMS = "ontologyTerms";
 	public static final String MATCHED_QUERY_STRING = "matchedQueryString";
 	public static final String MATCHED_WORDS = "matchedWords";
 	public static final String N_GRAM_SCORE = "ngramScore";
-	public static final MappingExplanationMetaData INSTANCE = new MappingExplanationMetaData();
+	public static final MatchingExplanationMetaData INSTANCE = new MatchingExplanationMetaData();
 
-	public MappingExplanationMetaData()
+	public MatchingExplanationMetaData()
 	{
 		super(ENTITY_NAME);
 		addAttribute(IDENTIFIER, ROLE_ID);

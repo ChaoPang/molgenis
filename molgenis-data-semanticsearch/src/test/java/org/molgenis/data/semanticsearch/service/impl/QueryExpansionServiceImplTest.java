@@ -16,9 +16,8 @@ import java.util.stream.Collectors;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
 import org.molgenis.data.semantic.Relation;
-import org.molgenis.data.semanticsearch.semantic.Hit;
-import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
+import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
@@ -75,9 +74,9 @@ public class QueryExpansionServiceImplTest extends AbstractTestNGSpringContextTe
 				Arrays.asList("child"));
 		OntologyTerm ontologyTerm_4 = OntologyTerm.and(ontologyTerm_1, ontologyTerm_2);
 
-		Hit<OntologyTerm> hit_1 = Hit.create(ontologyTerm_1, 0.5f);
-		Hit<OntologyTerm> hit_2 = Hit.create(ontologyTerm_2, 0.5f);
-		Hit<OntologyTerm> hit_4 = Hit.create(ontologyTerm_4, 1.0f);
+		TagGroup hit_1 = TagGroup.create(ontologyTerm_1, "molgenis", 0.5f);
+		TagGroup hit_2 = TagGroup.create(ontologyTerm_2, "molgenis", 0.5f);
+		TagGroup hit_4 = TagGroup.create(ontologyTerm_4, "molgenis child", 1.0f);
 
 		OntologyTermChildrenPredicate predicate = new OntologyTermChildrenPredicate(3, false, ontologyService);
 
@@ -145,8 +144,8 @@ public class QueryExpansionServiceImplTest extends AbstractTestNGSpringContextTe
 		when(ontologyService.getAtomicOntologyTerms(ontologyTerm3)).thenReturn(Arrays.asList(ontologyTerm3));
 		when(ontologyService.getAtomicOntologyTerms(ontologyTerm4)).thenReturn(Arrays.asList(ontologyTerm4));
 
-		List<OntologyTermHit> ontologyTermHits = tags.values().stream()
-				.map(ot -> OntologyTermHit.create(ot, ot.getLabel(), ot.getLabel(), 1.0f)).collect(Collectors.toList());
+		List<TagGroup> ontologyTermHits = tags.values().stream().map(ot -> TagGroup.create(ot, ot.getLabel(), 1.0f))
+				.collect(Collectors.toList());
 
 		// Case 1
 		QueryRule actualTargetAttributeQueryTerms_1 = queryExpansionService.expand(

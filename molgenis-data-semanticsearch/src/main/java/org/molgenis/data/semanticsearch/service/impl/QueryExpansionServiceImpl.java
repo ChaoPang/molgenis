@@ -27,10 +27,9 @@ import org.apache.lucene.queryparser.classic.QueryParser;
 import org.elasticsearch.common.base.Joiner;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
-import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.QueryExpansionService;
-import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
+import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
@@ -64,20 +63,20 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 	}
 
 	/**
-	 * Create a disMaxJunc query rule based on the given search terms as well as the information from given ontology
-	 * terms
+	 * Create a disMaxJunc query rule based on the given search terms as well as the tag groups
 	 *
-	 * @param ontologyTermHits
+	 * @param tagGroups
 	 * @param lexicalQueries
 	 *
 	 * @return disMaxJunc queryRule
 	 */
-	public QueryRule expand(Set<String> lexicalQueries, List<OntologyTermHit> ontologyTermHits,
-			QueryExpansionParameter ontologyExpansionParameters)
+	public QueryRule expand(Set<String> lexicalQueries, List<TagGroup> tagGroups,
+			QueryExpansionParameter expansionParameter)
 	{
 		List<QueryRule> rules = new ArrayList<>();
 
-		if (lexicalQueries != null)
+		// Parse the lexical queries
+		if (lexicalQueries != null && lexicalQueries.isEmpty())
 		{
 			List<String> queryTerms = lexicalQueries.stream().filter(StringUtils::isNotBlank)
 					.map(this::parseQueryString).map(this::boostLexicalQuery).collect(toList());
@@ -91,18 +90,15 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 			}
 		}
 
-		Multimap<String, Hit<OntologyTerm>> combiniationGroupWithSameJoinedSynonym = LinkedHashMultimap.create();
-
-		ontologyTermHits.forEach(hit -> combiniationGroupWithSameJoinedSynonym.put(hit.getJoinedSynonym(),
-				Hit.create(hit.getOntologyTerm(), hit.getScore())));
-
-		for (String joinedSynonym : combiniationGroupWithSameJoinedSynonym.keySet())
+		// Collection the queries from ontology terms and parse them
+		Multimap<String, TagGroup> groupWithSameSynonym = LinkedHashMultimap.create();
+		tagGroups.forEach(hit -> groupWithSameSynonym.put(hit.getMatchedWords(), hit));
+		for (String synonym : groupWithSameSynonym.keySet())
 		{
-			List<Hit<OntologyTerm>> ontologyTermCombinations = Lists
-					.newArrayList(combiniationGroupWithSameJoinedSynonym.get(joinedSynonym));
+			List<TagGroup> ontologyTermGroup = Lists.newArrayList(groupWithSameSynonym.get(synonym));
 
-			QueryRule queryRuleForOntologyTerms = createQueryRuleForOntologyTerms(ontologyTermCombinations,
-					ontologyExpansionParameters);
+			QueryRule queryRuleForOntologyTerms = createQueryRuleForOntologyTerms(ontologyTermGroup,
+					expansionParameter);
 
 			if (queryRuleForOntologyTerms != null)
 			{
@@ -126,8 +122,8 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 	 * @param ontologyTermHits
 	 * @return
 	 */
-	QueryRule createQueryRuleForOntologyTerms(List<Hit<OntologyTerm>> ontologyTermHits,
-			QueryExpansionParameter ontologyExpansionParameters)
+	QueryRule createQueryRuleForOntologyTerms(List<TagGroup> ontologyTermHits,
+			QueryExpansionParameter expansionParameter)
 	{
 		QueryRule queryRule = null;
 
@@ -136,19 +132,20 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 			float score = ontologyTermHits.get(0).getScore();
 
 			// Put ontologyTerms with the same synonym in a map
-			Multimap<OntologyTerm, OntologyTerm> ontologyTermGroups = groupOntologyTermsBySynonym(ontologyTermHits);
+			Multimap<OntologyTerm, OntologyTerm> atomicOntologyTermGroups = groupAtomicOntologyTermsBySynonym(
+					ontologyTermHits);
 
-			Set<OntologyTerm> ontologyTermGroupKeys = ontologyTermGroups.keySet();
+			Set<OntologyTerm> ontologyTermGroupKeys = atomicOntologyTermGroups.keySet();
 
 			if (ontologyTermGroupKeys.size() > 1)
 			{
 				Map<OntologyTerm, Float> ontologyTermGroupWeight = normalizeBoostValueForOntologyTermGroup(
-						ontologyTermGroups);
+						atomicOntologyTermGroups);
 
 				Function<OntologyTerm, QueryRule> ontologyTermGroupToQueryRule = groupKey -> {
 
-					List<String> queryTermsFromSameGroup = ontologyTermGroups.get(groupKey).stream()
-							.flatMap(ot -> getExpandedQueriesFromOntologyTerm(ot, ontologyExpansionParameters).stream())
+					List<String> queryTermsFromSameGroup = atomicOntologyTermGroups.get(groupKey).stream()
+							.flatMap(ot -> getExpandedQueriesFromOntologyTerm(ot, expansionParameter).stream())
 							.collect(toList());
 
 					return createDisMaxQueryRuleForTerms(queryTermsFromSameGroup,
@@ -162,8 +159,8 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 			{
 				OntologyTerm firstOntologyTermGroupKey = get(ontologyTermGroupKeys, 0);
 
-				List<String> queryTerms = ontologyTermGroups.get(firstOntologyTermGroupKey).stream()
-						.flatMap(ot -> getExpandedQueriesFromOntologyTerm(ot, ontologyExpansionParameters).stream())
+				List<String> queryTerms = atomicOntologyTermGroups.get(firstOntologyTermGroupKey).stream()
+						.flatMap(ot -> getExpandedQueriesFromOntologyTerm(ot, expansionParameter).stream())
 						.collect(toList());
 
 				queryRule = createDisMaxQueryRuleForTerms(queryTerms, score);
@@ -181,19 +178,19 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 	 * @return
 	 */
 	List<String> getExpandedQueriesFromOntologyTerm(OntologyTerm ontologyTerm,
-			QueryExpansionParameter ontologyExpansionParameters)
+			QueryExpansionParameter expansionParameter)
 	{
 		List<String> queryTerms = getLowerCaseTerms(ontologyTerm).stream().map(this::parseQueryString)
 				.collect(toList());
 
-		if (ontologyExpansionParameters.isChildExpansionEnabled())
+		if (expansionParameter.isChildExpansionEnabled())
 		{
 			OntologyTermChildrenPredicate predicate = new OntologyTermChildrenPredicate(
-					ontologyExpansionParameters.getExpansionLevel(), false, ontologyService);
+					expansionParameter.getExpansionLevel(), false, ontologyService);
 
-			Function<OntologyTerm, Stream<String>> mapChildOntologyTermToQueries = child -> getLowerCaseTerms(child)
-					.stream().map(query -> parseBoostQueryString(query,
-							Math.pow(0.5, ontologyService.getOntologyTermDistance(ontologyTerm, child))));
+			Function<OntologyTerm, Stream<String>> mapChildOntologyTermToQueries = relatedOntologyTerm -> getLowerCaseTerms(
+					relatedOntologyTerm).stream().map(query -> parseBoostQueryString(query,
+							Math.pow(0.5, ontologyService.getOntologyTermDistance(ontologyTerm, relatedOntologyTerm))));
 
 			List<String> queryTermsFromChildOntologyTerms = ontologyService.getChildren(ontologyTerm, predicate)
 					.stream().flatMap(mapChildOntologyTermToQueries).collect(Collectors.toList());
@@ -226,13 +223,14 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 				.collect(toMap(Entry::getKey, e -> new Float(e.getValue() / maxIdfValue)));
 	}
 
-	private Multimap<OntologyTerm, OntologyTerm> groupOntologyTermsBySynonym(List<Hit<OntologyTerm>> ontologyTermHits)
+	private Multimap<OntologyTerm, OntologyTerm> groupAtomicOntologyTermsBySynonym(List<TagGroup> ontologyTermHits)
 	{
 		Multimap<OntologyTerm, OntologyTerm> multiMap = LinkedHashMultimap.create();
-		ontologyService.getAtomicOntologyTerms(ontologyTermHits.get(0).getResult()).forEach(ot -> multiMap.put(ot, ot));
+		ontologyService.getAtomicOntologyTerms(ontologyTermHits.get(0).getOntologyTerm())
+				.forEach(ot -> multiMap.put(ot, ot));
 
 		ontologyTermHits.stream().skip(1)
-				.flatMap(hit -> ontologyService.getAtomicOntologyTerms(hit.getResult()).stream())
+				.flatMap(hit -> ontologyService.getAtomicOntologyTerms(hit.getOntologyTerm()).stream())
 				.filter(ot -> !multiMap.containsKey(ot)).forEach(atomicOntologyTerm -> {
 
 					OntologyTerm ontologyTermInTheMap = multiMap.keySet().stream()

@@ -68,10 +68,10 @@ public class BiobankUniverseJobFactory
 
 		BiobankUniverse universe = jobExecution.getUniverse();
 		List<EntityMetaData> members = jobExecution.getMembers();
-
-		BiobankUniverseJobProcessor biobankUniverseJobProcessor = new BiobankUniverseJobProcessor(universe, members,
-				biobankUniverseRepository, semanticSearchService, attributeMappingExplainService, ontologyService,
-				idGenerator, progress, menuReaderService);
+		BiobankUniverseJobProcessor biobankUniverseJobProcessor = null;
+		// BiobankUniverseJobProcessor biobankUniverseJobProcessor = new BiobankUniverseJobProcessor(universe, members,
+		// biobankUniverseRepository, semanticSearchService, attributeMappingExplainService, ontologyService,
+		// idGenerator, progress, menuReaderService);
 
 		return new BiobankUniverseJobImpl(biobankUniverseJobProcessor, progress, transactionTemplate,
 				runAsAuthentication);

@@ -30,7 +30,7 @@ import org.molgenis.data.mapper.service.UnitResolver;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplate;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
-import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
+import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
 import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
 import org.molgenis.script.ScriptParameter;
@@ -118,7 +118,7 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 
 			// Calculate the final similarity score by summing up all the matched scores.
 			score = explainedSourceAttributes.stream().map(ExplainedAttributeMetaData::getExplainedQueryString)
-					.mapToDouble(ExplainedQueryString::getScore).sum();
+					.mapToDouble(AttributeMatchExplanation::getScore).sum();
 
 			if (additionalQueryTerms.size() > 0) score = score / additionalQueryTerms.size();
 		}

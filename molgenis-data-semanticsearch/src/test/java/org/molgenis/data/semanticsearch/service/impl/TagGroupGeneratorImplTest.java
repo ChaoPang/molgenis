@@ -20,7 +20,7 @@ import java.util.concurrent.ExecutionException;
 
 import org.mockito.Mockito;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
-import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
+import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -125,9 +125,9 @@ public class TagGroupGeneratorImplTest extends AbstractTestNGSpringContextTests
 		when(ontologyService.findOntologyTerms(ontologyIds, searchTerms, MAX_NUMBER_ATTRIBTUES))
 				.thenReturn(ontologyTerms);
 
-		List<OntologyTermHit> result = tagGroupGenerator.findTagGroups("history hypertension", ontologyIds);
+		List<TagGroup> result = tagGroupGenerator.findTagGroups("history hypertension", ontologyIds);
 
-		assertEquals(result, asList(OntologyTermHit.create(hypertension, "hypertension", "hypertension", 0.69231f)));
+		assertEquals(result, asList(TagGroup.create(hypertension, "hypertension", 0.69231f)));
 	}
 
 	@Test
@@ -149,10 +149,9 @@ public class TagGroupGeneratorImplTest extends AbstractTestNGSpringContextTests
 		when(ontologyService.findOntologyTerms(ontologyIds, searchTerms, MAX_NUMBER_ATTRIBTUES))
 				.thenReturn(ontologyTerms);
 
-		List<OntologyTermHit> result = tagGroupGenerator.findTagGroups("standing height meters", ontologyIds);
+		List<TagGroup> result = tagGroupGenerator.findTagGroups("standing height meters", ontologyIds);
 
-		assertEquals(result,
-				asList(OntologyTermHit.create(standingHeight, "standing height", "standing height", 0.81250f)));
+		assertEquals(result, asList(TagGroup.create(standingHeight, "standing height", 0.81250f)));
 	}
 
 	@Test
@@ -197,10 +196,10 @@ public class TagGroupGeneratorImplTest extends AbstractTestNGSpringContextTests
 		// Randomize the order of the ontology terms
 		Collections.shuffle(relevantOntologyTerms);
 
-		List<OntologyTermHit> ontologyTermHits = tagGroupGenerator.applyTagMatchingCriteria(relevantOntologyTerms,
+		List<TagGroup> ontologyTermHits = tagGroupGenerator.applyTagMatchingCriteria(relevantOntologyTerms,
 				searchTerms);
 
-		List<OntologyTermHit> combineOntologyTerms = tagGroupGenerator.generateTagGroups(searchTerms, ontologyTermHits);
+		List<TagGroup> combineOntologyTerms = tagGroupGenerator.generateTagGroups(searchTerms, ontologyTermHits);
 
 		List<OntologyTerm> actualOntologyTerms = combineOntologyTerms.stream().map(hit -> hit.getOntologyTerm())
 				.collect(toList());
@@ -230,11 +229,10 @@ public class TagGroupGeneratorImplTest extends AbstractTestNGSpringContextTests
 		when(ontologyService.findOntologyTerms(ontologyIds, newLinkedHashSet(asList("standing", "height", "ångstrøm")),
 				MAX_NUMBER_ATTRIBTUES)).thenReturn(ontologyTerms);
 
-		List<OntologyTermHit> result = tagGroupGenerator.findTagGroups(attribute.getDescription(), ontologyIds);
+		List<TagGroup> result = tagGroupGenerator.findTagGroups(attribute.getDescription(), ontologyIds);
 
 		assertEquals(result.size(), 1);
-		assertEquals(result.get(0),
-				OntologyTermHit.create(standingHeight, "standing height", "standing height", 0.76471f));
+		assertEquals(result.get(0), TagGroup.create(standingHeight, "standing height", 0.76471f));
 	}
 
 	@Test
@@ -246,7 +244,7 @@ public class TagGroupGeneratorImplTest extends AbstractTestNGSpringContextTests
 		when(ontologyService.findOntologyTerms(ontologyIds, ImmutableSet.of("əˈnædrəməs"), MAX_NUMBER_ATTRIBTUES))
 				.thenReturn(ontologyTerms);
 
-		List<OntologyTermHit> result = tagGroupGenerator.findTagGroups(attribute.getDescription(), ontologyIds);
+		List<TagGroup> result = tagGroupGenerator.findTagGroups(attribute.getDescription(), ontologyIds);
 
 		assertEquals(result, Collections.emptyList());
 	}
@@ -260,7 +258,7 @@ public class TagGroupGeneratorImplTest extends AbstractTestNGSpringContextTests
 		when(ontologyService.findOntologyTerms(ontologyIds, newLinkedHashSet(asList("body", "mass", "index")),
 				MAX_NUMBER_ATTRIBTUES)).thenReturn(ontologyTerms);
 
-		List<OntologyTermHit> result = tagGroupGenerator.findTagGroups(attribute.getDescription(), ontologyIds);
+		List<TagGroup> result = tagGroupGenerator.findTagGroups(attribute.getDescription(), ontologyIds);
 
 		assertEquals(result, Collections.emptyList());
 	}
@@ -274,10 +272,9 @@ public class TagGroupGeneratorImplTest extends AbstractTestNGSpringContextTests
 		when(ontologyService.findOntologyTerms(ontologyIds, newLinkedHashSet(asList("standing", "height", "m.")),
 				MAX_NUMBER_ATTRIBTUES)).thenReturn(ontologyTerms);
 
-		List<OntologyTermHit> result = tagGroupGenerator.findTagGroups(attribute.getDescription(), ontologyIds);
+		List<TagGroup> result = tagGroupGenerator.findTagGroups(attribute.getDescription(), ontologyIds);
 
-		OntologyTermHit ontologyTermHit = OntologyTermHit.create(standingHeight, "standing height", "standing height",
-				0.92857f);
+		TagGroup ontologyTermHit = TagGroup.create(standingHeight, "standing height", 0.92857f);
 
 		assertEquals(result, Arrays.asList(ontologyTermHit));
 	}

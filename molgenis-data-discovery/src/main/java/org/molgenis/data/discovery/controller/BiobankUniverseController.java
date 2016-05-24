@@ -20,8 +20,6 @@ import org.molgenis.data.i18n.LanguageService;
 import org.molgenis.security.core.runas.RunAsSystemProxy;
 import org.molgenis.security.user.UserAccountService;
 import org.molgenis.ui.MolgenisPluginController;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -45,8 +43,6 @@ public class BiobankUniverseController extends MolgenisPluginController
 	public static final String VIEW_NAME = "biobank-universe-view";
 	public static final String ID = "biobankuniverse";
 	public static final String URI = MolgenisPluginController.PLUGIN_URI_PREFIX + ID;
-
-	private static final Logger LOG = LoggerFactory.getLogger(BiobankUniverseController.class);
 
 	@Autowired
 	public BiobankUniverseController(BiobankUniverseJobFactory biobankUniverseJobFactory,

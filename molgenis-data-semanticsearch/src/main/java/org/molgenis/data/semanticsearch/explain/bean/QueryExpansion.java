@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
+import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
 import org.molgenis.ontology.core.service.OntologyService;
@@ -38,7 +38,7 @@ public class QueryExpansion
 		return Lists.newArrayList(queryExpansionRelation.values());
 	}
 
-	public QueryExpansionSolution getQueryExpansionSolution(OntologyTermHit sourceOntologyTermHit)
+	public QueryExpansionSolution getQueryExpansionSolution(TagGroup sourceOntologyTermHit)
 	{
 		List<OntologyTerm> sourceMatchedOntologyTerms = ontologyService
 				.getAtomicOntologyTerms(sourceOntologyTermHit.getOntologyTerm());

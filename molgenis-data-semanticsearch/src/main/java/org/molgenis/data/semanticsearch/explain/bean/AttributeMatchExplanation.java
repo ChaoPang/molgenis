@@ -8,8 +8,8 @@ import com.google.auto.value.AutoValue;
 import edu.umd.cs.findbugs.annotations.Nullable;
 
 @AutoValue
-@AutoGson(autoValueClass = AutoValue_ExplainedQueryString.class)
-public abstract class ExplainedQueryString
+@AutoGson(autoValueClass = AutoValue_AttributeMatchExplanation.class)
+public abstract class AttributeMatchExplanation
 {
 	public abstract String getMatchedWords();
 
@@ -20,9 +20,9 @@ public abstract class ExplainedQueryString
 
 	public abstract float getScore();
 
-	public static ExplainedQueryString create(String matchedWords, String queryString, OntologyTerm ontologyTerm,
+	public static AttributeMatchExplanation create(String matchedWords, String queryString, OntologyTerm ontologyTerm,
 			float score)
 	{
-		return new AutoValue_ExplainedQueryString(matchedWords, queryString, ontologyTerm, score);
+		return new AutoValue_AttributeMatchExplanation(matchedWords, queryString, ontologyTerm, score);
 	}
 }

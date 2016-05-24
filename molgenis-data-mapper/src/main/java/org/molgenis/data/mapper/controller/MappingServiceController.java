@@ -583,7 +583,7 @@ public class MappingServiceController extends MolgenisPluginController
 		AttributeMetaData targetAttributeMetaData = targetEntityMetaData.getAttribute(targetAttribute);
 
 		SemanticSearchParameter semanticSearchParameters = SemanticSearchParameter.create(targetAttributeMetaData,
-				userQueries, targetEntityMetaData, sourceEntityMetaData, false);
+				userQueries, targetEntityMetaData, sourceEntityMetaData);
 
 		List<ExplainedAttributeMetaData> relevantAttributes = semanticSearchService
 				.findAttributesLazyWithExplanations(semanticSearchParameters);

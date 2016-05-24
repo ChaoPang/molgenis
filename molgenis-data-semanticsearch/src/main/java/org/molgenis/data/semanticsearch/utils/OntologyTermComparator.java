@@ -2,20 +2,18 @@ package org.molgenis.data.semanticsearch.utils;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
-import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
+import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.utils.Stemmer;
 
-public class OntologyTermComparator implements Comparator<OntologyTermHit>
+public class OntologyTermComparator implements Comparator<TagGroup>
 {
 	@Override
-	public int compare(OntologyTermHit o2, OntologyTermHit o1)
+	public int compare(TagGroup o2, TagGroup o1)
 	{
-		String synonym1 = o1.getJoinedSynonym();
-		String synonym2 = o2.getJoinedSynonym();
+		String synonym1 = o1.getMatchedWords();
+		String synonym2 = o2.getMatchedWords();
 
 		float score1 = o1.getScore();
 		float score2 = o2.getScore();
@@ -51,14 +49,19 @@ public class OntologyTermComparator implements Comparator<OntologyTermHit>
 
 	float calculateInformationContent(String bestMatchingSynonym, List<String> synonyms)
 	{
-		int count = 0;
+		final String bestMatchingSynonymLowerCase = bestMatchingSynonym.toLowerCase();
+		// int count = 0;
 		String joinedSynonym = StringUtils.join(synonyms, StringUtils.EMPTY).toLowerCase();
-		Pattern pattern = Pattern.compile(Pattern.quote(bestMatchingSynonym.toLowerCase()));
-		Matcher matcher = pattern.matcher(joinedSynonym);
-		while (matcher.find())
-		{
-			count++;
-		}
+		// Pattern pattern = Pattern.compile(Pattern.quote(bestMatchingSynonym.toLowerCase()));
+		// Matcher matcher = pattern.matcher(joinedSynonym);
+		// //
+		long count = synonyms.stream().filter(s -> s.toLowerCase().contains(bestMatchingSynonymLowerCase)).count();
+		//
+		//
+		// while (matcher.find())
+		// {
+		// count++;
+		// }
 		float contributedLength = count * bestMatchingSynonym.length();
 		return contributedLength / joinedSynonym.length();
 	}
@@ -69,8 +72,8 @@ public class OntologyTermComparator implements Comparator<OntologyTermHit>
 				|| Stemmer.cleanStemPhrase(synonym1).equalsIgnoreCase(Stemmer.cleanStemPhrase(synonym2));
 	}
 
-	boolean isOntologyTermNameMatched(OntologyTermHit hit)
+	boolean isOntologyTermNameMatched(TagGroup hit)
 	{
-		return hit.getOntologyTerm().getLabel().equalsIgnoreCase(hit.getJoinedSynonym());
+		return hit.getOntologyTerm().getLabel().equalsIgnoreCase(hit.getMatchedWords());
 	}
 }

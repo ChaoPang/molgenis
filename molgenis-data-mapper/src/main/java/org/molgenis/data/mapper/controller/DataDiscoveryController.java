@@ -81,7 +81,7 @@ public class DataDiscoveryController extends MolgenisPluginController
 			QueryExpansionParameter create = QueryExpansionParameter.create(true, true, parseInt(ontologyLevel));
 
 			SemanticSearchParameter semanticSearchParameters = SemanticSearchParameter.create(attributeMetaData,
-					emptySet(), null, readableEntityMetaDatas, exactMatch, create);
+					emptySet(), null, readableEntityMetaDatas, create);
 
 			searchResult = semanticSearchService.findMultiEntityAttributes(semanticSearchParameters).entrySet().stream()
 					.collect(Collectors.toMap(entry -> entry.getKey().getName(),

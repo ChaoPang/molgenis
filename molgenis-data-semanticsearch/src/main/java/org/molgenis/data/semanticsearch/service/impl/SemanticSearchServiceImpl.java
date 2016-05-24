@@ -35,9 +35,9 @@ import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
-import org.molgenis.data.semanticsearch.service.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
+import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.Ontology;
@@ -150,7 +150,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 		Set<String> queryTerms = SemanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, userQueries);
 
-		List<OntologyTermHit> ontologyTermHits;
+		List<TagGroup> ontologyTermHits;
 		if (semanticSearchEnabled)
 		{
 			List<String> ontologyIds = ontologyService.getOntologies().stream()
@@ -166,10 +166,9 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 
 	@Override
 	public Map<EntityMetaData, List<AttributeMetaData>> findAttributes(Set<String> queryTerms,
-			List<OntologyTermHit> ontologyTermHits, QueryExpansionParameter ontologyExpansionParameters,
+			List<TagGroup> ontologyTermHits, QueryExpansionParameter ontologyExpansionParameters,
 			List<EntityMetaData> sourceEntityMetaDatas)
 	{
-
 		QueryRule disMaxQueryRule = queryExpansionService.expand(queryTerms, ontologyTermHits,
 				ontologyExpansionParameters);
 
@@ -221,7 +220,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	@Override
 	public Hit<OntologyTerm> findTagForAttr(AttributeMetaData attribute, List<String> ontologyIds)
 	{
-		List<OntologyTermHit> ontologyTermHits = findAllTagsForAttr(attribute, ontologyIds);
+		List<TagGroup> ontologyTermHits = findAllTagsForAttr(attribute, ontologyIds);
 		return ontologyTermHits.stream().findFirst().map(otHit -> create(otHit.getOntologyTerm(), otHit.getScore()))
 				.orElse(null);
 	}
@@ -229,20 +228,20 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	@Override
 	public Hit<OntologyTerm> findTag(String description, List<String> ontologyIds)
 	{
-		List<OntologyTermHit> ontologyTermHits = findAllTags(description, ontologyIds);
+		List<TagGroup> ontologyTermHits = findAllTags(description, ontologyIds);
 		return ontologyTermHits.stream().findFirst().map(otHit -> create(otHit.getOntologyTerm(), otHit.getScore()))
 				.orElse(null);
 	}
 
 	@Override
-	public List<OntologyTermHit> findAllTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds)
+	public List<TagGroup> findAllTagsForAttr(AttributeMetaData attribute, List<String> ontologyIds)
 	{
 		String description = attribute.getDescription() == null ? attribute.getLabel() : attribute.getDescription();
 		return findAllTags(description, ontologyIds);
 	}
 
 	@Override
-	public List<OntologyTermHit> findAllTags(String description, List<String> ontologyIds)
+	public List<TagGroup> findAllTags(String description, List<String> ontologyIds)
 	{
 		return tagGroupGenerator.findTagGroups(description, ontologyIds);
 	}
@@ -273,11 +272,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 			explainedAttributes.add(explainAttributeMapping);
 		}
 
-		// Only when the exact match is specified, we sort the matching results based on the n-gram similarity score
-		if (semanticSearchParameters.isExactMatch())
-		{
-			Collections.sort(explainedAttributes);
-		}
+		Collections.sort(explainedAttributes);
 
 		if (matchedSourceAttributes.size() > NUMBER_OF_EXPLAINED_ATTRS)
 		{

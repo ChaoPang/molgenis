@@ -18,43 +18,43 @@ import com.google.auto.value.AutoValue;
 public abstract class SemanticSearchParameter
 {
 	public static SemanticSearchParameter create(AttributeMetaData targetAttribute, Set<String> userQueries,
-			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, boolean exactMatch)
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData)
 	{
 		return new AutoValue_SemanticSearchParameter(targetAttribute, userQueries, targetEntityMetaData,
-				asList(sourceEntityMetaData), exactMatch, QueryExpansionParameter.create(false, false));
+				asList(sourceEntityMetaData), QueryExpansionParameter.create(false, false));
 	}
 
 	public static SemanticSearchParameter create(AttributeMetaData targetAttribute, Set<String> userQueries,
-			EntityMetaData targetEntityMetaData, List<EntityMetaData> sourceEntityMetaDatas, boolean exactMatch)
+			EntityMetaData targetEntityMetaData, List<EntityMetaData> sourceEntityMetaDatas)
 	{
 		return new AutoValue_SemanticSearchParameter(targetAttribute, userQueries, targetEntityMetaData,
-				sourceEntityMetaDatas, exactMatch, QueryExpansionParameter.create(false, false));
+				sourceEntityMetaDatas, QueryExpansionParameter.create(false, false));
 	}
 
 	public static SemanticSearchParameter create(AttributeMetaData targetAttribute, Set<String> userQueries,
-			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, boolean exactMatch,
-			boolean semanticSearchEnabled, boolean childOntologyTermExpansionEnabled)
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData, boolean semanticSearchEnabled,
+			boolean childOntologyTermExpansionEnabled)
 	{
 		return new AutoValue_SemanticSearchParameter(targetAttribute, userQueries, targetEntityMetaData,
-				asList(sourceEntityMetaData), exactMatch,
+				asList(sourceEntityMetaData),
 				QueryExpansionParameter.create(semanticSearchEnabled, childOntologyTermExpansionEnabled));
 	}
 
 	public static SemanticSearchParameter create(AttributeMetaData targetAttribute, Set<String> userQueries,
-			EntityMetaData targetEntityMetaData, List<EntityMetaData> sourceEntityMetaDatas, boolean exactMatch,
+			EntityMetaData targetEntityMetaData, List<EntityMetaData> sourceEntityMetaDatas,
 			boolean semanticSearchEnabled, boolean childOntologyTermExpansionEnabled)
 	{
 		return new AutoValue_SemanticSearchParameter(targetAttribute, userQueries, targetEntityMetaData,
-				sourceEntityMetaDatas, exactMatch,
+				sourceEntityMetaDatas,
 				QueryExpansionParameter.create(semanticSearchEnabled, childOntologyTermExpansionEnabled));
 	}
 
 	public static SemanticSearchParameter create(AttributeMetaData targetAttribute, Set<String> userQueries,
-			EntityMetaData targetEntityMetaData, List<EntityMetaData> sourceEntityMetaDatas, boolean exactMatch,
+			EntityMetaData targetEntityMetaData, List<EntityMetaData> sourceEntityMetaDatas,
 			QueryExpansionParameter ontologyExpansionParameter)
 	{
 		return new AutoValue_SemanticSearchParameter(targetAttribute, userQueries, targetEntityMetaData,
-				sourceEntityMetaDatas, exactMatch, ontologyExpansionParameter);
+				sourceEntityMetaDatas, ontologyExpansionParameter);
 	}
 
 	public static SemanticSearchParameter create(SemanticSearchParameter semanticSearchParameter,
@@ -62,8 +62,7 @@ public abstract class SemanticSearchParameter
 	{
 		return new AutoValue_SemanticSearchParameter(semanticSearchParameter.getTargetAttribute(),
 				semanticSearchParameter.getUserQueries(), semanticSearchParameter.getTargetEntityMetaData(),
-				semanticSearchParameter.getSourceEntityMetaDatas(), semanticSearchParameter.isExactMatch(),
-				ontologyExpansionParameter);
+				semanticSearchParameter.getSourceEntityMetaDatas(), ontologyExpansionParameter);
 	}
 
 	public static SemanticSearchParameter create(SemanticSearchParameter semanticSearchParameter,
@@ -71,7 +70,7 @@ public abstract class SemanticSearchParameter
 	{
 		return new AutoValue_SemanticSearchParameter(semanticSearchParameter.getTargetAttribute(),
 				semanticSearchParameter.getUserQueries(), semanticSearchParameter.getTargetEntityMetaData(),
-				semanticSearchParameter.getSourceEntityMetaDatas(), semanticSearchParameter.isExactMatch(),
+				semanticSearchParameter.getSourceEntityMetaDatas(),
 				QueryExpansionParameter.create(semanticSearchEnabled, childOntologyTermExpansionEnabled));
 	}
 
@@ -84,8 +83,6 @@ public abstract class SemanticSearchParameter
 	public abstract EntityMetaData getTargetEntityMetaData();
 
 	public abstract List<EntityMetaData> getSourceEntityMetaDatas();
-
-	public abstract boolean isExactMatch();
 
 	public abstract QueryExpansionParameter getExpansionParameter();
 }

@@ -2,11 +2,10 @@ package org.molgenis.data.discovery.repo;
 
 import java.util.List;
 
-import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.discovery.model.AttributeMappingCandidate;
+import org.molgenis.data.discovery.model.BiobankSampleAttribute;
+import org.molgenis.data.discovery.model.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.BiobankUniverse;
-import org.molgenis.data.discovery.model.TaggedAttribute;
-import org.molgenis.ontology.core.model.OntologyTerm;
 
 public interface BiobankUniverseRepository
 {
@@ -14,15 +13,18 @@ public interface BiobankUniverseRepository
 
 	public abstract BiobankUniverse getUniverse(String identifier);
 
-	public abstract void addBiobankUniverse(BiobankUniverse biobankUniverse);
+	public abstract void addUniverse(BiobankUniverse biobankUniverse);
 
-	public abstract void addUniverseMembers(BiobankUniverse biobankUniverse, List<EntityMetaData> entityMetaDatas);
+	public abstract void addUniverseMembers(BiobankUniverse biobankUniverse, List<BiobankSampleCollection> members);
 
-	public abstract List<TaggedAttribute> getTaggedAttributes(EntityMetaData entityMetaData);
+	public abstract List<BiobankSampleCollection> getBiobankSampleCollections(List<String> collectionIdentifiers);
 
-	public abstract void addTaggedAttributes(EntityMetaData entityMetaData, List<TaggedAttribute> taggedAttributes);
+	public abstract List<BiobankSampleAttribute> getAttributesFromCollection(BiobankSampleCollection collection);
 
-	public abstract void addAttributeMappingCandidates(List<AttributeMappingCandidate> candidates);
+	public abstract void tagAttributesInBiobankSampleCollection(BiobankSampleCollection collection);
 
-	public abstract List<TaggedAttribute> findTaggedAttributes(List<OntologyTerm> ontologyTerms);
+	public abstract void addAttributeMatchCandidates(List<AttributeMappingCandidate> candidates);
+
+	public abstract List<AttributeMappingCandidate> getAttributeMatchCandidates(
+			List<BiobankSampleAttribute> biobankSampleAttributes);
 }

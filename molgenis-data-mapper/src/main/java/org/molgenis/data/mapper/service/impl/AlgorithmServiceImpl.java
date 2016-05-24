@@ -74,7 +74,7 @@ public class AlgorithmServiceImpl implements AlgorithmService
 
 		// We first search for the source attributes only using query terms collected from the target attribute
 		SemanticSearchParameter semanticSearchParameters = SemanticSearchParameter.create(targetAttribute,
-				Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, false, false, false);
+				Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, false, false);
 
 		List<AttributeMetaData> relevantAttributes = semanticSearchService.findAttributesLazy(semanticSearchParameters);
 
