@@ -29,10 +29,9 @@ import org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState;
 import org.molgenis.data.mapper.service.UnitResolver;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplate;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
-import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
-import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
+import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.script.ScriptParameter;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -44,14 +43,13 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 {
 	private final List<AlgorithmGenerator> generators;
 	private final AlgorithmTemplateService algorithmTemplateService;
-	private final AttributeMappingExplainService attributeMappingExplainService;
+	private final ExplainMappingService attributeMappingExplainService;
 	private final UnitResolver unitResolver;
 	private final MagmaUnitConverter magmaUnitConverter = new MagmaUnitConverter();
 
 	@Autowired
-	public AlgorithmGeneratorServiceImpl(DataService dataService,
-			AttributeMappingExplainService attributeMappingExplainService, UnitResolver unitResolver,
-			AlgorithmTemplateService algorithmTemplateService)
+	public AlgorithmGeneratorServiceImpl(DataService dataService, ExplainMappingService attributeMappingExplainService,
+			UnitResolver unitResolver, AlgorithmTemplateService algorithmTemplateService)
 	{
 		this.algorithmTemplateService = requireNonNull(algorithmTemplateService);
 		this.attributeMappingExplainService = requireNonNull(attributeMappingExplainService);
@@ -75,7 +73,8 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 	}
 
 	@Override
-	public GeneratedAlgorithm autoGenerate(SemanticSearchParameter semanticSearchParameters,
+	public GeneratedAlgorithm autoGenerate(SemanticSearchParam semanticSearchParam, AttributeMetaData targetAttribute,
+			EntityMetaData targetEntityMetaData, EntityMetaData sourceEntityMetaData,
 			List<AttributeMetaData> sourceAttributes)
 	{
 		String algorithm = StringUtils.EMPTY;
@@ -84,12 +83,8 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 		Double score = 0.0d;
 		Set<String> additionalQueryTerms = new LinkedHashSet<>();
 
-		if (sourceAttributes.size() > 0 && semanticSearchParameters.getSourceEntityMetaDatas().size() > 0)
+		if (sourceAttributes.size() > 0)
 		{
-			AttributeMetaData targetAttribute = semanticSearchParameters.getTargetAttribute();
-			EntityMetaData targetEntityMetaData = semanticSearchParameters.getTargetEntityMetaData();
-			EntityMetaData sourceEntityMetaData = semanticSearchParameters.getSourceEntityMetaDatas().get(0);
-
 			algorithm = runAlgorithmTemplate(targetAttribute, sourceAttributes, targetEntityMetaData,
 					sourceEntityMetaData, additionalQueryTerms);
 
@@ -104,21 +99,21 @@ public class AlgorithmGeneratorServiceImpl implements AlgorithmGeneratorService
 			mappedSourceAttributes = extractSourceAttributesFromAlgorithm(algorithm, sourceEntityMetaData);
 
 			// For each source attribute, an explanation is provided by the explain service.
-
-			List<ExplainedAttributeMetaData> explainedSourceAttributes = mappedSourceAttributes.stream()
-					.map(sourceAttribute -> attributeMappingExplainService
-							.explainAttributeMapping(semanticSearchParameters, sourceAttribute))
+			List<AttributeMatchExplanation> explainedSourceAttributes = mappedSourceAttributes.stream()
+					.map(sourceAttribute -> attributeMappingExplainService.explainMapping(semanticSearchParam,
+							sourceAttribute.getDescription() == null ? sourceAttribute.getLabel()
+									: sourceAttribute.getDescription()))
 					.collect(toList());
 
 			// if all source attributes are matched with high quality, then the algorithm is high quality.
-			algorithmState = explainedSourceAttributes.stream().allMatch(ExplainedAttributeMetaData::isHighQuality)
-					? GENERATED_HIGH : GENERATED_LOW;
+			algorithmState = explainedSourceAttributes.stream()
+					.allMatch(explanation -> explanation.getScore() > semanticSearchParam.getHighQualityThreshold())
+							? GENERATED_HIGH : GENERATED_LOW;
 
 			// FIXME: how do i deal with the attributes that are matched to the the script parameters?
 
 			// Calculate the final similarity score by summing up all the matched scores.
-			score = explainedSourceAttributes.stream().map(ExplainedAttributeMetaData::getExplainedQueryString)
-					.mapToDouble(AttributeMatchExplanation::getScore).sum();
+			score = explainedSourceAttributes.stream().mapToDouble(AttributeMatchExplanation::getScore).sum();
 
 			if (additionalQueryTerms.size() > 0) score = score / additionalQueryTerms.size();
 		}

@@ -11,17 +11,15 @@ import java.util.stream.StreamSupport;
 
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
-import org.molgenis.data.EntityMetaData;
+import org.molgenis.data.discovery.model.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.BiobankUniverse;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.jobs.JobExecution;
-import org.molgenis.data.meta.EntityMetaDataMetaData;
 
 import static java.util.Objects.requireNonNull;
 
 public class BiobankUniverseJobExecution extends JobExecution
 {
-	private final DataService dataService;
 	private final BiobankUniverseService biobankUniverseService;
 
 	private static final long serialVersionUID = -1159893768494727598L;
@@ -31,8 +29,6 @@ public class BiobankUniverseJobExecution extends JobExecution
 	{
 		super(dataService, BiobankUniverseJobExecutionMetaData.INSTANCE);
 		setType(BIOBANK_UNIVERSE_JOB_TYPE);
-
-		this.dataService = requireNonNull(dataService);
 		this.biobankUniverseService = requireNonNull(biobankUniverseService);
 	}
 
@@ -47,20 +43,21 @@ public class BiobankUniverseJobExecution extends JobExecution
 		set(BiobankUniverseJobExecutionMetaData.UNIVERSE, biobankUniverse.getIdentifier());
 	}
 
-	public List<EntityMetaData> getMembers()
+	public List<BiobankSampleCollection> getMembers()
 	{
 		Iterable<Entity> entities = getEntities(MEMBERS);
 		if (entities != null)
 		{
-			return StreamSupport.stream(entities.spliterator(), false)
-					.map(entity -> dataService.getEntityMetaData(entity.getString(EntityMetaDataMetaData.FULL_NAME)))
-					.collect(Collectors.toList());
+			List<String> biobankSampleCollectionIds = StreamSupport.stream(entities.spliterator(), false)
+					.map(Entity::getIdValue).map(Object::toString).collect(Collectors.toList());
+
+			return biobankUniverseService.getBiobankSampleCollections(biobankSampleCollectionIds);
 		}
 		return Collections.emptyList();
 	}
 
-	public void setMembers(List<EntityMetaData> members)
+	public void setMembers(List<BiobankSampleCollection> members)
 	{
-		set(MEMBERS, members.stream().map(EntityMetaData::getName).collect(toList()));
+		set(MEMBERS, members.stream().map(BiobankSampleCollection::getName).collect(toList()));
 	}
 }

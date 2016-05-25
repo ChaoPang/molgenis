@@ -6,17 +6,17 @@ import com.google.auto.value.AutoValue;
 
 @AutoValue
 @AutoGson(autoValueClass = AutoValue_QueryExpansionParameter.class)
-public abstract class QueryExpansionParameter
+public abstract class QueryExpansionParam
 {
 	private final static int DEFAULT_SEARCH_LEVEL = 3;
 
-	public static QueryExpansionParameter create(boolean semanticSearchEnabled, boolean childExpansionEnabled)
+	public static QueryExpansionParam create(boolean semanticSearchEnabled, boolean childExpansionEnabled)
 	{
 		return new AutoValue_QueryExpansionParameter(semanticSearchEnabled, childExpansionEnabled,
 				DEFAULT_SEARCH_LEVEL);
 	}
 
-	public static QueryExpansionParameter create(boolean semanticSearchEnabled, boolean childExpansionEnabled,
+	public static QueryExpansionParam create(boolean semanticSearchEnabled, boolean childExpansionEnabled,
 			int expansionLevel)
 	{
 		return new AutoValue_QueryExpansionParameter(semanticSearchEnabled, childExpansionEnabled, expansionLevel);

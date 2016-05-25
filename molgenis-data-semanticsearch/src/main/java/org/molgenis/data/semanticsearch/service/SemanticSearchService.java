@@ -2,14 +2,12 @@ package org.molgenis.data.semanticsearch.service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.semantic.Hit;
-import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.core.model.OntologyTerm;
 
@@ -28,20 +26,19 @@ public interface SemanticSearchService
 	 * @param searchTerms
 	 * @return
 	 */
-	List<AttributeMetaData> findAttributesLazy(SemanticSearchParameter semanticSearchParameters);
+	List<AttributeMetaData> findAttributesLazy(SemanticSearchParam semanticSearchParam,
+			EntityMetaData sourceEntityMetaData);
 
-	List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations(
-			SemanticSearchParameter semanticSearchParameters);
+	List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations(SemanticSearchParam semanticSearchParam,
+			EntityMetaData sourceEntityMetaData);
 
-	List<AttributeMetaData> findAttributes(SemanticSearchParameter semanticSearchParameters);
+	List<AttributeMetaData> findAttributes(SemanticSearchParam semanticSearchParam,
+			EntityMetaData sourceEntityMetaData);
 
-	List<ExplainedAttributeMetaData> findAttributesWithExplanation(SemanticSearchParameter semanticSearchParameters);
+	List<ExplainedAttributeMetaData> findAttributesWithExplanation(SemanticSearchParam semanticSearchParam,
+			EntityMetaData sourceEntityMetaData);
 
-	Map<EntityMetaData, List<AttributeMetaData>> findMultiEntityAttributes(
-			SemanticSearchParameter semanticSearchParameters);
-
-	Map<EntityMetaData, List<AttributeMetaData>> findAttributes(Set<String> queryTerms,
-			List<TagGroup> ontologyTermHits, QueryExpansionParameter ontologyExpansionParameters,
+	Map<EntityMetaData, List<AttributeMetaData>> findAttributes(SemanticSearchParam semanticSearchParam,
 			List<EntityMetaData> sourceEntityMetaDatas);
 
 	/**
@@ -70,8 +67,8 @@ public interface SemanticSearchService
 
 	/**
 	 * Finds all {@link TagGroup}s for an attribute with in all ontology terms for the specified ontologies.
-	 * {@link TagGroup} contains the best combination of ontology terms that yields the highest lexical
-	 * similarity score.
+	 * {@link TagGroup} contains the best combination of ontology terms that yields the highest lexical similarity
+	 * score.
 	 * 
 	 * @param attribute
 	 * @param ontologyIds

@@ -8,12 +8,10 @@ import com.google.auto.value.AutoValue;
 @AutoGson(autoValueClass = AutoValue_BiobankSampleCollection.class)
 public abstract class BiobankSampleCollection
 {
-	public abstract String getIdentifier();
-
 	public abstract String getName();
 
-	public static BiobankSampleCollection create(String identifier, String name)
+	public static BiobankSampleCollection create(String name)
 	{
-		return new AutoValue_BiobankSampleCollection(identifier, name);
+		return new AutoValue_BiobankSampleCollection(name);
 	}
 }

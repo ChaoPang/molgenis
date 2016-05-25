@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
+import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
@@ -16,19 +16,19 @@ import com.google.common.collect.Multimap;
 
 import static java.util.Objects.requireNonNull;
 
-public class QueryExpansion
+public class OntologyTermQueryExpansion
 {
 	private final OntologyTerm ontologyTerm;
 	private final OntologyService ontologyService;
-	private final QueryExpansionParameter ontologyExpansionParameters;
+	private final QueryExpansionParam ontologyExpansionParameters;
 	private Multimap<OntologyTerm, OntologyTerm> queryExpansionRelation;
 
-	public QueryExpansion(OntologyTerm ontologyTerm, OntologyService ontologyService,
-			QueryExpansionParameter ontologyExpansionParameters)
+	public OntologyTermQueryExpansion(OntologyTerm ontologyTerm, OntologyService ontologyService,
+			QueryExpansionParam queryExpansionParam)
 	{
 		this.ontologyTerm = requireNonNull(ontologyTerm);
 		this.ontologyService = requireNonNull(ontologyService);
-		this.ontologyExpansionParameters = requireNonNull(ontologyExpansionParameters);
+		this.ontologyExpansionParameters = requireNonNull(queryExpansionParam);
 		this.queryExpansionRelation = LinkedHashMultimap.create();
 		populate();
 	}
@@ -38,10 +38,10 @@ public class QueryExpansion
 		return Lists.newArrayList(queryExpansionRelation.values());
 	}
 
-	public QueryExpansionSolution getQueryExpansionSolution(TagGroup sourceOntologyTermHit)
+	public OntologyTermQueryExpansionSolution getQueryExpansionSolution(TagGroup tagGroup)
 	{
 		List<OntologyTerm> sourceMatchedOntologyTerms = ontologyService
-				.getAtomicOntologyTerms(sourceOntologyTermHit.getOntologyTerm());
+				.getAtomicOntologyTerms(tagGroup.getOntologyTerm());
 
 		List<OntologyTerm> matchedOntologyTerms = new ArrayList<>();
 
@@ -62,7 +62,7 @@ public class QueryExpansion
 			}
 		}
 
-		return QueryExpansionSolution.create(matchedOntologyTerms, unMatchedOntologyTerms);
+		return OntologyTermQueryExpansionSolution.create(matchedOntologyTerms, unMatchedOntologyTerms);
 	}
 
 	private void populate()

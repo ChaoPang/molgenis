@@ -28,7 +28,7 @@ import org.elasticsearch.common.base.Joiner;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
 import org.molgenis.data.semanticsearch.service.QueryExpansionService;
-import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
+import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -71,7 +71,7 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 	 * @return disMaxJunc queryRule
 	 */
 	public QueryRule expand(Set<String> lexicalQueries, List<TagGroup> tagGroups,
-			QueryExpansionParameter expansionParameter)
+			QueryExpansionParam expansionParameter)
 	{
 		List<QueryRule> rules = new ArrayList<>();
 
@@ -123,7 +123,7 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 	 * @return
 	 */
 	QueryRule createQueryRuleForOntologyTerms(List<TagGroup> ontologyTermHits,
-			QueryExpansionParameter expansionParameter)
+			QueryExpansionParam expansionParameter)
 	{
 		QueryRule queryRule = null;
 
@@ -178,7 +178,7 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 	 * @return
 	 */
 	List<String> getExpandedQueriesFromOntologyTerm(OntologyTerm ontologyTerm,
-			QueryExpansionParameter expansionParameter)
+			QueryExpansionParam expansionParameter)
 	{
 		List<String> queryTerms = getLowerCaseTerms(ontologyTerm).stream().map(this::parseQueryString)
 				.collect(toList());

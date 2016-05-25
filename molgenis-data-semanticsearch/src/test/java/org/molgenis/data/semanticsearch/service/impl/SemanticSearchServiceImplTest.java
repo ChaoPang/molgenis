@@ -34,12 +34,11 @@ import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.meta.AttributeMetaDataMetaData;
 import org.molgenis.data.meta.EntityMetaDataMetaData;
-import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
+import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
 import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
-import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
+import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils;
 import org.molgenis.data.support.DefaultAttributeMetaData;
@@ -171,7 +170,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 				.thenReturn(Arrays.asList(standingHeightHit));
 
 		when(queryExpansionService.expand(Sets.newHashSet(targetHeight.getLabel()), Arrays.asList(standingHeightHit),
-				QueryExpansionParameter.create(true, true))).thenReturn(disMaxQueryRuleForHeight);
+				QueryExpansionParam.create(true, true))).thenReturn(disMaxQueryRuleForHeight);
 
 		when(dataService
 				.findAll(ENTITY_NAME,
@@ -180,7 +179,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 										.thenReturn(of(entityHeight));
 
 		assertEquals(
-				semanticSearchService.findAttributes(SemanticSearchParameter.create(targetHeight,
+				semanticSearchService.findAttributes(SemanticSearchParamFactory.create(targetHeight,
 						Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, true, true)),
 				asList(sourceAttributeHeight));
 
@@ -189,7 +188,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 				.thenReturn(asList(bodyWeightHit));
 
 		when(queryExpansionService.expand(newHashSet(targetWeight.getLabel()), asList(bodyWeightHit),
-				QueryExpansionParameter.create(true, true))).thenReturn(disMaxQueryRuleForWeight);
+				QueryExpansionParam.create(true, true))).thenReturn(disMaxQueryRuleForWeight);
 
 		when(dataService
 				.findAll(ENTITY_NAME,
@@ -198,7 +197,7 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 										.thenReturn(of(entityWeight));
 
 		assertEquals(
-				semanticSearchService.findAttributes(SemanticSearchParameter.create(targetWeight,
+				semanticSearchService.findAttributes(SemanticSearchParamFactory.create(targetWeight,
 						Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, true, true)),
 				asList(sourceAttributeWeight));
 	}
@@ -255,9 +254,9 @@ public class SemanticSearchServiceImplTest extends AbstractTestNGSpringContextTe
 		}
 
 		@Bean
-		AttributeMappingExplainService attributeMappingExplainService()
+		ExplainMappingService attributeMappingExplainService()
 		{
-			return mock(AttributeMappingExplainService.class);
+			return mock(ExplainMappingService.class);
 		}
 
 		@Bean

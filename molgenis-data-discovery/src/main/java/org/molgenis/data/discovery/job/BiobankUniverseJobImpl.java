@@ -21,7 +21,7 @@ public class BiobankUniverseJobImpl extends Job<Void>
 	@Override
 	public Void call(Progress progress) throws Exception
 	{
-		// biobankUniverseJobProcessor.process();
+		biobankUniverseJobProcessor.process();
 		return null;
 	}
 }

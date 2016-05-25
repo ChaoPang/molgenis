@@ -18,14 +18,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.spell.StringDistance;
 import org.elasticsearch.common.base.Joiner;
-import org.molgenis.data.AttributeMetaData;
-import org.molgenis.data.EntityMetaData;
-import org.molgenis.data.semantic.Relation;
 import org.molgenis.data.semanticsearch.semantic.Hit;
-import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.semanticsearch.utils.OntologyTermComparator;
@@ -49,63 +44,15 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 	private static final Logger LOG = LoggerFactory.getLogger(TagGroupGeneratorImpl.class);
 
 	private final OntologyService ontologyService;
-	private final OntologyTagService ontologyTagService;
 
 	public final static int MAX_NUM_TAGS = 50;
 	private final static String ILLEGAL_CHARS_REGEX = "[^\\p{L}'a-zA-Z0-9\\.~]+";
 	private Joiner termJoiner = Joiner.on(' ');
 
 	@Autowired
-	public TagGroupGeneratorImpl(OntologyService ontologyService, OntologyTagService ontologyTagService)
+	public TagGroupGeneratorImpl(OntologyService ontologyService)
 	{
 		this.ontologyService = requireNonNull(ontologyService);
-		this.ontologyTagService = requireNonNull(ontologyTagService);
-	}
-
-	@Override
-	public List<TagGroup> findTagGroups(AttributeMetaData attributeMetaData, EntityMetaData entityMetadata,
-			Set<String> queryWords, List<String> ontologyIds)
-	{
-		if (entityMetadata != null)
-		{
-			Multimap<Relation, OntologyTerm> tagsForAttribute = ontologyTagService.getTagsForAttribute(entityMetadata,
-					attributeMetaData);
-			if (!tagsForAttribute.isEmpty())
-			{
-				return tagsForAttribute.values().stream().map(ot -> TagGroup.create(ot, ot.getLabel(), 1.0f))
-						.collect(toList());
-			}
-		}
-
-		List<OntologyTerm> relevantOntologyTerms;
-		// If the user search query is not empty, then it overrules the existing tags
-		if (queryWords != null && !queryWords.isEmpty())
-		{
-			Set<String> escapedSearchTerms = queryWords.stream().filter(StringUtils::isNotBlank)
-					.map(QueryParser::escape).collect(toSet());
-			relevantOntologyTerms = ontologyService.findExcatOntologyTerms(ontologyIds, escapedSearchTerms,
-					MAX_NUM_TAGS);
-		}
-		else
-		{
-			queryWords = splitRemoveStopWords(attributeMetaData.getDescription() == null ? attributeMetaData.getLabel()
-					: attributeMetaData.getDescription());
-			relevantOntologyTerms = ontologyService.findOntologyTerms(ontologyIds, queryWords, MAX_NUM_TAGS);
-		}
-
-		List<TagGroup> orderOntologyTerms = Lists
-				.newArrayList(applyTagMatchingCriteria(relevantOntologyTerms, queryWords));
-
-		orderOntologyTerms.addAll(matchCommonWordsToOntologyTerms(queryWords, ontologyIds, orderOntologyTerms));
-
-		List<TagGroup> ontologyTermHits = generateTagGroups(queryWords, orderOntologyTerms);
-
-		if (LOG.isDebugEnabled())
-		{
-			LOG.debug("Candidates: {}", ontologyTermHits);
-		}
-
-		return ontologyTermHits;
 	}
 
 	@Override

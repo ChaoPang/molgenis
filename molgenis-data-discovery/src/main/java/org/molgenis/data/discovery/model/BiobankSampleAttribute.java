@@ -30,4 +30,12 @@ public abstract class BiobankSampleAttribute
 	{
 		return new AutoValue_BiobankSampleAttribute(identifier, name, label, description, collection, tagGroups);
 	}
+
+	public static BiobankSampleAttribute create(BiobankSampleAttribute biobankSampleAttribute,
+			List<IdentifiableTagGroup> tagGroups)
+	{
+		return new AutoValue_BiobankSampleAttribute(biobankSampleAttribute.getIdentifier(),
+				biobankSampleAttribute.getName(), biobankSampleAttribute.getLabel(),
+				biobankSampleAttribute.getDescription(), biobankSampleAttribute.getCollection(), tagGroups);
+	}
 }

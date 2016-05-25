@@ -4,9 +4,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceImpl.MAX_NUMBER_ATTRIBTUES;
-import static org.molgenis.data.semanticsearch.service.impl.SemanticSearchServiceImpl.UNIT_ONTOLOGY_IRI;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.getLowerCaseTerms;
-import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.getQueryTermsFromAttribute;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.splitRemoveStopWords;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 import static org.molgenis.ontology.utils.Stemmer.splitAndStem;
@@ -20,20 +18,15 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
-import org.molgenis.data.AttributeMetaData;
-import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
-import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
-import org.molgenis.data.semanticsearch.explain.bean.QueryExpansion;
-import org.molgenis.data.semanticsearch.explain.bean.QueryExpansionSolution;
-import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
+import org.molgenis.data.semanticsearch.explain.bean.OntologyTermQueryExpansion;
+import org.molgenis.data.semanticsearch.explain.bean.OntologyTermQueryExpansionSolution;
+import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
-import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils;
-import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.utils.Stemmer;
@@ -47,80 +40,60 @@ import static java.util.Objects.requireNonNull;
 
 import autovalue.shaded.com.google.common.common.collect.Sets;
 
-public class AttributeMappingExplainServiceImpl implements AttributeMappingExplainService
+public class ExplainMappingServiceImpl implements ExplainMappingService
 {
 	private final OntologyService ontologyService;
 	private final TagGroupGenerator tagGroupGenerator;
 	private final Joiner termJoiner = Joiner.on(' ');
-	private final static float HIGH_QUALITY_THRESHOLD = 0.85f;
-	private final static AttributeMatchExplanation EMPTY_EXPLAINATION = AttributeMatchExplanation.create(StringUtils.EMPTY,
-			StringUtils.EMPTY, null, 0.0f);
 
-	private static final Logger LOG = LoggerFactory.getLogger(AttributeMappingExplainServiceImpl.class);
+	private final static AttributeMatchExplanation EMPTY_EXPLAINATION = AttributeMatchExplanation
+			.create(StringUtils.EMPTY, StringUtils.EMPTY, null, 0.0f);
+
+	private static final Logger LOG = LoggerFactory.getLogger(ExplainMappingServiceImpl.class);
 
 	@Autowired
-	public AttributeMappingExplainServiceImpl(OntologyService ontologyService, TagGroupGenerator tagGroupGenerator)
+	public ExplainMappingServiceImpl(OntologyService ontologyService, TagGroupGenerator tagGroupGenerator)
 	{
 		this.ontologyService = requireNonNull(ontologyService);
 		this.tagGroupGenerator = requireNonNull(tagGroupGenerator);
 	}
 
 	@Override
-	public ExplainedAttributeMetaData explainAttributeMapping(SemanticSearchParameter semanticSearchParameters,
-			AttributeMetaData matchedSourceAttribute)
+	public AttributeMatchExplanation explainMapping(SemanticSearchParam semanticSearchParam, String matchedResult)
 	{
-		AttributeMetaData targetAttribute = semanticSearchParameters.getTargetAttribute();
-		Set<String> userQueries = semanticSearchParameters.getUserQueries();
-		EntityMetaData targetEntityMetaData = semanticSearchParameters.getTargetEntityMetaData();
-		QueryExpansionParameter ontologyExpansionParameters = semanticSearchParameters.getExpansionParameter();
-		boolean semanticSearchEnabled = ontologyExpansionParameters.isSemanticSearchEnabled();
-
-		// Collect all terms from the target attribute
-		Set<String> queriesFromTargetAttribute = getQueryTermsFromAttribute(targetAttribute, userQueries);
-		// If semantic search is enabled, collect all the ontology terms that are associated with the target attribute,
-		// which were used in query expansion for finding the relevant source attributes.
-		List<QueryExpansion> ontologyTermQueryExpansions;
-		if (semanticSearchEnabled)
+		List<OntologyTermQueryExpansion> ontologyTermQueryExpansions;
+		if (semanticSearchParam.getQueryExpansionParameter().isSemanticSearchEnabled())
 		{
-			List<String> ontologyTermIds = ontologyService.getOntologies().stream()
-					.filter(ontology -> !ontology.getIRI().equals(UNIT_ONTOLOGY_IRI)).map(Ontology::getId)
-					.collect(toList());
-
-			ontologyTermQueryExpansions = tagGroupGenerator
-					.findTagGroups(targetAttribute, targetEntityMetaData, userQueries, ontologyTermIds).stream()
-					.map(hit -> new QueryExpansion(hit.getOntologyTerm(), ontologyService, ontologyExpansionParameters))
+			ontologyTermQueryExpansions = semanticSearchParam.getTagGroups().stream()
+					.map(hit -> new OntologyTermQueryExpansion(hit.getOntologyTerm(), ontologyService,
+							semanticSearchParam.getQueryExpansionParameter()))
 					.collect(toList());
 		}
 		else ontologyTermQueryExpansions = Collections.emptyList();
 
-		return explainExactMapping(queriesFromTargetAttribute, ontologyTermQueryExpansions, matchedSourceAttribute);
+		return explainMapping(semanticSearchParam.getLexicalQueries(), ontologyTermQueryExpansions, matchedResult);
 	}
 
-	ExplainedAttributeMetaData explainExactMapping(Set<String> queriesFromTargetAttribute,
-			List<QueryExpansion> ontologyTermQueryExpansions, AttributeMetaData matchedSourceAttribute)
+	AttributeMatchExplanation explainMapping(Set<String> lexicalQueries,
+			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, String matchedSource)
 	{
-		// Collect all terms from the source attribute
-		Set<String> queriesFromSourceAttribute = getQueryTermsFromAttribute(matchedSourceAttribute, null);
-
 		// Compute the pairwise lexical similarities between the two sets of query terms and find the best matching
 		// target query that yields the highest similarity score.
-		AttributeMatchExplanation lexicalBasedExplanation = createLexicalBasedExplanation(queriesFromTargetAttribute,
-				queriesFromSourceAttribute);
+		AttributeMatchExplanation lexicalBasedExplanation = createLexicalBasedExplanation(lexicalQueries,
+				matchedSource);
 
 		// Unfortunately the ElasticSearch built-in explain-api doesn't scale up. In order to explain why the source
 		// attribute was matched. Now we take the source attribute as the query and filter/find the best combination
 		// of ontology terms from the relevantOntologyTerms that are associated with the target attribute. By doing
 		// this, we can deduce which ontology terms were used as the expanded queries for finding that particular source
 		// attribute.
-		AttributeMatchExplanation ontologyBasedExplanation = createOntologyBasedExplanation(matchedSourceAttribute,
-				ontologyService.getAllOntologiesIds(), ontologyTermQueryExpansions, queriesFromTargetAttribute);
+		AttributeMatchExplanation ontologyBasedExplanation = createOntologyBasedExplanation(lexicalQueries,
+				ontologyTermQueryExpansions, ontologyService.getAllOntologiesIds(), matchedSource);
 
 		AttributeMatchExplanation explanation = lexicalBasedExplanation.getScore() > ontologyBasedExplanation.getScore()
 				? lexicalBasedExplanation : ontologyBasedExplanation;
 
-		boolean isHighQuality = explanation.getScore() >= HIGH_QUALITY_THRESHOLD;
-
-		return ExplainedAttributeMetaData.create(matchedSourceAttribute, explanation, isHighQuality);
+		return explanation;
 	}
 
 	/**
@@ -134,65 +107,63 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 	 *            defines a scope of ontology terms in which the search is performed.
 	 * @return
 	 */
-	private AttributeMatchExplanation createOntologyBasedExplanation(AttributeMetaData matchedSourceAttribute,
-			List<String> ontologyIds, List<QueryExpansion> ontologyTermQueryExpansions,
-			Set<String> queriesFromTargetAttribute)
+	private AttributeMatchExplanation createOntologyBasedExplanation(Set<String> lexicalQueries,
+			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, List<String> ontologyIds,
+			String matchedSource)
 	{
-		String sourceLabel = matchedSourceAttribute.getDescription() == null ? matchedSourceAttribute.getLabel()
-				: matchedSourceAttribute.getDescription();
-		Set<String> searchTerms = splitRemoveStopWords(sourceLabel);
+		Set<String> matchedSourceWords = splitRemoveStopWords(matchedSource);
 
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("findOntologyTerms({},{},{})", ontologyIds, searchTerms, MAX_NUMBER_ATTRIBTUES);
+			LOG.debug("findOntologyTerms({},{},{})", ontologyIds, matchedSourceWords, MAX_NUMBER_ATTRIBTUES);
 		}
 
 		List<OntologyTerm> ontologyTermScope = ontologyTermQueryExpansions.stream()
-				.map(QueryExpansion::getOntologyTerms).flatMap(ots -> ots.stream()).collect(Collectors.toList());
+				.map(OntologyTermQueryExpansion::getOntologyTerms).flatMap(ots -> ots.stream())
+				.collect(Collectors.toList());
 
 		if (LOG.isDebugEnabled())
 		{
 			LOG.debug("OntologyTerms {}", ontologyTermScope);
 		}
 
-		List<OntologyTerm> relevantOntologyTerms = ontologyService.fileterOntologyTerms(ontologyIds, searchTerms,
+		List<OntologyTerm> relevantOntologyTerms = ontologyService.fileterOntologyTerms(ontologyIds, matchedSourceWords,
 				ontologyTermScope.size(), ontologyTermScope);
 
-		List<TagGroup> filterAndSortOntologyTermHits = tagGroupGenerator.applyTagMatchingCriteria(relevantOntologyTerms,
-				searchTerms);
+		List<TagGroup> matchedSourceTagGroups = tagGroupGenerator.generateTagGroups(matchedSourceWords,
+				tagGroupGenerator.applyTagMatchingCriteria(relevantOntologyTerms, matchedSourceWords));
 
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Candidates: {}", filterAndSortOntologyTermHits);
+			LOG.debug("Candidates: {}", matchedSourceTagGroups);
 		}
 
-		List<TagGroup> combineOntologyTerms = tagGroupGenerator.generateTagGroups(searchTerms,
-				filterAndSortOntologyTermHits);
-
-		if (combineOntologyTerms.size() > 0)
+		if (matchedSourceTagGroups.size() > 0)
 		{
-			TagGroup hit = combineOntologyTerms.get(0);
+			TagGroup tagGroup = matchedSourceTagGroups.get(0);
 
-			Optional<Hit<String>> max = stream(queriesFromTargetAttribute.spliterator(), false)
-					.map(targetQueryTerm -> computeAbsoluteScoreForSourceAttribute(hit, ontologyTermQueryExpansions,
-							targetQueryTerm, sourceLabel))
+			Optional<Hit<String>> max = stream(lexicalQueries.spliterator(), false)
+					.map(lexicalQuery -> computeScoreForMatchedSource(tagGroup, ontologyTermQueryExpansions,
+							lexicalQuery, matchedSource))
 					.max(Comparator.naturalOrder());
 
 			if (max.isPresent())
 			{
 				Hit<String> joinedSynonymHit = max.get();
-				String matchedWords = termJoiner.join(findMatchedWords(joinedSynonymHit.getResult(), sourceLabel));
-				return AttributeMatchExplanation.create(matchedWords, joinedSynonymHit.getResult(), hit.getOntologyTerm(),
-						joinedSynonymHit.getScore());
+				String matchedWords = termJoiner.join(findMatchedWords(joinedSynonymHit.getResult(), matchedSource));
+				return AttributeMatchExplanation.create(matchedWords, joinedSynonymHit.getResult(),
+						tagGroup.getOntologyTerm(), joinedSynonymHit.getScore());
 			}
 		}
+
 		return EMPTY_EXPLAINATION;
 	}
 
-	Hit<String> computeAbsoluteScoreForSourceAttribute(TagGroup hit, List<QueryExpansion> ontologyTermQueryExpansions,
-			String targetQueryTerm, String sourceAttributeDescription)
+	Hit<String> computeScoreForMatchedSource(TagGroup hit,
+			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, String targetQueryTerm,
+			String sourceAttributeDescription)
 	{
-		QueryExpansionSolution queryExpansionSolution = ontologyTermQueryExpansions.stream()
+		OntologyTermQueryExpansionSolution queryExpansionSolution = ontologyTermQueryExpansions.stream()
 				.map(expansion -> expansion.getQueryExpansionSolution(hit)).sorted().findFirst().orElse(null);
 
 		String matchedOntologyTermsInSource = hit.getMatchedWords();
@@ -269,31 +240,25 @@ public class AttributeMappingExplainServiceImpl implements AttributeMappingExpla
 		return usedOntologyTermQueries;
 	}
 
-	AttributeMatchExplanation createLexicalBasedExplanation(Set<String> queriesFromTargetAttribute,
-			Set<String> queriesFromSourceAttribute)
+	AttributeMatchExplanation createLexicalBasedExplanation(Set<String> queriesFromTarget, String matchedSource)
 	{
 		double highestScore = 0;
 		String bestTargetQuery = null;
-		String bestSourceQuery = null;
 
-		for (String targetQuery : queriesFromTargetAttribute)
+		for (String targetQuery : queriesFromTarget)
 		{
-			for (String sourceQuery : queriesFromSourceAttribute)
+			double score = stringMatching(targetQuery, matchedSource);
+			if (score > highestScore)
 			{
-				double score = stringMatching(targetQuery, sourceQuery);
-				if (score > highestScore)
-				{
-					bestSourceQuery = sourceQuery;
-					bestTargetQuery = targetQuery;
-					highestScore = score;
-				}
+				bestTargetQuery = targetQuery;
+				highestScore = score;
 			}
 		}
 
-		if (isNotBlank(bestSourceQuery) && isNotBlank(bestTargetQuery))
+		if (isNotBlank(bestTargetQuery))
 		{
 			float score = Math.round((float) highestScore / 100 * 100000) / 100000.0f;
-			return AttributeMatchExplanation.create(termJoiner.join(findMatchedWords(bestTargetQuery, bestSourceQuery)),
+			return AttributeMatchExplanation.create(termJoiner.join(findMatchedWords(bestTargetQuery, matchedSource)),
 					bestTargetQuery, null, score);
 		}
 		return EMPTY_EXPLAINATION;

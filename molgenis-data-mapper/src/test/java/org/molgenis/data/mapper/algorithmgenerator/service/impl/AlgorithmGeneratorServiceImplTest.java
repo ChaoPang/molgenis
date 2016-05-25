@@ -21,7 +21,7 @@ import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
 import org.molgenis.data.mapper.service.impl.UnitResolverImpl;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
-import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
+import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.molgenis.ontology.core.model.Ontology;
@@ -57,7 +57,7 @@ public class AlgorithmGeneratorServiceImplTest extends AbstractTestNGSpringConte
 	AlgorithmGeneratorService algorithmGeneratorService;
 
 	@Autowired
-	AttributeMappingExplainService attributeMappingExplainService;
+	ExplainMappingService attributeMappingExplainService;
 
 	@BeforeMethod
 	public void setUpBeforeMethod()
@@ -175,9 +175,9 @@ public class AlgorithmGeneratorServiceImplTest extends AbstractTestNGSpringConte
 		}
 
 		@Bean
-		public AttributeMappingExplainService attributeMappingExplainService()
+		public ExplainMappingService attributeMappingExplainService()
 		{
-			return mock(AttributeMappingExplainService.class);
+			return mock(ExplainMappingService.class);
 		}
 
 		@Bean

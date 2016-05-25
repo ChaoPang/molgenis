@@ -41,7 +41,7 @@ import org.molgenis.data.mem.InMemoryRepositoryCollection;
 import org.molgenis.data.meta.MetaDataService;
 import org.molgenis.data.meta.MetaDataServiceImpl;
 import org.molgenis.data.meta.PackageImpl;
-import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
+import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.support.DataServiceImpl;
@@ -574,9 +574,9 @@ public class MappingServiceImplTest extends AbstractTestNGSpringContextTests
 		}
 
 		@Bean
-		public AttributeMappingExplainService attributeMappingExplainService()
+		public ExplainMappingService attributeMappingExplainService()
 		{
-			return mock(AttributeMappingExplainService.class);
+			return mock(ExplainMappingService.class);
 		}
 
 		@Bean

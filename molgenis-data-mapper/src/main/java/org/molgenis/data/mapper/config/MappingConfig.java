@@ -16,9 +16,10 @@ import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
 import org.molgenis.data.mapper.service.impl.AlgorithmTemplateServiceImpl;
 import org.molgenis.data.mapper.service.impl.MappingServiceImpl;
 import org.molgenis.data.mapper.service.impl.UnitResolverImpl;
-import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
+import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
+import org.molgenis.data.semanticsearch.service.impl.SemanticSearchParamFactory;
 import org.molgenis.ontology.core.config.OntologyConfig;
 import org.molgenis.ontology.core.repository.OntologyTermRepository;
 import org.molgenis.ontology.core.service.OntologyService;
@@ -46,7 +47,10 @@ public class MappingConfig
 	SemanticSearchService semanticSearchService;
 
 	@Autowired
-	AttributeMappingExplainService attributeMappingExplainService;
+	SemanticSearchParamFactory semanticSearchFactory;
+
+	@Autowired
+	ExplainMappingService attributeMappingExplainService;
 
 	@Autowired
 	OntologyService ontologyService;
@@ -81,7 +85,8 @@ public class MappingConfig
 	@Bean
 	public AlgorithmService algorithmServiceImpl()
 	{
-		return new AlgorithmServiceImpl(dataService, semanticSearchService, algorithmGeneratorService());
+		return new AlgorithmServiceImpl(dataService, semanticSearchService, algorithmGeneratorService(),
+				semanticSearchFactory);
 	}
 
 	@Bean

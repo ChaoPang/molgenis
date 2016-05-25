@@ -1,6 +1,5 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
-import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.common.collect.Lists.newArrayList;
 import static org.molgenis.data.QueryRule.Operator.IN;
@@ -15,7 +14,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -29,20 +27,17 @@ import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
 import org.molgenis.data.meta.AttributeMetaDataMetaData;
 import org.molgenis.data.meta.EntityMetaDataMetaData;
+import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedAttributeMetaData;
-import org.molgenis.data.semanticsearch.explain.service.AttributeMappingExplainService;
+import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
-import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
-import org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils;
 import org.molgenis.data.support.QueryImpl;
-import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
-import org.molgenis.ontology.core.service.OntologyService;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static java.util.Objects.requireNonNull;
@@ -50,127 +45,91 @@ import static java.util.Objects.requireNonNull;
 public class SemanticSearchServiceImpl implements SemanticSearchService
 {
 	private final DataService dataService;
-	private final OntologyService ontologyService;
 	private final TagGroupGenerator tagGroupGenerator;
 	private final QueryExpansionService queryExpansionService;
-	private final AttributeMappingExplainService attributeMappingExplainService;
+	private final ExplainMappingService explainMappingService;
+	private final SemanticSearchParamFactory parameterFactory;
 
 	public static final int MAX_NUMBER_ATTRIBTUES = 50;
 	public static final int NUMBER_OF_EXPLAINED_ATTRS = 5;
-	public static final String UNIT_ONTOLOGY_IRI = "http://purl.obolibrary.org/obo/uo.owl";
 
 	@Autowired
-	public SemanticSearchServiceImpl(DataService dataService, OntologyService ontologyService,
-			TagGroupGenerator tagGroupGenerator, QueryExpansionService queryExpansionService,
-			AttributeMappingExplainService attributeMappingExplainService)
+	public SemanticSearchServiceImpl(DataService dataService, TagGroupGenerator tagGroupGenerator,
+			QueryExpansionService queryExpansionService, ExplainMappingService attributeMappingExplainService,
+			SemanticSearchParamFactory semanticSearchParameterFactory)
 	{
 		this.dataService = requireNonNull(dataService);
-		this.ontologyService = requireNonNull(ontologyService);
 		this.tagGroupGenerator = requireNonNull(tagGroupGenerator);
 		this.queryExpansionService = requireNonNull(queryExpansionService);
-		this.attributeMappingExplainService = requireNonNull(attributeMappingExplainService);
+		this.explainMappingService = requireNonNull(attributeMappingExplainService);
+		this.parameterFactory = requireNonNull(semanticSearchParameterFactory);
 	}
 
 	@Override
-	public List<AttributeMetaData> findAttributesLazy(SemanticSearchParameter semanticSearchParameters)
+	public List<AttributeMetaData> findAttributesLazy(SemanticSearchParam semanticSearchParam,
+			EntityMetaData sourceEntityMetaData)
 	{
-		if (semanticSearchParameters.getSourceEntityMetaDatas().size() == 0) return Collections.emptyList();
-
 		List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations = findAttributesLazyWithExplanations(
-				semanticSearchParameters);
-
-		EntityMetaData sourceEntityMetaData = semanticSearchParameters.getSourceEntityMetaDatas().get(0);
+				semanticSearchParam, sourceEntityMetaData);
 
 		return findAttributesLazyWithExplanations.stream()
 				.map(attr -> explainedAttrToAttributeMetaData(attr, sourceEntityMetaData)).collect(toList());
 	}
 
 	@Override
-	public List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations(
-			SemanticSearchParameter semanticSearchParameters)
+	public List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations(SemanticSearchParam semanticSearchParam,
+			EntityMetaData sourceEntityMetaData)
 	{
-		semanticSearchParameters = SemanticSearchParameter.create(semanticSearchParameters, false, false);
+		semanticSearchParam = parameterFactory.create(semanticSearchParam, false, false);
 
 		// Find attributes by the query terms collected from the target attribute
-		List<AttributeMetaData> matchedSourceAttributes = findAttributes(semanticSearchParameters);
+		List<AttributeMetaData> matchedSourceAttributes = findAttributes(semanticSearchParam, sourceEntityMetaData);
 
 		// If the matched attribute found by query terms from the target attribute is not good enough, we try to use
 		// the ontology term synonyms to improve the matching result.
-		if (isCurrentMatchBadQuality(semanticSearchParameters, matchedSourceAttributes))
+		if (isCurrentMatchBadQuality(semanticSearchParam, matchedSourceAttributes))
 		{
 			// enable semantic search
-			semanticSearchParameters = SemanticSearchParameter.create(semanticSearchParameters, true, false);
-			matchedSourceAttributes = findAttributes(semanticSearchParameters);
+			semanticSearchParam = parameterFactory.create(semanticSearchParam, true, false);
+			matchedSourceAttributes = findAttributes(semanticSearchParam, sourceEntityMetaData);
 
 			// if the matched attribute found by the query terms from the target attribute as well as the
 			// ontology term synonyms is not good enough, we try to use the full set of query terms from the
 			// ontology terms to improve the matchign result.
-			if (isCurrentMatchBadQuality(semanticSearchParameters, matchedSourceAttributes))
+			if (isCurrentMatchBadQuality(semanticSearchParam, matchedSourceAttributes))
 			{
 				// enable query expansion for child ontology terms
-				semanticSearchParameters = SemanticSearchParameter.create(semanticSearchParameters, true, true);
-				matchedSourceAttributes = findAttributes(semanticSearchParameters);
+				semanticSearchParam = parameterFactory.create(semanticSearchParam, true, true);
+				matchedSourceAttributes = findAttributes(semanticSearchParam, sourceEntityMetaData);
 			}
 		}
 
-		return convertMatchedAttributesToExplainAttributes(semanticSearchParameters, matchedSourceAttributes);
+		return convertMatchedAttributesToExplainAttributes(semanticSearchParam, matchedSourceAttributes);
 	}
 
 	@Override
-	public List<ExplainedAttributeMetaData> findAttributesWithExplanation(
-			SemanticSearchParameter semanticSearchParameters)
+	public List<ExplainedAttributeMetaData> findAttributesWithExplanation(SemanticSearchParam semanticSearchParam,
+			EntityMetaData sourceEntityMetaData)
 	{
-		List<AttributeMetaData> findAttributes = findAttributes(semanticSearchParameters);
-		return convertMatchedAttributesToExplainAttributes(semanticSearchParameters, findAttributes);
+		List<AttributeMetaData> findAttributes = findAttributes(semanticSearchParam, sourceEntityMetaData);
+		return convertMatchedAttributesToExplainAttributes(semanticSearchParam, findAttributes);
 	}
 
 	@Override
-	public List<AttributeMetaData> findAttributes(SemanticSearchParameter semanticSearchParameters)
+	public List<AttributeMetaData> findAttributes(SemanticSearchParam semanticSearchParam,
+			EntityMetaData sourceEntityMetaData)
 	{
-		if (semanticSearchParameters.getSourceEntityMetaDatas().isEmpty()) return Collections.emptyList();
-
-		Map<EntityMetaData, List<AttributeMetaData>> findMultiEntityAttributes = findMultiEntityAttributes(
-				semanticSearchParameters);
-
-		EntityMetaData entityMetaData = semanticSearchParameters.getSourceEntityMetaDatas().get(0);
-
-		return findMultiEntityAttributes.get(entityMetaData);
+		Map<EntityMetaData, List<AttributeMetaData>> findMultiEntityAttributes = findAttributes(semanticSearchParam,
+				Arrays.asList(sourceEntityMetaData));
+		return findMultiEntityAttributes.get(sourceEntityMetaData);
 	}
 
 	@Override
-	public Map<EntityMetaData, List<AttributeMetaData>> findMultiEntityAttributes(
-			SemanticSearchParameter semanticSearchParameters)
-	{
-		AttributeMetaData targetAttribute = semanticSearchParameters.getTargetAttribute();
-		Set<String> userQueries = semanticSearchParameters.getUserQueries();
-		EntityMetaData targetEntityMetaData = semanticSearchParameters.getTargetEntityMetaData();
-		List<EntityMetaData> sourceEntityMetaDatas = semanticSearchParameters.getSourceEntityMetaDatas();
-		QueryExpansionParameter ontologyExpansionParameters = semanticSearchParameters.getExpansionParameter();
-		boolean semanticSearchEnabled = ontologyExpansionParameters.isSemanticSearchEnabled();
-
-		Set<String> queryTerms = SemanticSearchServiceUtils.getQueryTermsFromAttribute(targetAttribute, userQueries);
-
-		List<TagGroup> ontologyTermHits;
-		if (semanticSearchEnabled)
-		{
-			List<String> ontologyIds = ontologyService.getOntologies().stream()
-					.filter(ontology -> !ontology.getIRI().equals(UNIT_ONTOLOGY_IRI)).map(Ontology::getId)
-					.collect(Collectors.toList());
-			ontologyTermHits = tagGroupGenerator.findTagGroups(targetAttribute, targetEntityMetaData, userQueries,
-					ontologyIds);
-		}
-		else ontologyTermHits = emptyList();
-
-		return findAttributes(queryTerms, ontologyTermHits, ontologyExpansionParameters, sourceEntityMetaDatas);
-	}
-
-	@Override
-	public Map<EntityMetaData, List<AttributeMetaData>> findAttributes(Set<String> queryTerms,
-			List<TagGroup> ontologyTermHits, QueryExpansionParameter ontologyExpansionParameters,
+	public Map<EntityMetaData, List<AttributeMetaData>> findAttributes(SemanticSearchParam semanticSearchParam,
 			List<EntityMetaData> sourceEntityMetaDatas)
 	{
-		QueryRule disMaxQueryRule = queryExpansionService.expand(queryTerms, ontologyTermHits,
-				ontologyExpansionParameters);
+		QueryRule disMaxQueryRule = queryExpansionService.expand(semanticSearchParam.getLexicalQueries(),
+				semanticSearchParam.getTagGroups(), semanticSearchParam.getQueryExpansionParameter());
 
 		if (disMaxQueryRule != null)
 		{
@@ -246,19 +205,18 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		return tagGroupGenerator.findTagGroups(description, ontologyIds);
 	}
 
-	private boolean isCurrentMatchBadQuality(SemanticSearchParameter semanticSearchParameters,
+	private boolean isCurrentMatchBadQuality(SemanticSearchParam semanticSearchParam,
 			List<AttributeMetaData> matchedSourceAttributes)
 	{
 		if (matchedSourceAttributes.size() == 0) return true;
-
-		ExplainedAttributeMetaData explainAttributeMapping = attributeMappingExplainService
-				.explainAttributeMapping(semanticSearchParameters, matchedSourceAttributes.get(0));
-
-		return !explainAttributeMapping.isHighQuality();
+		String matchedSource = matchedSourceAttributes.get(0).getLabel();
+		AttributeMatchExplanation explainAttributeMapping = explainMappingService
+				.explainMapping(semanticSearchParam, matchedSource);
+		return explainAttributeMapping.getScore() > semanticSearchParam.getHighQualityThreshold();
 	}
 
 	private List<ExplainedAttributeMetaData> convertMatchedAttributesToExplainAttributes(
-			SemanticSearchParameter semanticSearchParameters, List<AttributeMetaData> matchedSourceAttributes)
+			SemanticSearchParam semanticSearchParam, List<AttributeMetaData> matchedSourceAttributes)
 	{
 		List<ExplainedAttributeMetaData> explainedAttributes = new ArrayList<>(matchedSourceAttributes.size());
 
@@ -266,10 +224,17 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		{
 			if (i >= NUMBER_OF_EXPLAINED_ATTRS) break;
 
-			ExplainedAttributeMetaData explainAttributeMapping = attributeMappingExplainService
-					.explainAttributeMapping(semanticSearchParameters, matchedSourceAttributes.get(i));
+			String matchedSource = matchedSourceAttributes.get(i).getDescription() == null
+					? matchedSourceAttributes.get(i).getLabel() : matchedSourceAttributes.get(i).getDescription();
 
-			explainedAttributes.add(explainAttributeMapping);
+			AttributeMatchExplanation explainAttributeMapping = explainMappingService
+					.explainMapping(semanticSearchParam, matchedSource);
+
+			ExplainedAttributeMetaData explainedAttributeMetaData = ExplainedAttributeMetaData.create(
+					matchedSourceAttributes.get(i), explainAttributeMapping,
+					explainAttributeMapping.getScore() > semanticSearchParam.getHighQualityThreshold());
+
+			explainedAttributes.add(explainedAttributeMetaData);
 		}
 
 		Collections.sort(explainedAttributes);

@@ -1,5 +1,6 @@
 package org.molgenis.data.mapper.service.impl;
 
+import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 
 import java.util.Collection;
@@ -22,7 +23,8 @@ import org.molgenis.data.mapper.mapping.model.AttributeMapping;
 import org.molgenis.data.mapper.mapping.model.EntityMapping;
 import org.molgenis.data.mapper.service.AlgorithmService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParameter;
+import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
+import org.molgenis.data.semanticsearch.service.impl.SemanticSearchParamFactory;
 import org.molgenis.data.support.MapEntity;
 import org.molgenis.js.RhinoConfig;
 import org.molgenis.js.ScriptEvaluator;
@@ -45,14 +47,16 @@ public class AlgorithmServiceImpl implements AlgorithmService
 	private final DataService dataService;
 	private final SemanticSearchService semanticSearchService;
 	private final AlgorithmGeneratorService algorithmGeneratorService;
+	private final SemanticSearchParamFactory semanticSearchFactory;
 
 	@Autowired
 	public AlgorithmServiceImpl(DataService dataService, SemanticSearchService semanticSearchService,
-			AlgorithmGeneratorService algorithmGeneratorService)
+			AlgorithmGeneratorService algorithmGeneratorService, SemanticSearchParamFactory semanticSearchParamFactory)
 	{
 		this.dataService = requireNonNull(dataService);
 		this.semanticSearchService = requireNonNull(semanticSearchService);
 		this.algorithmGeneratorService = requireNonNull(algorithmGeneratorService);
+		this.semanticSearchFactory = requireNonNull(semanticSearchParamFactory);
 
 		new RhinoConfig().init();
 	}
@@ -73,13 +77,14 @@ public class AlgorithmServiceImpl implements AlgorithmService
 		LOG.debug("createAttributeMappingIfOnlyOneMatch: target= " + targetAttribute.getName());
 
 		// We first search for the source attributes only using query terms collected from the target attribute
-		SemanticSearchParameter semanticSearchParameters = SemanticSearchParameter.create(targetAttribute,
-				Collections.emptySet(), targetEntityMetaData, sourceEntityMetaData, false, false);
+		SemanticSearchParam semanticSearchParam = semanticSearchFactory.create(targetAttribute, emptySet(),
+				targetEntityMetaData, false, false);
 
-		List<AttributeMetaData> relevantAttributes = semanticSearchService.findAttributesLazy(semanticSearchParameters);
+		List<AttributeMetaData> relevantAttributes = semanticSearchService.findAttributesLazy(semanticSearchParam,
+				sourceEntityMetaData);
 
-		GeneratedAlgorithm generatedAlgorithm = algorithmGeneratorService.autoGenerate(semanticSearchParameters,
-				relevantAttributes);
+		GeneratedAlgorithm generatedAlgorithm = algorithmGeneratorService.autoGenerate(semanticSearchParam,
+				targetAttribute, targetEntityMetaData, sourceEntityMetaData, relevantAttributes);
 
 		if (StringUtils.isNotBlank(generatedAlgorithm.getAlgorithm()))
 		{

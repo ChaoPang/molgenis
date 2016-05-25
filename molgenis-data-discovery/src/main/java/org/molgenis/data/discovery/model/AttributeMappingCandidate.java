@@ -1,5 +1,7 @@
 package org.molgenis.data.discovery.model;
 
+import static java.util.Collections.emptyList;
+
 import java.util.List;
 
 import org.molgenis.gson.AutoGson;
@@ -19,6 +21,12 @@ public abstract class AttributeMappingCandidate
 	public abstract MatchingExplanation getExplanation();
 
 	public abstract List<AttributeMappingDecision> getDecisions();
+
+	public static AttributeMappingCandidate create(String identifier, BiobankSampleAttribute target,
+			BiobankSampleAttribute source, MatchingExplanation explanation)
+	{
+		return new AutoValue_AttributeMappingCandidate(identifier, target, source, explanation, emptyList());
+	}
 
 	public static AttributeMappingCandidate create(String identifier, BiobankSampleAttribute target,
 			BiobankSampleAttribute source, MatchingExplanation explanation, List<AttributeMappingDecision> decisions)

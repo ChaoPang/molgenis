@@ -1,9 +1,11 @@
 package org.molgenis.data.discovery.job;
 
-import org.molgenis.MolgenisFieldTypes;
+import static org.molgenis.MolgenisFieldTypes.MREF;
+import static org.molgenis.MolgenisFieldTypes.XREF;
+
+import org.molgenis.data.discovery.meta.BiobankSampleCollectionMetaData;
 import org.molgenis.data.discovery.meta.BiobankUniverseMetaData;
 import org.molgenis.data.jobs.JobExecutionMetaData;
-import org.molgenis.data.meta.EntityMetaDataMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.springframework.stereotype.Component;
 
@@ -19,7 +21,7 @@ public class BiobankUniverseJobExecutionMetaData extends DefaultEntityMetaData
 	{
 		super(ENTITY_NAME, BiobankUniverseJobExecution.class);
 		setExtends(new JobExecutionMetaData());
-		addAttribute(UNIVERSE).setDataType(MolgenisFieldTypes.XREF).setRefEntity(BiobankUniverseMetaData.INSTANCE);
-		addAttribute(MEMBERS).setDataType(MolgenisFieldTypes.MREF).setRefEntity(EntityMetaDataMetaData.INSTANCE);
+		addAttribute(UNIVERSE).setDataType(XREF).setRefEntity(BiobankUniverseMetaData.INSTANCE);
+		addAttribute(MEMBERS).setDataType(MREF).setRefEntity(BiobankSampleCollectionMetaData.INSTANCE);
 	}
 }

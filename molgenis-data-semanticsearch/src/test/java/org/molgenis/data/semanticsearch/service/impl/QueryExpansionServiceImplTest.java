@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
 import org.molgenis.data.semantic.Relation;
-import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParameter;
+import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -89,21 +89,21 @@ public class QueryExpansionServiceImplTest extends AbstractTestNGSpringContextTe
 
 		// Case one
 		QueryRule createQueryRulesForOntologyTerms1 = queryExpansionService
-				.createQueryRuleForOntologyTerms(asList(hit_1, hit_2), QueryExpansionParameter.create(true, false));
+				.createQueryRuleForOntologyTerms(asList(hit_1, hit_2), QueryExpansionParam.create(true, false));
 
 		String expectedShouldQueryRuleToString1 = "DIS_MAX ('label' FUZZY_MATCH 'label 2', 'description' FUZZY_MATCH 'label 2', 'label' FUZZY_MATCH 'molgenis label gcc', 'description' FUZZY_MATCH 'molgenis label gcc', 'label' FUZZY_MATCH 'molgenis label 2 genetics', 'description' FUZZY_MATCH 'molgenis label 2 genetics')";
 		assertEquals(createQueryRulesForOntologyTerms1.toString(), expectedShouldQueryRuleToString1);
 
 		// Case two
 		QueryRule createQueryRulesForOntologyTerms2 = queryExpansionService
-				.createQueryRuleForOntologyTerms(asList(hit_4), QueryExpansionParameter.create(true, false));
+				.createQueryRuleForOntologyTerms(asList(hit_4), QueryExpansionParam.create(true, false));
 
 		String expectedShouldQueryRuleToString2 = "SHOULD (DIS_MAX ('label' FUZZY_MATCH 'label 2', 'description' FUZZY_MATCH 'label 2', 'label' FUZZY_MATCH 'molgenis label gcc', 'description' FUZZY_MATCH 'molgenis label gcc'), DIS_MAX ('label' FUZZY_MATCH 'label 2', 'description' FUZZY_MATCH 'label 2', 'label' FUZZY_MATCH 'molgenis label 2 genetics', 'description' FUZZY_MATCH 'molgenis label 2 genetics'))";
 		assertEquals(createQueryRulesForOntologyTerms2.toString(), expectedShouldQueryRuleToString2);
 
 		// Case three
 		QueryRule createQueryRulesForOntologyTerms3 = queryExpansionService
-				.createQueryRuleForOntologyTerms(asList(hit_4), QueryExpansionParameter.create(true, true));
+				.createQueryRuleForOntologyTerms(asList(hit_4), QueryExpansionParam.create(true, true));
 
 		String expectedShouldQueryRuleToString3 = "SHOULD (DIS_MAX ('label' FUZZY_MATCH 'label 2', 'description' FUZZY_MATCH 'label 2', 'label' FUZZY_MATCH 'molgenis label gcc', 'description' FUZZY_MATCH 'molgenis label gcc'), DIS_MAX ('label' FUZZY_MATCH 'label 2', 'description' FUZZY_MATCH 'label 2', 'label' FUZZY_MATCH 'molgenis label 2 genetics', 'description' FUZZY_MATCH 'molgenis label 2 genetics', 'label' FUZZY_MATCH 'child^0.5', 'description' FUZZY_MATCH 'child^0.5', 'label' FUZZY_MATCH 'molgenis^0.5 child^0.5', 'description' FUZZY_MATCH 'molgenis^0.5 child^0.5'))";
 		assertEquals(createQueryRulesForOntologyTerms3.toString(), expectedShouldQueryRuleToString3);
@@ -150,19 +150,19 @@ public class QueryExpansionServiceImplTest extends AbstractTestNGSpringContextTe
 		// Case 1
 		QueryRule actualTargetAttributeQueryTerms_1 = queryExpansionService.expand(
 				newLinkedHashSet(asList("targetAttribute 1", "Height")), ontologyTermHits,
-				QueryExpansionParameter.create(true, true));
+				QueryExpansionParam.create(true, true));
 		String expecteddisMaxQueryRuleToString_1 = "DIS_MAX (DIS_MAX ('label' FUZZY_MATCH 'targetattribute^1.0 1^1.0', 'description' FUZZY_MATCH 'targetattribute^1.0 1^1.0', 'label' FUZZY_MATCH 'height^1.0', 'description' FUZZY_MATCH 'height^1.0'), DIS_MAX ('label' FUZZY_MATCH 'body length', 'description' FUZZY_MATCH 'body length', 'label' FUZZY_MATCH 'standing height', 'description' FUZZY_MATCH 'standing height'), DIS_MAX ('label' FUZZY_MATCH 'sitting length', 'description' FUZZY_MATCH 'sitting length', 'label' FUZZY_MATCH 'sitting height', 'description' FUZZY_MATCH 'sitting height'), DIS_MAX ('label' FUZZY_MATCH 'sature', 'description' FUZZY_MATCH 'sature', 'label' FUZZY_MATCH 'height', 'description' FUZZY_MATCH 'height', 'label' FUZZY_MATCH 'height sature', 'description' FUZZY_MATCH 'height sature'))";
 		assertEquals(actualTargetAttributeQueryTerms_1.toString(), expecteddisMaxQueryRuleToString_1);
 
 		// Case 2
 		QueryRule expecteddisMaxQueryRuleToString_2 = queryExpansionService.expand(Sets.newHashSet("Height"),
-				ontologyTermHits, QueryExpansionParameter.create(true, true));
+				ontologyTermHits, QueryExpansionParam.create(true, true));
 		String expectedTargetAttributeQueryTermsToString_2 = "DIS_MAX (DIS_MAX ('label' FUZZY_MATCH 'height^1.0', 'description' FUZZY_MATCH 'height^1.0'), DIS_MAX ('label' FUZZY_MATCH 'body length', 'description' FUZZY_MATCH 'body length', 'label' FUZZY_MATCH 'standing height', 'description' FUZZY_MATCH 'standing height'), DIS_MAX ('label' FUZZY_MATCH 'sitting length', 'description' FUZZY_MATCH 'sitting length', 'label' FUZZY_MATCH 'sitting height', 'description' FUZZY_MATCH 'sitting height'), DIS_MAX ('label' FUZZY_MATCH 'sature', 'description' FUZZY_MATCH 'sature', 'label' FUZZY_MATCH 'height', 'description' FUZZY_MATCH 'height', 'label' FUZZY_MATCH 'height sature', 'description' FUZZY_MATCH 'height sature'))";
 		assertEquals(expecteddisMaxQueryRuleToString_2.toString(), expectedTargetAttributeQueryTermsToString_2);
 
 		// Case 3
 		QueryRule expecteddisMaxQueryRuleToString_3 = queryExpansionService.expand(newHashSet("targetAttribute 3"),
-				ontologyTermHits, QueryExpansionParameter.create(true, true));
+				ontologyTermHits, QueryExpansionParam.create(true, true));
 		String expectedTargetAttributeQueryTermsToString_3 = "DIS_MAX (DIS_MAX ('label' FUZZY_MATCH 'targetattribute^1.0 3^0.2', 'description' FUZZY_MATCH 'targetattribute^1.0 3^0.2'), DIS_MAX ('label' FUZZY_MATCH 'body length', 'description' FUZZY_MATCH 'body length', 'label' FUZZY_MATCH 'standing height', 'description' FUZZY_MATCH 'standing height'), DIS_MAX ('label' FUZZY_MATCH 'sitting length', 'description' FUZZY_MATCH 'sitting length', 'label' FUZZY_MATCH 'sitting height', 'description' FUZZY_MATCH 'sitting height'), DIS_MAX ('label' FUZZY_MATCH 'sature', 'description' FUZZY_MATCH 'sature', 'label' FUZZY_MATCH 'height', 'description' FUZZY_MATCH 'height', 'label' FUZZY_MATCH 'height sature', 'description' FUZZY_MATCH 'height sature'))";
 		assertEquals(expecteddisMaxQueryRuleToString_3.toString(), expectedTargetAttributeQueryTermsToString_3);
 	}
@@ -176,7 +176,7 @@ public class QueryExpansionServiceImplTest extends AbstractTestNGSpringContextTe
 		when(ontologyService.getChildren(ontologyTerm1, new OntologyTermChildrenPredicate(3, false, ontologyService)))
 				.thenReturn(emptyList());
 		List<String> actual_1 = queryExpansionService.getExpandedQueriesFromOntologyTerm(ontologyTerm1,
-				QueryExpansionParameter.create(true, true));
+				QueryExpansionParam.create(true, true));
 		assertEquals(actual_1, Arrays.asList("body length", "standing height"));
 
 		// Case 2
@@ -192,7 +192,7 @@ public class QueryExpansionServiceImplTest extends AbstractTestNGSpringContextTe
 		when(ontologyService.getOntologyTermDistance(ontologyTerm2, ontologyTerm3)).thenReturn(1);
 
 		List<String> actual_2 = queryExpansionService.getExpandedQueriesFromOntologyTerm(ontologyTerm2,
-				QueryExpansionParameter.create(true, true));
+				QueryExpansionParam.create(true, true));
 
 		assertEquals(actual_2, Arrays.asList("height", "body^0.5 length^0.5", "length^0.5"));
 	}
