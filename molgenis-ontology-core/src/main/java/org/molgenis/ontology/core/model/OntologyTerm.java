@@ -18,6 +18,8 @@ import com.google.auto.value.AutoValue;
 @AutoGson(autoValueClass = AutoValue_OntologyTerm.class)
 public abstract class OntologyTerm
 {
+	public abstract String getId();
+
 	public abstract String getIRI();
 
 	public abstract String getLabel();
@@ -32,36 +34,37 @@ public abstract class OntologyTerm
 	@Nullable
 	public abstract List<OntologyTermAnnotation> getAnnotations();
 
-	public static OntologyTerm create(String iri, String label)
+	public static OntologyTerm create(String id, String iri, String label)
 	{
-		return new AutoValue_OntologyTerm(iri, label, null, emptyList(), emptyList(), emptyList());
+		return new AutoValue_OntologyTerm(id, iri, label, null, emptyList(), emptyList(), emptyList());
 	}
 
-	public static OntologyTerm create(String iri, String label, List<String> synonyms)
+	public static OntologyTerm create(String id, String iri, String label, List<String> synonyms)
 	{
-		return new AutoValue_OntologyTerm(iri, label, null, copyOf(synonyms), emptyList(), Collections.emptyList());
+		return new AutoValue_OntologyTerm(id, iri, label, null, copyOf(synonyms), emptyList(), Collections.emptyList());
 	}
 
-	public static OntologyTerm create(String iri, String label, String description)
+	public static OntologyTerm create(String id, String iri, String label, String description)
 	{
-		return new AutoValue_OntologyTerm(iri, label, description, emptyList(), emptyList(), emptyList());
+		return new AutoValue_OntologyTerm(id, iri, label, description, emptyList(), emptyList(), emptyList());
 	}
 
-	public static OntologyTerm create(String iri, String label, String description, List<String> synonyms)
+	public static OntologyTerm create(String id, String iri, String label, String description, List<String> synonyms)
 	{
-		return new AutoValue_OntologyTerm(iri, label, description, copyOf(synonyms), emptyList(), emptyList());
+		return new AutoValue_OntologyTerm(id, iri, label, description, copyOf(synonyms), emptyList(), emptyList());
 	}
 
-	public static OntologyTerm create(String iri, String label, String description, List<String> synonyms,
+	public static OntologyTerm create(String id, String iri, String label, String description, List<String> synonyms,
 			List<String> nodePaths)
 	{
-		return new AutoValue_OntologyTerm(iri, label, description, copyOf(synonyms), copyOf(nodePaths), emptyList());
+		return new AutoValue_OntologyTerm(id, iri, label, description, copyOf(synonyms), copyOf(nodePaths),
+				emptyList());
 	}
 
-	public static OntologyTerm create(String iri, String label, String description, List<String> synonyms,
+	public static OntologyTerm create(String id, String iri, String label, String description, List<String> synonyms,
 			List<String> nodePaths, List<OntologyTermAnnotation> annotations)
 	{
-		return new AutoValue_OntologyTerm(iri, label, description, copyOf(synonyms), copyOf(nodePaths),
+		return new AutoValue_OntologyTerm(id, iri, label, description, copyOf(synonyms), copyOf(nodePaths),
 				copyOf(annotations));
 	}
 
@@ -86,7 +89,8 @@ public abstract class OntologyTerm
 		{
 			return terms[0];
 		}
-		return create(join(stream(terms).map(OntologyTerm::getIRI).toArray(), ','),
+		return create(join(stream(terms).map(OntologyTerm::getId).toArray(), ','),
+				join(stream(terms).map(OntologyTerm::getIRI).toArray(), ','),
 				"(" + join(stream(terms).map(OntologyTerm::getLabel).toArray(), " and ") + ")");
 	}
 }

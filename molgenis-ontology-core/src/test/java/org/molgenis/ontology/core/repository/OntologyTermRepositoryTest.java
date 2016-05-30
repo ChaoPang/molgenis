@@ -105,8 +105,8 @@ public class OntologyTermRepositoryTest extends AbstractTestNGSpringContextTests
 		List<OntologyTerm> exactOntologyTerms = ontologyTermRepository.findExcatOntologyTerms(asList("1", "2"),
 				of("weight"), 100);
 
-		Assert.assertEquals(exactOntologyTerms, Arrays
-				.asList(OntologyTerm.create("http://www.test.nl/iri/2", "Weight", null, Arrays.asList("Weight"))));
+		Assert.assertEquals(exactOntologyTerms, Arrays.asList(
+				OntologyTerm.create("12", "http://www.test.nl/iri/2", "Weight", null, Arrays.asList("Weight"))));
 	}
 
 	@Test
@@ -119,7 +119,8 @@ public class OntologyTermRepositoryTest extends AbstractTestNGSpringContextTests
 		List<OntologyTerm> terms = ontologyTermRepository.findOntologyTerms(asList("1", "2"),
 				of("term1", "term2", "term3"), 100);
 
-		assertEquals(terms, asList(OntologyTerm.create("http://www.test.nl/iri", "Ontology term", null, emptyList())));
+		assertEquals(terms,
+				asList(OntologyTerm.create("12", "http://www.test.nl/iri", "Ontology term", null, emptyList())));
 		assertEquals(queryCaptor.getValue().toString(),
 				"rules=['ontology' IN [1, 2], AND, ('ontologyTermSynonym' FUZZY_MATCH 'term1', OR, 'ontologyTermSynonym' FUZZY_MATCH 'term2', OR, 'ontologyTermSynonym' FUZZY_MATCH 'term3')], pageSize=100");
 	}
@@ -139,6 +140,7 @@ public class OntologyTermRepositoryTest extends AbstractTestNGSpringContextTests
 
 		MapEntity ontologyTermEntity_1 = new MapEntity();
 		ontologyTermEntity_1.set(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
+		ontologyTermEntity_1.set(OntologyTermMetaData.ID, "1");
 		ontologyTermEntity_1.set(OntologyTermMetaData.ONTOLOGY_TERM_IRI, "iri 1");
 		ontologyTermEntity_1.set(OntologyTermMetaData.ONTOLOGY_TERM_NAME, "name 1");
 		ontologyTermEntity_1.set(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, Arrays.asList(nodePathEntity_1));
@@ -146,6 +148,7 @@ public class OntologyTermRepositoryTest extends AbstractTestNGSpringContextTests
 
 		MapEntity ontologyTermEntity_2 = new MapEntity();
 		ontologyTermEntity_2.set(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
+		ontologyTermEntity_2.set(OntologyTermMetaData.ID, "2");
 		ontologyTermEntity_2.set(OntologyTermMetaData.ONTOLOGY_TERM_IRI, "iri 2");
 		ontologyTermEntity_2.set(OntologyTermMetaData.ONTOLOGY_TERM_NAME, "name 2");
 		ontologyTermEntity_2.set(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, Arrays.asList(nodePathEntity_2));
@@ -153,16 +156,17 @@ public class OntologyTermRepositoryTest extends AbstractTestNGSpringContextTests
 
 		MapEntity ontologyTermEntity_3 = new MapEntity();
 		ontologyTermEntity_3.set(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
+		ontologyTermEntity_3.set(OntologyTermMetaData.ID, "3");
 		ontologyTermEntity_3.set(OntologyTermMetaData.ONTOLOGY_TERM_IRI, "iri 3");
 		ontologyTermEntity_3.set(OntologyTermMetaData.ONTOLOGY_TERM_NAME, "name 3");
 		ontologyTermEntity_3.set(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, Arrays.asList(nodePathEntity_3));
 		ontologyTermEntity_3.set(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM, Collections.emptyList());
 
-		OntologyTerm ontologyTerm_1 = OntologyTerm.create("iri 1", "name 1", null, emptyList(),
+		OntologyTerm ontologyTerm_1 = OntologyTerm.create("1", "iri 1", "name 1", null, emptyList(),
 				Arrays.asList("0[0].1[1]"));
-		OntologyTerm ontologyTerm_2 = OntologyTerm.create("iri 2", "name 2", null, emptyList(),
+		OntologyTerm ontologyTerm_2 = OntologyTerm.create("2", "iri 2", "name 2", null, emptyList(),
 				Arrays.asList("0[0].1[1].0[2]"));
-		OntologyTerm ontologyTerm_3 = OntologyTerm.create("iri 3", "name 3", null, emptyList(),
+		OntologyTerm ontologyTerm_3 = OntologyTerm.create("3", "iri 3", "name 3", null, emptyList(),
 				asList("0[0].1[1].1[2]"));
 
 		when(dataService.findAll(OntologyTermMetaData.ENTITY_NAME,
@@ -240,7 +244,7 @@ public class OntologyTermRepositoryTest extends AbstractTestNGSpringContextTests
 		{ "http://www.test.nl/iri" };
 
 		OntologyTerm ontologyTerm = ontologyTermRepository.getOntologyTerm(iris);
-		assertEquals(ontologyTerm, OntologyTerm.create("http://www.test.nl/iri", "Ontology term", emptyList()));
+		assertEquals(ontologyTerm, OntologyTerm.create("12", "http://www.test.nl/iri", "Ontology term", emptyList()));
 	}
 
 	@Configuration

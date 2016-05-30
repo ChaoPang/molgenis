@@ -18,7 +18,6 @@ import org.molgenis.data.transaction.TransactionLogRepositoryDecorator;
 import org.molgenis.data.transaction.TransactionLogService;
 import org.molgenis.data.validation.EntityAttributesValidator;
 import org.molgenis.data.validation.ExpressionValidator;
-import org.molgenis.data.validation.RepositoryValidationDecorator;
 import org.molgenis.security.owned.OwnedEntityRepositoryDecorator;
 import org.molgenis.util.EntityUtils;
 import org.molgenis.util.MySqlRepositoryExceptionTranslatorDecorator;
@@ -85,8 +84,8 @@ public class MolgenisRepositoryDecoratorFactory implements RepositoryDecoratorFa
 		}
 
 		// 3. validation decorator
-		decoratedRepository = new RepositoryValidationDecorator(dataService, decoratedRepository,
-				entityAttributesValidator, expressionValidator);
+		// decoratedRepository = new RepositoryValidationDecorator(dataService, decoratedRepository,
+		// entityAttributesValidator, expressionValidator);
 
 		// 2. auto value decorator
 		decoratedRepository = new AutoValueRepositoryDecorator(decoratedRepository, idGenerator);

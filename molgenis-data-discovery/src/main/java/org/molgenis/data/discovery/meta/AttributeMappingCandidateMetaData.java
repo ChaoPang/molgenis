@@ -17,6 +17,8 @@ public class AttributeMappingCandidateMetaData extends DefaultEntityMetaData
 	public static final String EXPLANATION = "explanation";
 	public static final String DECISIONS = "decisions";
 
+	public static final AttributeMappingCandidateMetaData INSTANCE = new AttributeMappingCandidateMetaData();
+
 	public AttributeMappingCandidateMetaData()
 	{
 		super(ENTITY_NAME);

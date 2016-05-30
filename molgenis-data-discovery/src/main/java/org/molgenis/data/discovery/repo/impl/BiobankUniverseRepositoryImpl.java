@@ -1,9 +1,16 @@
 package org.molgenis.data.discovery.repo.impl;
 
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
-import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM_IRI;
+import static java.util.stream.StreamSupport.stream;
+import static org.molgenis.data.discovery.meta.AttributeMappingCandidateMetaData.SOURCE;
+import static org.molgenis.data.discovery.meta.AttributeMappingCandidateMetaData.TARGET;
+import static org.molgenis.data.discovery.meta.SemanticTypeMetaData.SEMANTIC_TYPE_GROUP;
+import static org.molgenis.data.support.QueryImpl.EQ;
+import static org.molgenis.data.support.QueryImpl.IN;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -12,7 +19,10 @@ import java.util.stream.StreamSupport;
 import org.molgenis.auth.MolgenisUser;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
+import org.molgenis.data.EntityManager;
+import org.molgenis.data.Fetch;
 import org.molgenis.data.Query;
+import org.molgenis.data.discovery.job.BiobankUniverseJobExecutionMetaData;
 import org.molgenis.data.discovery.meta.AttributeMappingCandidateMetaData;
 import org.molgenis.data.discovery.meta.AttributeMappingDecisionMetaData;
 import org.molgenis.data.discovery.meta.AttributeMappingDecisionMetaData.DecisionOptions;
@@ -20,6 +30,8 @@ import org.molgenis.data.discovery.meta.BiobankSampleAttributeMetaData;
 import org.molgenis.data.discovery.meta.BiobankSampleCollectionMetaData;
 import org.molgenis.data.discovery.meta.BiobankUniverseMetaData;
 import org.molgenis.data.discovery.meta.MatchingExplanationMetaData;
+import org.molgenis.data.discovery.meta.OntologyTermSemanticTypeMetaData;
+import org.molgenis.data.discovery.meta.SemanticTypeMetaData;
 import org.molgenis.data.discovery.meta.TagGroupMetaData;
 import org.molgenis.data.discovery.model.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.AttributeMappingDecision;
@@ -28,15 +40,19 @@ import org.molgenis.data.discovery.model.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.BiobankUniverse;
 import org.molgenis.data.discovery.model.IdentifiableTagGroup;
 import org.molgenis.data.discovery.model.MatchingExplanation;
+import org.molgenis.data.discovery.model.SemanticType;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
-import org.molgenis.data.support.MapEntity;
+import org.molgenis.data.support.DefaultEntity;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.meta.OntologyTermMetaData;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.repository.OntologyTermRepository;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.security.user.MolgenisUserService;
 import org.molgenis.security.user.UserAccountService;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.google.common.collect.Lists;
 
 import static java.util.Objects.requireNonNull;
 
@@ -46,14 +62,32 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	private final OntologyService ontologyService;
 	private final MolgenisUserService molgenisUserService;
 	private final UserAccountService userAcountService;
+	private final EntityManager entityManager;
 
 	public BiobankUniverseRepositoryImpl(DataService dataService, OntologyService ontologyService,
-			MolgenisUserService molgenisUserService, UserAccountService userAcountService)
+			MolgenisUserService molgenisUserService, UserAccountService userAcountService, EntityManager entityManager)
 	{
 		this.dataService = requireNonNull(dataService);
 		this.ontologyService = requireNonNull(ontologyService);
 		this.molgenisUserService = requireNonNull(molgenisUserService);
 		this.userAcountService = requireNonNull(userAcountService);
+		this.entityManager = requireNonNull(entityManager);
+	}
+
+	@Transactional
+	@Override
+	public void addKeyConcepts(BiobankUniverse biobankUniverse, List<SemanticType> semanticTypes)
+	{
+		List<SemanticType> keyConcepts = Lists.newArrayList(biobankUniverse.getKeyConcepts());
+		List<SemanticType> newKeyConcepts = semanticTypes.stream().filter(type -> !keyConcepts.contains(type))
+				.collect(toList());
+		if (newKeyConcepts.size() > 0)
+		{
+			keyConcepts.addAll(newKeyConcepts);
+			BiobankUniverse newBiobankUniverse = BiobankUniverse.create(biobankUniverse.getIdentifier(),
+					biobankUniverse.getName(), biobankUniverse.getMembers(), biobankUniverse.getOwner(), keyConcepts);
+			dataService.update(BiobankUniverseMetaData.ENTITY_NAME, biobankUniverseToEntity(newBiobankUniverse));
+		}
 	}
 
 	@Override
@@ -67,8 +101,10 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	@Override
 	public BiobankUniverse getUniverse(String identifier)
 	{
+		Fetch fetch = new Fetch();
+		BiobankUniverseMetaData.INSTANCE.getAtomicAttributes().forEach(attr -> fetch.field(attr.getName()));
 		Entity findOne = dataService.findOne(BiobankUniverseMetaData.ENTITY_NAME,
-				QueryImpl.EQ(BiobankUniverseMetaData.IDENTIFIER, identifier));
+				QueryImpl.EQ(BiobankUniverseMetaData.IDENTIFIER, identifier).fetch(fetch));
 		return findOne == null ? null : entityToBiobankUniverse(findOne);
 	}
 
@@ -76,24 +112,47 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	@Override
 	public void addBiobankUniverse(BiobankUniverse biobankUniverse)
 	{
-		MapEntity mapEntity = biobankUniverseToEntity(biobankUniverse);
-		dataService.add(BiobankUniverseMetaData.ENTITY_NAME, mapEntity);
+		Entity entity = biobankUniverseToEntity(biobankUniverse);
+		// dataService.add(BiobankUniverseMetaData.ENTITY_NAME, entity);
+		dataService.add(BiobankUniverseMetaData.ENTITY_NAME, Stream.of(entity));
+	}
+
+	@Transactional
+	@Override
+	public void removeBiobankUniverse(BiobankUniverse biobankUniverse)
+	{
+		List<BiobankSampleAttribute> biobankSampleAttributes = biobankUniverse.getMembers().stream()
+				.flatMap(member -> getBiobankSampleAttributes(member).stream()).collect(Collectors.toList());
+
+		List<AttributeMappingCandidate> attributeMappingCandidates = getAttributeMappingCandidates(
+				biobankSampleAttributes);
+
+		// Remove attributeMappingCandidates, explanations and decisions
+		removeAttributeMappingCandidates(attributeMappingCandidates);
+
+		// Remove the BiobankUniverseJobExecutions in which the universe is involved
+		Stream<Entity> biobankUniverseJobEntityStream = dataService.findAll(
+				BiobankUniverseJobExecutionMetaData.ENTITY_NAME,
+				QueryImpl.EQ(BiobankUniverseJobExecutionMetaData.UNIVERSE, biobankUniverse.getIdentifier()));
+		dataService.delete(BiobankUniverseJobExecutionMetaData.ENTITY_NAME, biobankUniverseJobEntityStream);
+
+		// Remove the BiobankUniverse itself
+		dataService.delete(BiobankUniverseMetaData.ENTITY_NAME, biobankUniverseToEntity(biobankUniverse));
 	}
 
 	@Transactional
 	@Override
 	public void addUniverseMembers(BiobankUniverse biobankUniverse, List<BiobankSampleCollection> members)
 	{
-		List<BiobankSampleCollection> newMembers = biobankUniverse.getMembers().stream()
-				.filter(member -> !members.contains(member)).collect(Collectors.toList());
-		dataService.add(BiobankSampleCollectionMetaData.ENTITY_NAME,
-				newMembers.stream().map(this::biobankSampleCollectionToEntity));
+		List<BiobankSampleCollection> allMembers = Lists.newArrayList(biobankUniverse.getMembers());
 
-		List<BiobankSampleCollection> allMembers = Stream
-				.concat(biobankUniverse.getMembers().stream(), newMembers.stream()).collect(Collectors.toList());
+		List<BiobankSampleCollection> newMembers = members.stream().filter(member -> !allMembers.contains(member))
+				.collect(Collectors.toList());
 
-		MapEntity biobankUniverseToEntity = biobankUniverseToEntity(BiobankUniverse.create(
-				biobankUniverse.getIdentifier(), biobankUniverse.getName(), allMembers, biobankUniverse.getOwner()));
+		allMembers.addAll(newMembers);
+
+		Entity biobankUniverseToEntity = biobankUniverseToEntity(BiobankUniverse.create(biobankUniverse.getIdentifier(),
+				biobankUniverse.getName(), allMembers, biobankUniverse.getOwner(), biobankUniverse.getKeyConcepts()));
 
 		dataService.update(BiobankUniverseMetaData.ENTITY_NAME, biobankUniverseToEntity);
 	}
@@ -105,13 +164,9 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		List<BiobankSampleCollection> remainingMembers = biobankUniverse.getMembers().stream()
 				.filter(member -> !members.contains(member)).collect(Collectors.toList());
 
-		Stream<Entity> biobankSampleCollectionEntityStream = members.stream()
-				.map(this::biobankSampleCollectionToEntity);
-		dataService.delete(BiobankSampleCollectionMetaData.ENTITY_NAME, biobankSampleCollectionEntityStream);
-
-		MapEntity biobankUniverseToEntity = biobankUniverseToEntity(
+		Entity biobankUniverseToEntity = biobankUniverseToEntity(
 				BiobankUniverse.create(biobankUniverse.getIdentifier(), biobankUniverse.getName(), remainingMembers,
-						biobankUniverse.getOwner()));
+						biobankUniverse.getOwner(), biobankUniverse.getKeyConcepts()));
 
 		dataService.update(BiobankUniverseMetaData.ENTITY_NAME, biobankUniverseToEntity);
 	}
@@ -128,8 +183,19 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	@Override
 	public void removeBiobankSampleCollection(BiobankSampleCollection biobankSampleCollection)
 	{
-		removeBiobankSampleAttributes(getBiobankSampleAttributes(biobankSampleCollection));
 		Entity biobankSampleCollectionToEntity = biobankSampleCollectionToEntity(biobankSampleCollection);
+
+		// Remove bioibankSampleAttribute, attributeMappingCandidates, Explanations and Decisions
+		removeBiobankSampleAttributes(getBiobankSampleAttributes(biobankSampleCollection));
+
+		// Remove the biobankSampleColleciton memberships from all BiobankUniverses
+		dataService
+				.findAll(BiobankUniverseMetaData.ENTITY_NAME,
+						QueryImpl.EQ(BiobankUniverseMetaData.MEMBERS, biobankSampleCollectionToEntity))
+				.map(this::entityToBiobankUniverse)
+				.forEach(universe -> removeUniverseMembers(universe, Arrays.asList(biobankSampleCollection)));
+
+		// Remove the biobankSampleCollection itself
 		dataService.delete(BiobankSampleCollectionMetaData.ENTITY_NAME, biobankSampleCollectionToEntity);
 	}
 
@@ -150,10 +216,14 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	@Override
 	public List<BiobankSampleAttribute> getBiobankSampleAttributes(BiobankSampleCollection biobankSampleCollection)
 	{
+		Fetch fetch = new Fetch();
+		fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS);
+		fetch.field(BiobankSampleAttributeMetaData.COLLECTION);
+
 		List<BiobankSampleAttribute> biobankSampleAttributes = dataService
 				.findAll(BiobankSampleAttributeMetaData.ENTITY_NAME,
-						QueryImpl.EQ(BiobankSampleAttributeMetaData.COLLECTION, biobankSampleCollection.getName()))
-				.map(this::entityToBiobankSampleAttribute).collect(Collectors.toList());
+						EQ(BiobankSampleAttributeMetaData.COLLECTION, biobankSampleCollection.getName()).fetch(fetch))
+				.map(this::entityToBiobankSampleAttribute).collect(toList());
 
 		return biobankSampleAttributes;
 	}
@@ -183,7 +253,11 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	@Override
 	public List<BiobankSampleAttribute> queryBiobankSampleAttribute(Query query)
 	{
-		return dataService.findAll(BiobankSampleAttributeMetaData.ENTITY_NAME, query)
+		Fetch fetch = new Fetch();
+		fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS);
+		fetch.field(BiobankSampleAttributeMetaData.COLLECTION);
+
+		return dataService.findAll(BiobankSampleAttributeMetaData.ENTITY_NAME, query.fetch(fetch))
 				.map(this::entityToBiobankSampleAttribute).collect(Collectors.toList());
 	}
 
@@ -220,11 +294,14 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		List<String> attributeIdentifiers = biobankSampleAttributes.stream().map(BiobankSampleAttribute::getIdentifier)
 				.collect(Collectors.toList());
 
+		Fetch fetch = new Fetch();
+		AttributeMappingCandidateMetaData.INSTANCE.getAtomicAttributes().forEach(attr -> fetch.field(attr.getName()));
+
 		List<AttributeMappingCandidate> attributeMappingCandidates = dataService
 				.findAll(AttributeMappingCandidateMetaData.ENTITY_NAME,
-						QueryImpl.IN(AttributeMappingCandidateMetaData.TARGET, attributeIdentifiers).or()
-								.in(AttributeMappingCandidateMetaData.SOURCE, attributeIdentifiers))
-				.map(this::entityToAttributeMappingCandidate).collect(Collectors.toList());
+						IN(TARGET, attributeIdentifiers).or().in(SOURCE, attributeIdentifiers).fetch(fetch))
+				.map(this::entityToAttributeMappingCandidate).collect(toList());
+
 		return attributeMappingCandidates;
 	}
 
@@ -246,15 +323,55 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		dataService.delete(AttributeMappingDecisionMetaData.ENTITY_NAME, attributeMappingDecisionStream);
 	}
 
-	private MapEntity biobankUniverseToEntity(BiobankUniverse biobankUniverse)
+	@Override
+	public List<SemanticType> getAllSemanticType()
 	{
-		MapEntity mapEntity = new MapEntity(BiobankUniverseMetaData.INSTANCE);
-		mapEntity.set(BiobankUniverseMetaData.IDENTIFIER, biobankUniverse.getIdentifier());
-		mapEntity.set(BiobankUniverseMetaData.NAME, biobankUniverse.getName());
-		mapEntity.set(BiobankUniverseMetaData.MEMBERS, biobankUniverse.getMembers().stream()
-				.map(BiobankSampleCollection::getName).collect(Collectors.toList()));
-		mapEntity.set(BiobankUniverseMetaData.OWNER, biobankUniverse.getOwner());
-		return mapEntity;
+		return dataService.findAll(SemanticTypeMetaData.ENTITY_NAME).map(this::entityToSemanticType).collect(toList());
+	}
+
+	@Override
+	public List<SemanticType> getSemanticTypesByGroups(List<String> semanticTypeGroups)
+	{
+		return dataService
+				.findAll(SemanticTypeMetaData.ENTITY_NAME, QueryImpl.IN(SEMANTIC_TYPE_GROUP, semanticTypeGroups))
+				.map(this::entityToSemanticType).collect(toList());
+	}
+
+	@Override
+	public List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm)
+	{
+		Fetch fetch = new Fetch();
+		fetch.field(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE);
+
+		String iri = ontologyTerm.getIRI();
+		Entity entity = dataService.findOne(OntologyTermSemanticTypeMetaData.ENTITY_NAME,
+				EQ(OntologyTermSemanticTypeMetaData.ONTOLOGY_TERM, iri));
+
+		if (entity != null)
+		{
+			List<SemanticType> semanticTypes = stream(
+					entity.getEntities(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE).spliterator(), false)
+							.map(this::entityToSemanticType).collect(toList());
+			return semanticTypes;
+		}
+
+		return emptyList();
+	}
+
+	private Entity biobankUniverseToEntity(BiobankUniverse biobankUniverse)
+	{
+		Iterable<Entity> semanticTypeEntities = entityManager.getReferences(SemanticTypeMetaData.INSTANCE,
+				biobankUniverse.getKeyConcepts().stream().map(SemanticType::getIdentifier).collect(toList()));
+
+		DefaultEntity entity = new DefaultEntity(BiobankUniverseMetaData.INSTANCE, dataService);
+		entity.set(BiobankUniverseMetaData.IDENTIFIER, biobankUniverse.getIdentifier());
+		entity.set(BiobankUniverseMetaData.NAME, biobankUniverse.getName());
+		entity.set(BiobankUniverseMetaData.MEMBERS,
+				biobankUniverse.getMembers().stream().map(BiobankSampleCollection::getName).collect(toList()));
+		entity.set(BiobankUniverseMetaData.OWNER, biobankUniverse.getOwner());
+		entity.set(BiobankUniverseMetaData.KEY_CONCEPTS, semanticTypeEntities);
+
+		return entity;
 	}
 
 	private BiobankUniverse entityToBiobankUniverse(Entity entity)
@@ -272,7 +389,17 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 					.map(this::entityToBiobankSampleCollection).collect(toList());
 			members.addAll(collect);
 		}
-		return BiobankUniverse.create(identifier, name, members, owner);
+
+		List<SemanticType> keyConcepts = new ArrayList<>();
+		Iterable<Entity> keyConceptIterable = entity.getEntities(BiobankUniverseMetaData.KEY_CONCEPTS);
+		if (keyConceptIterable != null)
+		{
+			List<SemanticType> collect = StreamSupport.stream(keyConceptIterable.spliterator(), false)
+					.map(this::entityToSemanticType).collect(Collectors.toList());
+			keyConcepts.addAll(collect);
+		}
+
+		return BiobankUniverse.create(identifier, name, members, owner, keyConcepts);
 	}
 
 	private BiobankSampleCollection entityToBiobankSampleCollection(Entity entity)
@@ -283,9 +410,9 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 
 	private Entity biobankSampleCollectionToEntity(BiobankSampleCollection biobankSampleCollection)
 	{
-		MapEntity mapEntity = new MapEntity(BiobankSampleCollectionMetaData.INSTANCE);
-		mapEntity.set(BiobankSampleCollectionMetaData.NAME, biobankSampleCollection.getName());
-		return mapEntity;
+		DefaultEntity entity = new DefaultEntity(BiobankSampleCollectionMetaData.INSTANCE, dataService);
+		entity.set(BiobankSampleCollectionMetaData.NAME, biobankSampleCollection.getName());
+		return entity;
 	}
 
 	private BiobankSampleAttribute entityToBiobankSampleAttribute(Entity entity)
@@ -305,52 +432,41 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		return BiobankSampleAttribute.create(identifier, name, label, description, biobankSampleCollection, tagGroups);
 	}
 
-	private Entity biobankSampleAttributeToEntity(BiobankSampleAttribute attribute)
+	private Entity biobankSampleAttributeToEntity(BiobankSampleAttribute biobankSampleAttribute)
 	{
-		MapEntity mapEntity = new MapEntity(BiobankSampleAttributeMetaData.INSTANCE);
-		mapEntity.set(BiobankSampleAttributeMetaData.IDENTIFIER, attribute.getIdentifier());
-		mapEntity.set(BiobankSampleAttributeMetaData.NAME, attribute.getName());
-		mapEntity.set(BiobankSampleAttributeMetaData.LABEL, attribute.getLabel());
-		mapEntity.set(BiobankSampleAttributeMetaData.DESCRIPTION, attribute.getDescription());
-		mapEntity.set(BiobankSampleAttributeMetaData.COLLECTION,
-				biobankSampleCollectionToEntity(attribute.getCollection()));
-		mapEntity.set(BiobankSampleAttributeMetaData.TAG_GROUPS, attribute.getTagGroups().stream()
-				.map(IdentifiableTagGroup::getIdentifier).collect(Collectors.toList()));
-		return mapEntity;
+		Iterable<Entity> tagGroupEntities = entityManager.getReferences(TagGroupMetaData.INSTANCE,
+				biobankSampleAttribute.getTagGroups().stream().map(IdentifiableTagGroup::getIdentifier)
+						.collect(toList()));
+
+		DefaultEntity entity = new DefaultEntity(BiobankSampleAttributeMetaData.INSTANCE, dataService);
+		entity.set(BiobankSampleAttributeMetaData.IDENTIFIER, biobankSampleAttribute.getIdentifier());
+		entity.set(BiobankSampleAttributeMetaData.NAME, biobankSampleAttribute.getName());
+		entity.set(BiobankSampleAttributeMetaData.LABEL, biobankSampleAttribute.getLabel());
+		entity.set(BiobankSampleAttributeMetaData.DESCRIPTION, biobankSampleAttribute.getDescription());
+		entity.set(BiobankSampleAttributeMetaData.COLLECTION, biobankSampleAttribute.getCollection().getName());
+		entity.set(BiobankSampleAttributeMetaData.TAG_GROUPS, tagGroupEntities);
+
+		return entity;
 	}
 
 	private Entity identifiableTagGroupToEntity(IdentifiableTagGroup tagGroup)
 	{
-		List<OntologyTerm> atomicOntologyTerms = ontologyService.getAtomicOntologyTerms(tagGroup.getOntologyTerm());
-
-		List<String> ontologyTermIris = atomicOntologyTerms.stream().map(OntologyTerm::getIRI)
-				.collect(Collectors.toList());
-		List<String> ontologyTermIds = dataService
-				.findAll(OntologyTermMetaData.ENTITY_NAME,
-						QueryImpl.IN(OntologyTermMetaData.ONTOLOGY_TERM_IRI, ontologyTermIris))
-				.map(entity -> entity.getString(OntologyTermMetaData.ID)).collect(Collectors.toList());
-
-		MapEntity mapEntity = new MapEntity(TagGroupMetaData.INSTANCE);
-		mapEntity.set(TagGroupMetaData.IDENTIFIER, tagGroup.getIdentifier());
-		mapEntity.set(TagGroupMetaData.ONTOLOGY_TERMS, ontologyTermIds);
-		mapEntity.set(TagGroupMetaData.MATCHED_WORDS, tagGroup.getMatchedWords());
-		mapEntity.set(TagGroupMetaData.NGRAM_SCORE, tagGroup.getScore());
-
-		return mapEntity;
+		DefaultEntity entity = new DefaultEntity(TagGroupMetaData.INSTANCE, dataService);
+		entity.set(TagGroupMetaData.IDENTIFIER, tagGroup.getIdentifier());
+		entity.set(TagGroupMetaData.ONTOLOGY_TERMS, ontologyService.getOntologyTermIds(tagGroup.getOntologyTerm()));
+		entity.set(TagGroupMetaData.MATCHED_WORDS, tagGroup.getMatchedWords());
+		entity.set(TagGroupMetaData.NGRAM_SCORE, (double) tagGroup.getScore());
+		return entity;
 	}
 
 	private IdentifiableTagGroup entityToIdentifiableTagGroup(Entity entity)
 	{
-		MapEntity mapEntity = new MapEntity(TagGroupMetaData.INSTANCE);
-
-		String identifier = mapEntity.getString(TagGroupMetaData.IDENTIFIER);
-		String matchedWords = mapEntity.getString(TagGroupMetaData.MATCHED_WORDS);
-		Double ngramScore = mapEntity.getDouble(TagGroupMetaData.NGRAM_SCORE);
+		String identifier = entity.getString(TagGroupMetaData.IDENTIFIER);
+		String matchedWords = entity.getString(TagGroupMetaData.MATCHED_WORDS);
+		Double ngramScore = entity.getDouble(TagGroupMetaData.NGRAM_SCORE);
 		OntologyTerm ontologyTerm = OntologyTerm
-				.and(StreamSupport.stream(mapEntity.getEntities(TagGroupMetaData.ONTOLOGY_TERMS).spliterator(), false)
-						.map(ot -> ot.getString(OntologyTermMetaData.ONTOLOGY_TERM_IRI))
-						.map(ontologyService::getOntologyTerm).toArray(OntologyTerm[]::new));
-
+				.and(stream(entity.getEntities(TagGroupMetaData.ONTOLOGY_TERMS).spliterator(), false)
+						.map(OntologyTermRepository::toOntologyTerm).toArray(OntologyTerm[]::new));
 		return IdentifiableTagGroup.create(identifier, ontologyTerm, matchedWords, ngramScore.floatValue());
 	}
 
@@ -379,46 +495,39 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		BiobankSampleAttribute target = attributeMappingCandidate.getTarget();
 		BiobankSampleAttribute source = attributeMappingCandidate.getSource();
 		MatchingExplanation explanation = attributeMappingCandidate.getExplanation();
-		List<AttributeMappingDecision> decisions = attributeMappingCandidate.getDecisions();
 
-		MapEntity mapEntity = new MapEntity(AttributeMappingCandidateMetaData.ENTITY_NAME);
-		mapEntity.set(AttributeMappingCandidateMetaData.IDENTIFIER, identifier);
-		mapEntity.set(AttributeMappingCandidateMetaData.TARGET, target.getIdentifier());
-		mapEntity.set(AttributeMappingCandidateMetaData.SOURCE, source.getIdentifier());
-		mapEntity.set(AttributeMappingCandidateMetaData.EXPLANATION, explanation.getIdentifier());
-		mapEntity.set(AttributeMappingCandidateMetaData.DECISIONS,
-				decisions.stream().map(AttributeMappingDecision::getIdentifier).collect(Collectors.toList()));
+		Iterable<Entity> decisionEntities = entityManager.getReferences(AttributeMappingDecisionMetaData.INSTANCE,
+				attributeMappingCandidate.getDecisions().stream().map(AttributeMappingDecision::getIdentifier)
+						.collect(toList()));
 
-		return mapEntity;
+		DefaultEntity entity = new DefaultEntity(AttributeMappingCandidateMetaData.INSTANCE, dataService);
+		entity.set(AttributeMappingCandidateMetaData.IDENTIFIER, identifier);
+		entity.set(AttributeMappingCandidateMetaData.TARGET, target.getIdentifier());
+		entity.set(AttributeMappingCandidateMetaData.SOURCE, source.getIdentifier());
+		entity.set(AttributeMappingCandidateMetaData.EXPLANATION, explanation.getIdentifier());
+		entity.set(AttributeMappingCandidateMetaData.DECISIONS, decisionEntities);
+
+		return entity;
 	}
 
 	private Entity mappingExplanationToEntity(MatchingExplanation mappingExplanation)
 	{
 		String identifier = mappingExplanation.getIdentifier();
-		List<String> ontologyTermIdentifiers = new ArrayList<>();
 		String queryString = mappingExplanation.getQueryString();
 		String matchedWords = mappingExplanation.getMatchedWords();
 		double ngramScore = mappingExplanation.getNgramScore();
 
-		if (mappingExplanation.getOntologyTerms().size() > 0)
-		{
-			List<String> ontologyTermIris = mappingExplanation.getOntologyTerms().stream().map(OntologyTerm::getIRI)
-					.collect(Collectors.toList());
-			ontologyTermIdentifiers
-					.addAll(dataService
-							.findAll(OntologyTermMetaData.ENTITY_NAME,
-									QueryImpl.IN(ONTOLOGY_TERM_IRI, ontologyTermIris))
-							.map(entity -> entity.getString(OntologyTermMetaData.ID)).collect(toList()));
-		}
+		Iterable<Entity> ontologyTermEntities = entityManager.getReferences(OntologyTermMetaData.INSTANCE,
+				mappingExplanation.getOntologyTerms().stream().map(OntologyTerm::getId).collect(toList()));
 
-		MapEntity mapEntity = new MapEntity(MatchingExplanationMetaData.INSTANCE);
-		mapEntity.set(MatchingExplanationMetaData.IDENTIFIER, identifier);
-		mapEntity.set(MatchingExplanationMetaData.MATCHED_QUERY_STRING, queryString);
-		mapEntity.set(MatchingExplanationMetaData.MATCHED_WORDS, matchedWords);
-		mapEntity.set(MatchingExplanationMetaData.ONTOLOGY_TERMS, ontologyTermIdentifiers);
-		mapEntity.set(MatchingExplanationMetaData.N_GRAM_SCORE, ngramScore);
+		DefaultEntity entity = new DefaultEntity(MatchingExplanationMetaData.INSTANCE, dataService);
+		entity.set(MatchingExplanationMetaData.IDENTIFIER, identifier);
+		entity.set(MatchingExplanationMetaData.MATCHED_QUERY_STRING, queryString);
+		entity.set(MatchingExplanationMetaData.MATCHED_WORDS, matchedWords);
+		entity.set(MatchingExplanationMetaData.ONTOLOGY_TERMS, ontologyTermEntities);
+		entity.set(MatchingExplanationMetaData.N_GRAM_SCORE, ngramScore);
 
-		return mapEntity;
+		return entity;
 	}
 
 	private MatchingExplanation entityToMappingExplanation(Entity mappingExplanationEntity)
@@ -433,9 +542,8 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 				.getEntities(MatchingExplanationMetaData.ONTOLOGY_TERMS);
 		if (ontologyTermEntities != null)
 		{
-			List<OntologyTerm> collect = StreamSupport.stream(ontologyTermEntities.spliterator(), false)
-					.map(entity -> entity.getString(OntologyTermMetaData.ONTOLOGY_TERM_IRI))
-					.map(ontologyService::getOntologyTerm).collect(Collectors.toList());
+			List<OntologyTerm> collect = stream(ontologyTermEntities.spliterator(), false)
+					.map(OntologyTermRepository::toOntologyTerm).collect(toList());
 			ontologyTerms.addAll(collect);
 		}
 
@@ -458,12 +566,21 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		DecisionOptions decision = attributeMappingDecision.getDecision();
 		String owner = attributeMappingDecision.getOwner();
 
-		MapEntity mapEntity = new MapEntity(AttributeMappingDecisionMetaData.INSTANCE);
-		mapEntity.set(AttributeMappingDecisionMetaData.IDENTIFIER, identifier);
-		mapEntity.set(AttributeMappingDecisionMetaData.OWNER, owner);
-		mapEntity.set(AttributeMappingDecisionMetaData.DECISION, decision);
-		mapEntity.set(AttributeMappingDecisionMetaData.COMMENT, comment);
+		DefaultEntity entity = new DefaultEntity(AttributeMappingDecisionMetaData.INSTANCE, dataService);
+		entity.set(AttributeMappingDecisionMetaData.IDENTIFIER, identifier);
+		entity.set(AttributeMappingDecisionMetaData.OWNER, owner);
+		entity.set(AttributeMappingDecisionMetaData.DECISION, decision);
+		entity.set(AttributeMappingDecisionMetaData.COMMENT, comment);
 
-		return mapEntity;
+		return entity;
 	}
+
+	private SemanticType entityToSemanticType(Entity entity)
+	{
+		String id = entity.getString(SemanticTypeMetaData.ID);
+		String name = entity.getString(SemanticTypeMetaData.SEMANTIC_TYPE_NAME);
+		String group = entity.getString(SemanticTypeMetaData.SEMANTIC_TYPE_GROUP);
+		return SemanticType.create(id, name, group);
+	}
+
 }

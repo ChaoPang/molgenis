@@ -9,8 +9,10 @@ import org.molgenis.data.discovery.model.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.BiobankUniverse;
+import org.molgenis.data.discovery.model.IdentifiableTagGroup;
+import org.molgenis.data.discovery.model.SemanticType;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
-import org.molgenis.data.semanticsearch.service.bean.TagGroup;
+import org.molgenis.ontology.core.model.OntologyTerm;
 
 public interface BiobankUniverseService
 {
@@ -21,9 +23,16 @@ public interface BiobankUniverseService
 	 * @param biobankSampleNames
 	 * @param owner
 	 * 
-	 * @return a {@link BiobankUniverse}
 	 */
-	public abstract BiobankUniverse addBiobankUniverse(String universeName, MolgenisUser owner);
+	public abstract BiobankUniverse addBiobankUniverse(String universeName, List<String> semanticTypeGroups,
+			MolgenisUser owner);
+
+	/**
+	 * Delete a {@link BiobankUniverse} by Id
+	 * 
+	 * @param biobankUniverseId
+	 */
+	public abstract void deleteBiobankUniverse(String biobankUniverseId);
 
 	/**
 	 * Get all {@link BiobankUniverse}s
@@ -41,6 +50,15 @@ public interface BiobankUniverseService
 	public abstract BiobankUniverse getBiobankUniverse(String identifier);
 
 	/**
+	 * Add a list of {@link BiobankSampleCollection}s to a {@link BiobankUniverse}
+	 * 
+	 * @param biobankUniverse
+	 * @param biobankSampleCollections
+	 */
+	public abstract void addBiobankUniverseMember(BiobankUniverse biobankUniverse,
+			List<BiobankSampleCollection> biobankSampleCollections);
+
+	/**
 	 * Import sampleName as the {@link BiobankSampleCollection} and import the list of BiobankSampleAttributeEntities as
 	 * the {@link BiobankSampleAttribute}s
 	 * 
@@ -49,7 +67,29 @@ public interface BiobankUniverseService
 	 */
 	public abstract void importSampleCollections(String sampleName, Stream<Entity> BiobankSampleAttributeEntityStream);
 
+	/**
+	 * Get all {@link BiobankSampleCollection}s
+	 * 
+	 * @return a list of {@link BiobankSampleCollection}s
+	 */
 	public abstract List<BiobankSampleCollection> getAllBiobankSampleCollections();
+
+	/**
+	 * Get a {@link BiobankSampleCollection} by name
+	 * 
+	 * @param biobankSampleCollectionName
+	 * @return {@link BiobankSampleCollection}
+	 */
+	public abstract BiobankSampleCollection getBiobankSampleCollection(String biobankSampleCollectionName);
+
+	/**
+	 * Get a list of {@link BiobankSampleCollection}s by the given names
+	 * 
+	 * @param biobankSampleCollectionNames
+	 * @return a list of {@link BiobankSampleCollection}s
+	 */
+	public abstract List<BiobankSampleCollection> getBiobankSampleCollections(
+			List<String> biobankSampleCollectionNames);
 
 	/**
 	 * Generate a list of {@link AttributeMappingCandidate}s for all {@link BiobankSampleCollection}s based on the given
@@ -60,19 +100,48 @@ public interface BiobankUniverseService
 	 * @param existingMembers
 	 * @return
 	 */
-	public abstract List<AttributeMappingCandidate> findCandidateMappings(BiobankSampleAttribute target,
-			SemanticSearchParam semanticSearchParam, List<BiobankSampleCollection> existingMembers);
-
-	public abstract BiobankSampleCollection getBiobankSampleCollection(String biobankSampleCollectionName);
-
-	public abstract List<BiobankSampleCollection> getBiobankSampleCollections(
-			List<String> biobankSampleCollectionNames);
+	public abstract List<AttributeMappingCandidate> findCandidateMappings(BiobankUniverse biobankUniverse,
+			BiobankSampleAttribute target, SemanticSearchParam semanticSearchParam,
+			List<BiobankSampleCollection> existingMembers);
 
 	/**
-	 * Generate a list of {@link TagGroup}s for the given {@link BiobankSampleAttribute}
+	 * Check if any of the {@link BiobankSampleAttribute}s in the {@link BiobankSampleCollection} has been tagged
+	 * 
+	 * @param biobankSampleCollection
+	 * @return
+	 */
+	public abstract boolean isBiobankSampleCollectionTagged(BiobankSampleCollection biobankSampleCollection);
+
+	/**
+	 * Generate a list of {@link IdentifiableTagGroup}s for the given {@link BiobankSampleAttribute}
 	 * 
 	 * @param biobankSampleAttribute
-	 * @return a list of {@link TagGroup}
+	 * @return a list of {@link IdentifiableTagGroup}
 	 */
-	public abstract List<TagGroup> findTagGroupsForAttributes(BiobankSampleAttribute biobankSampleAttribute);
+	public abstract List<IdentifiableTagGroup> findTagGroupsForAttributes(
+			BiobankSampleAttribute biobankSampleAttribute);
+
+	/**
+	 * Check if a particular {@link OntologyTerm} is a key concept
+	 * 
+	 * @param ontologyTerm
+	 * @return
+	 */
+	public abstract boolean isOntologyTermKeyConcept(BiobankUniverse biobankUniverse, OntologyTerm ontologyTerm);
+
+	/**
+	 * Get all {@link SemanticType}s from the database
+	 * 
+	 * @return a list of {@link SemanticType}s
+	 */
+	public abstract List<SemanticType> getAllSemanticType();
+
+	/**
+	 * Add a list of {@link SemanticType} groups to the {@link BiobankUniverse} to add the associated semantic types as
+	 * key concepts
+	 * 
+	 * @param universe
+	 * @param semanticTypeGroups
+	 */
+	public abstract void addKeyConcepts(BiobankUniverse universe, List<String> semanticTypeGroups);
 }

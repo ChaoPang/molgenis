@@ -1,6 +1,5 @@
 package org.molgenis.data.discovery.job;
 
-import org.molgenis.data.IdGenerator;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.jobs.JobExecutionUpdater;
@@ -24,8 +23,6 @@ public class BiobankUniverseJobFactory
 	@Autowired
 	private BiobankUniverseService biobankUniverseService;
 
-	@Autowired
-	private IdGenerator idGenerator;
 	@Autowired
 	private PlatformTransactionManager transactionManager;
 
@@ -52,7 +49,7 @@ public class BiobankUniverseJobFactory
 
 		BiobankUniverseJobProcessor biobankUniverseJobProcessor = new BiobankUniverseJobProcessor(
 				biobankUniverseJobExecution.getUniverse(), biobankUniverseJobExecution.getMembers(),
-				biobankUniverseService, biobankUniverseRepository, idGenerator, progress, menuReaderService);
+				biobankUniverseService, biobankUniverseRepository, progress, menuReaderService);
 
 		return new BiobankUniverseJobImpl(biobankUniverseJobProcessor, progress, transactionTemplate,
 				runAsAuthentication);

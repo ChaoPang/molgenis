@@ -1052,19 +1052,6 @@ public class MappingServiceController extends MolgenisPluginController
 
 		return attributeTagMap;
 	}
-	// private Map<String, List<OntologyTerm>> getTagsForAttribute(String target, MappingProject project)
-	// {
-	// Map<String, List<OntologyTerm>> attributeTagMap = new HashMap<String, List<OntologyTerm>>();
-	// for (AttributeMetaData amd : project.getMappingTarget(target).getTarget().getAtomicAttributes())
-	// {
-	// List<OntologyTerm> ontologyTermsForAttribute = new ArrayList<OntologyTerm>(
-	// ontologyTagService.getTagsForAttribute(dataService.getEntityMetaData(target), amd).values());
-	//
-	// attributeTagMap.put(amd.getName(), ontologyTermsForAttribute);
-	// }
-	//
-	// return attributeTagMap;
-	// }
 
 	private String getMappingServiceMenuUrl()
 	{

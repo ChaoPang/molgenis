@@ -1,5 +1,6 @@
 package org.molgenis.ontology.core.service.impl;
 
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.ontology.utils.PredicateUtils.createRetrieveLevelThreePredicate;
@@ -10,6 +11,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.elasticsearch.common.collect.Lists;
 import org.molgenis.data.MolgenisDataAccessException;
@@ -26,6 +28,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 
+import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 
 public class OntologyServiceImpl implements OntologyService
@@ -117,6 +120,16 @@ public class OntologyServiceImpl implements OntologyService
 	}
 
 	@Override
+	public List<String> getOntologyTermIds(OntologyTerm ontologyTerm)
+	{
+		if (ontologyTerm != null)
+		{
+			return Stream.of(ontologyTerm.getId().split(ONTOLOGY_TERM_IRI_SEPARATOR)).collect(Collectors.toList());
+		}
+		return emptyList();
+	}
+
+	@Override
 	public List<OntologyTerm> getChildren(OntologyTerm ontologyTerm, OntologyTermChildrenPredicate continuePredicate)
 	{
 		try
@@ -158,17 +171,22 @@ public class OntologyServiceImpl implements OntologyService
 	public List<OntologyTerm> getAtomicOntologyTerms(OntologyTerm ontologyTerm)
 	{
 		List<OntologyTerm> ontologyTerms = new ArrayList<>();
-		for (String atomicOntologyTermIri : ontologyTerm.getIRI().split(ONTOLOGY_TERM_IRI_SEPARATOR))
+
+		if (nonNull(ontologyTerm))
 		{
-			if (isNotBlank(atomicOntologyTermIri))
+			for (String atomicOntologyTermIri : ontologyTerm.getIRI().split(ONTOLOGY_TERM_IRI_SEPARATOR))
 			{
-				OntologyTerm atomicOntologyTerm = getOntologyTerm(atomicOntologyTermIri);
-				if (atomicOntologyTerm != null)
+				if (isNotBlank(atomicOntologyTermIri))
 				{
-					ontologyTerms.add(atomicOntologyTerm);
+					OntologyTerm atomicOntologyTerm = getOntologyTerm(atomicOntologyTermIri);
+					if (atomicOntologyTerm != null)
+					{
+						ontologyTerms.add(atomicOntologyTerm);
+					}
 				}
 			}
 		}
+
 		return ontologyTerms;
 	}
 }

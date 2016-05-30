@@ -19,9 +19,11 @@ public abstract class BiobankUniverse
 
 	public abstract MolgenisUser getOwner();
 
+	public abstract List<SemanticType> getKeyConcepts();
+
 	public static BiobankUniverse create(String identifier, String name, List<BiobankSampleCollection> members,
-			MolgenisUser owner)
+			MolgenisUser owner, List<SemanticType> keyConcepts)
 	{
-		return new AutoValue_BiobankUniverse(identifier, name, members, owner);
+		return new AutoValue_BiobankUniverse(identifier, name, members, owner, keyConcepts);
 	}
 }

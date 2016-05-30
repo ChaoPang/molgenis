@@ -14,6 +14,7 @@ import static org.molgenis.data.QueryRule.Operator.FUZZY_MATCH;
 import static org.molgenis.data.QueryRule.Operator.FUZZY_MATCH_NGRAM;
 import static org.molgenis.data.QueryRule.Operator.IN;
 import static org.molgenis.data.QueryRule.Operator.OR;
+import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ID;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM_DYNAMIC_ANNOTATION;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM_IRI;
@@ -420,7 +421,7 @@ public class SortaServiceImpl implements SortaService
 				annotations.add(OntologyTermAnnotation.create(annotationName, annotationValue));
 			}
 		}
-		return OntologyTerm.create(entity.getString(ONTOLOGY_TERM_IRI), entity.getString(ONTOLOGY_TERM_NAME), null,
-				synonyms, Collections.emptyList(), annotations);
+		return OntologyTerm.create(entity.getString(ID), entity.getString(ONTOLOGY_TERM_IRI),
+				entity.getString(ONTOLOGY_TERM_NAME), null, synonyms, Collections.emptyList(), annotations);
 	}
 }

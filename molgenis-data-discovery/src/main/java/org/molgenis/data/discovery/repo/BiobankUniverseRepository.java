@@ -9,11 +9,15 @@ import org.molgenis.data.discovery.model.AttributeMappingDecision;
 import org.molgenis.data.discovery.model.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.BiobankUniverse;
+import org.molgenis.data.discovery.model.SemanticType;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
+import org.molgenis.ontology.core.model.OntologyTerm;
 
 public interface BiobankUniverseRepository
 {
+	public abstract void addKeyConcepts(BiobankUniverse biobankUniverse, List<SemanticType> semanticTypes);
+
 	/**
 	 * Get all {@link BiobankUniverse}s from the database
 	 * 
@@ -35,6 +39,14 @@ public interface BiobankUniverseRepository
 	 * @param biobankUniverse
 	 */
 	public abstract void addBiobankUniverse(BiobankUniverse biobankUniverse);
+
+	/**
+	 * Cascading delete the {@link BiobankUniverse} and its related entities including {@link AttributeMappingCandidate}
+	 * s, {@link AttributeMappingDecision}s and {@link AttributeMatchExplanation}s
+	 * 
+	 * @param universe
+	 */
+	public abstract void removeBiobankUniverse(BiobankUniverse universe);
 
 	/**
 	 * Add new members {@link BiobankSampleCollection}s to the existing {@link BiobankUniverse}
@@ -69,6 +81,13 @@ public interface BiobankUniverseRepository
 	 * @param biobankSampleCollection
 	 */
 	public abstract void removeBiobankSampleCollection(BiobankSampleCollection biobankSampleCollection);
+
+	/**
+	 * Get all {@link BiobankSampleCollection}s in the database
+	 * 
+	 * @return a list of {@link BiobankSampleCollection}s
+	 */
+	public abstract List<BiobankSampleCollection> getAllBiobankSampleCollections();
 
 	/**
 	 * Get a {@link BiobankSampleCollection} by the name
@@ -142,6 +161,26 @@ public interface BiobankUniverseRepository
 	 */
 	public abstract void removeAttributeMappingCandidates(List<AttributeMappingCandidate> attributeMappingCandidates);
 
-	public abstract List<BiobankSampleCollection> getAllBiobankSampleCollections();
+	/**
+	 * Get all {@link SemanticType}s
+	 * 
+	 * @return a list of {@link SemanticType}s
+	 */
+	public abstract List<SemanticType> getAllSemanticType();
 
+	/**
+	 * Get all {@link SemanticType}s for the given {@link OntologyTerm}
+	 * 
+	 * @param ontologyTerm
+	 * @return a list of {@link SemanticType}s
+	 */
+	public abstract List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm);
+
+	/**
+	 * Get all {@link SemanticType}s by a list of {@link SemanticType} groups
+	 * 
+	 * @param semanticTypeGroups
+	 * @return a list of {@link SemanticType}s
+	 */
+	public abstract List<SemanticType> getSemanticTypesByGroups(List<String> semanticTypeGroups);
 }

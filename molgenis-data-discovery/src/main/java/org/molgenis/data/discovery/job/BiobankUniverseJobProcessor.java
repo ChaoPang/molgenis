@@ -1,11 +1,11 @@
 package org.molgenis.data.discovery.job;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
-import org.molgenis.data.IdGenerator;
 import org.molgenis.data.discovery.controller.BiobankUniverseController;
 import org.molgenis.data.discovery.model.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.BiobankSampleAttribute;
@@ -31,10 +31,9 @@ public class BiobankUniverseJobProcessor
 	private static final int PROGRESS_UPDATE_BATCH_SIZE = 50;
 
 	private final BiobankUniverse biobankUniverse;
-	private final List<BiobankSampleCollection> biobankSampleCollections;
+	private final List<BiobankSampleCollection> newMembers;
 	private final BiobankUniverseService biobankUniverseService;
 	private final BiobankUniverseRepository biobankUniverseRepository;
-	private final IdGenerator idGenerator;
 	private final AtomicInteger counter;
 
 	private final Progress progress;
@@ -42,14 +41,12 @@ public class BiobankUniverseJobProcessor
 
 	public BiobankUniverseJobProcessor(BiobankUniverse biobankUniverse,
 			List<BiobankSampleCollection> biobankSampleCollections, BiobankUniverseService biobankUniverseService,
-			BiobankUniverseRepository biobankUniverseRepository, IdGenerator idGenerator, Progress progress,
-			MenuReaderService menuReaderService)
+			BiobankUniverseRepository biobankUniverseRepository, Progress progress, MenuReaderService menuReaderService)
 	{
 		this.biobankUniverse = requireNonNull(biobankUniverse);
-		this.biobankSampleCollections = requireNonNull(biobankSampleCollections);
+		this.newMembers = requireNonNull(biobankSampleCollections);
 		this.biobankUniverseService = requireNonNull(biobankUniverseService);
 		this.biobankUniverseRepository = requireNonNull(biobankUniverseRepository);
-		this.idGenerator = requireNonNull(idGenerator);
 		this.progress = requireNonNull(progress);
 		this.counter = new AtomicInteger(0);
 		this.menuReaderService = requireNonNull(menuReaderService);
@@ -60,44 +57,45 @@ public class BiobankUniverseJobProcessor
 		RunAsSystemProxy.runAsSystem(() -> {
 
 			List<BiobankSampleCollection> existingMembers = Lists.newArrayList(biobankUniverse.getMembers());
-
-			List<BiobankSampleCollection> newMembers = biobankSampleCollections.stream()
-					.filter(member -> !existingMembers.contains(member)).collect(Collectors.toList());
+			existingMembers.removeAll(newMembers);
 
 			int totalNumberOfAttributes = newMembers.stream()
 					.map(member -> biobankUniverseRepository.getBiobankSampleAttributes(member).size())
 					.mapToInt(Integer::intValue).sum();
 
-			// Add new members to the universe
-			biobankUniverseRepository.addUniverseMembers(biobankUniverse, newMembers);
-
-			// the progress includes tagging and matching, therefore the total number is multiplied by 2
+			// The process includes tagging and matching, therefore the total number is multiplied by 2
 			progress.setProgressMax(totalNumberOfAttributes * 2);
 
 			// Tag all the biobankSampleAttributes in the new members
 			for (BiobankSampleCollection biobankSampleCollection : newMembers)
 			{
-				List<BiobankSampleAttribute> biobankSampleAttributesToUpdate = new ArrayList<>();
-
-				for (BiobankSampleAttribute biobankSampleAttribute : biobankUniverseRepository
-						.getBiobankSampleAttributes(biobankSampleCollection))
+				if (!biobankUniverseService.isBiobankSampleCollectionTagged(biobankSampleCollection))
 				{
-					List<IdentifiableTagGroup> identifiableTagGroups = biobankUniverseService
-							.findTagGroupsForAttributes(biobankSampleAttribute).stream()
-							.map(tag -> IdentifiableTagGroup.create(idGenerator.generateId(), tag))
-							.collect(Collectors.toList());
+					List<BiobankSampleAttribute> biobankSampleAttributesToUpdate = new ArrayList<>();
 
-					biobankSampleAttributesToUpdate
-							.add(BiobankSampleAttribute.create(biobankSampleAttribute, identifiableTagGroups));
-
-					// Update the progress only when the progress proceeds the threshold
-					if (counter.incrementAndGet() % PROGRESS_UPDATE_BATCH_SIZE == 0)
+					for (BiobankSampleAttribute biobankSampleAttribute : biobankUniverseRepository
+							.getBiobankSampleAttributes(biobankSampleCollection))
 					{
-						progress.progress(counter.get(), "Processed " + counter + " input terms.");
-					}
-				}
+						List<IdentifiableTagGroup> identifiableTagGroups = biobankUniverseService
+								.findTagGroupsForAttributes(biobankSampleAttribute);
 
-				biobankUniverseRepository.addTagGroupsForAttributes(biobankSampleAttributesToUpdate);
+						biobankSampleAttributesToUpdate
+								.add(BiobankSampleAttribute.create(biobankSampleAttribute, identifiableTagGroups));
+
+						// Update the progress only when the progress proceeds the threshold
+						if (counter.incrementAndGet() % PROGRESS_UPDATE_BATCH_SIZE == 0)
+						{
+							progress.progress(counter.get(), "Processed " + counter);
+						}
+					}
+
+					biobankUniverseRepository.addTagGroupsForAttributes(biobankSampleAttributesToUpdate);
+				}
+				else
+				{
+					counter.set(counter.get()
+							+ biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection).size());
+				}
 			}
 
 			// Generate matches for all the biobankSampleAttributes in the new members
@@ -110,30 +108,31 @@ public class BiobankUniverseJobProcessor
 					for (BiobankSampleAttribute biobankSampleAttribute : biobankUniverseRepository
 							.getBiobankSampleAttributes(biobankSampleCollection))
 					{
-						List<TagGroup> tagGroups = biobankSampleAttribute.getTagGroups().stream().map(
-								tag -> TagGroup.create(tag.getOntologyTerm(), tag.getMatchedWords(), tag.getScore()))
-								.collect(Collectors.toList());
+						List<TagGroup> tagGroups = biobankSampleAttribute.getTagGroups().stream().map(tag -> TagGroup
+								.create(tag.getOntologyTerm(), tag.getMatchedWords(), (float) tag.getScore()))
+								.collect(toList());
 
 						// SemanticSearch finding all the relevant attributes from existing entities
 						SemanticSearchParam semanticSearchParam = SemanticSearchParam.create(
 								Sets.newHashSet(biobankSampleAttribute.getLabel()), tagGroups,
 								QueryExpansionParam.create(true, true));
 
-						allCandidates.addAll(biobankUniverseService.findCandidateMappings(biobankSampleAttribute,
-								semanticSearchParam, existingMembers));
+						allCandidates.addAll(biobankUniverseService.findCandidateMappings(biobankUniverse,
+								biobankSampleAttribute, semanticSearchParam, existingMembers));
 
 						// Update the progress only when the progress proceeds the threshold
 						if (counter.incrementAndGet() % PROGRESS_UPDATE_BATCH_SIZE == 0)
 						{
-							progress.progress(counter.get(), "Processed " + counter + " input terms.");
+							progress.progress(counter.get(), "Processed " + counter);
 						}
 					}
-
-					existingMembers.add(biobankSampleCollection);
-
 					biobankUniverseRepository.addAttributeMappingCandidates(allCandidates);
 				}
+
+				existingMembers.add(biobankSampleCollection);
 			}
+
+			progress.progress(totalNumberOfAttributes * 2, "Processed " + totalNumberOfAttributes * 2);
 
 			progress.setResultUrl(menuReaderService.getMenu().findMenuItemPath(BiobankUniverseController.ID)
 					+ "/universe/" + biobankUniverse.getIdentifier());

@@ -84,12 +84,22 @@ public interface OntologyService
 	OntologyTerm getOntologyTerm(String iri);
 
 	/**
-	 * Retrieves a list of atomic ontology terms if the provided ontology term has a composite iri such as "iri1,iri2"
+	 * Retrieves a list of atomic {@link OntologyTerm}s if the provided Array of {@link OntologyTerm}s has any composite
+	 * iris such as "iri1,iri2"
 	 * 
-	 * @param iri
-	 * @return a list of {@link OntologyTerm} as atomic ontology terms
+	 * @param Array
+	 *            of {@link OntologyTerm}
+	 * @return a list of atomic {@link OntologyTerm}
 	 */
 	List<OntologyTerm> getAtomicOntologyTerms(OntologyTerm ontologyTerm);
+
+	/**
+	 * Get the atomic {@link OntologyTerm} IRIs from the given {@link OntologyTerm}
+	 * 
+	 * @param ontologyTerm
+	 * @return a list of atomic {@link OntologyTerm} IRIs
+	 */
+	List<String> getOntologyTermIds(OntologyTerm ontologyTerm);
 
 	/**
 	 * Retrieves children with a predicate indicating at which level in the hierarchy the children should be retrieved.

@@ -16,6 +16,7 @@ public abstract class BiobankSampleAttribute
 
 	public abstract String getName();
 
+	@Nullable
 	public abstract String getLabel();
 
 	@Nullable

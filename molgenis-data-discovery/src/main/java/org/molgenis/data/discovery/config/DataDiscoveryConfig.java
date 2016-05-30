@@ -1,6 +1,7 @@
 package org.molgenis.data.discovery.config;
 
 import org.molgenis.data.DataService;
+import org.molgenis.data.EntityManager;
 import org.molgenis.data.IdGenerator;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.repo.impl.BiobankUniverseRepositoryImpl;
@@ -28,6 +29,9 @@ public class DataDiscoveryConfig
 	DataService dataService;
 
 	@Autowired
+	EntityManager entityManager;
+
+	@Autowired
 	OntologyService ontologyService;
 
 	@Autowired
@@ -51,7 +55,8 @@ public class DataDiscoveryConfig
 	@Bean
 	public BiobankUniverseRepository biobankUniverseRepository()
 	{
-		return new BiobankUniverseRepositoryImpl(dataService, ontologyService, molgenisUserService, userAccountService);
+		return new BiobankUniverseRepositoryImpl(dataService, ontologyService, molgenisUserService, userAccountService,
+				entityManager);
 	}
 
 	@Bean

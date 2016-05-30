@@ -14,6 +14,7 @@ import static org.molgenis.data.QueryRule.Operator.FUZZY_MATCH;
 import static org.molgenis.data.QueryRule.Operator.IN;
 import static org.molgenis.data.QueryRule.Operator.OR;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ENTITY_NAME;
+import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ID;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM_DYNAMIC_ANNOTATION;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM_IRI;
@@ -24,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
@@ -267,6 +269,22 @@ public class OntologyTermRepository
 	}
 
 	/**
+	 * Retrieves a list of {@link OntologyTerm}s based on the given IRIs
+	 * 
+	 * @param iris
+	 *            List of {@link OntologyTerm} IRIs
+	 * @return a list of {@link OntologyTerm}
+	 */
+	public List<OntologyTerm> getOntologyTerms(List<String> iris)
+	{
+		List<OntologyTerm> ontologyTerms = dataService
+				.findAll(OntologyTermMetaData.ENTITY_NAME, QueryImpl.IN(OntologyTermMetaData.ONTOLOGY_TERM_IRI, iris))
+				.map(OntologyTermRepository::toOntologyTerm).collect(Collectors.toList());
+
+		return ontologyTerms;
+	}
+
+	/**
 	 * Calculate the distance between any two ontology terms in the ontology tree structure by calculating the
 	 * difference in nodePaths.
 	 * 
@@ -468,19 +486,24 @@ public class OntologyTermRepository
 			nodePaths = nodePaths.stream().map(this::getParentNodePath).filter(StringUtils::isNotBlank)
 					.collect(toList());
 
-			List<String> parentNodePathEntityIdentifiers = nodePaths.stream()
-					.map(nodePath -> dataService.findOne(OntologyTermNodePathMetaData.ENTITY_NAME,
-							QueryImpl.EQ(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH, nodePath)))
-					.map(entity -> entity.getString(OntologyTermNodePathMetaData.ID)).collect(Collectors.toList());
+			if (nodePaths.size() > 0)
+			{
+				List<String> nodePathEntityIdentifiers = nodePaths.stream()
+						.map(nodePath -> dataService.findOne(OntologyTermNodePathMetaData.ENTITY_NAME,
+								QueryImpl.EQ(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH, nodePath)))
+						.map(entity -> entity.getIdValue().toString()).collect(Collectors.toList());
 
-			List<OntologyTerm> ontologyTerms = dataService
-					.findAll(OntologyTermMetaData.ENTITY_NAME,
-							QueryImpl.IN(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, parentNodePathEntityIdentifiers))
-					.map(OntologyTermRepository::toOntologyTerm).collect(toList());
+				List<OntologyTerm> ontologyTerms = dataService
+						.findAll(OntologyTermMetaData.ENTITY_NAME,
+								QueryImpl.IN(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, nodePathEntityIdentifiers))
+						.map(OntologyTermRepository::toOntologyTerm).filter(Objects::nonNull).collect(toList());
 
-			nodePaths = ontologyTerms.stream().flatMap(ot -> ot.getNodePaths().stream()).collect(Collectors.toList());
+				nodePaths = ontologyTerms.stream().flatMap(ot -> ot.getNodePaths().stream())
+						.collect(Collectors.toList());
 
-			parentOntologyTerms.addAll(ontologyTerms);
+				parentOntologyTerms.addAll(ontologyTerms);
+			}
+			else break;
 		}
 
 		return parentOntologyTerms;
@@ -496,7 +519,7 @@ public class OntologyTermRepository
 		return StringUtils.EMPTY;
 	}
 
-	private static OntologyTerm toOntologyTerm(Entity entity)
+	public static OntologyTerm toOntologyTerm(Entity entity)
 	{
 		if (entity == null)
 		{
@@ -535,8 +558,8 @@ public class OntologyTermRepository
 			}
 		}
 
-		return OntologyTerm.create(entity.getString(ONTOLOGY_TERM_IRI), entity.getString(ONTOLOGY_TERM_NAME), null,
-				synonyms, nodePaths, annotations);
+		return OntologyTerm.create(entity.getString(ID), entity.getString(ONTOLOGY_TERM_IRI),
+				entity.getString(ONTOLOGY_TERM_NAME), null, synonyms, nodePaths, annotations);
 	}
 
 	int penalize(String nodePath)

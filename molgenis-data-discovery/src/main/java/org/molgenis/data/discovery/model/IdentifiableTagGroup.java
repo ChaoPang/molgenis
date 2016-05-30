@@ -39,14 +39,14 @@ public abstract class IdentifiableTagGroup implements Comparable<IdentifiableTag
 
 	public abstract int getScoreInt();
 
-	public float getScore()
+	public double getScore()
 	{
-		return getScoreInt() / 100000.0f;
+		return getScoreInt() / 100000.0d;
 	}
 
 	@Override
 	public int compareTo(IdentifiableTagGroup o)
 	{
-		return Float.compare(getScore(), o.getScore());
+		return Double.compare(getScore(), o.getScore());
 	}
 }

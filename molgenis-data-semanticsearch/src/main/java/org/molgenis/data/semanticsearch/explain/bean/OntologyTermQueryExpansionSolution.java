@@ -8,7 +8,7 @@ import org.molgenis.ontology.core.model.OntologyTerm;
 import com.google.auto.value.AutoValue;
 
 @AutoValue
-@AutoGson(autoValueClass = AutoValue_QueryExpansionSolution.class)
+@AutoGson(autoValueClass = AutoValue_OntologyTermQueryExpansionSolution.class)
 public abstract class OntologyTermQueryExpansionSolution implements Comparable<OntologyTermQueryExpansionSolution>
 {
 	public abstract List<OntologyTerm> getMatchOntologyTerms();
@@ -18,7 +18,7 @@ public abstract class OntologyTermQueryExpansionSolution implements Comparable<O
 	public static OntologyTermQueryExpansionSolution create(List<OntologyTerm> matchOntologyTerms,
 			List<OntologyTerm> unmatchOntologyTerms)
 	{
-		return new AutoValue_QueryExpansionSolution(matchOntologyTerms, unmatchOntologyTerms);
+		return new AutoValue_OntologyTermQueryExpansionSolution(matchOntologyTerms, unmatchOntologyTerms);
 	}
 
 	public int compareTo(OntologyTermQueryExpansionSolution other)

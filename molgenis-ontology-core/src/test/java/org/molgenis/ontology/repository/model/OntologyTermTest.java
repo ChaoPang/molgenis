@@ -9,11 +9,12 @@ public class OntologyTermTest
 	@Test
 	public void testAnd()
 	{
-		OntologyTerm term1 = OntologyTerm.create("iri1", "label 1");
-		OntologyTerm term2 = OntologyTerm.create("iri2", "label 2");
-		OntologyTerm term3 = OntologyTerm.create("iri3", "label 3");
-		Assert.assertEquals(OntologyTerm.create("iri1,iri2", "(label 1 and label 2)"), OntologyTerm.and(term1, term2));
-		Assert.assertEquals(OntologyTerm.create("iri1,iri2,iri3", "(label 1 and label 2 and label 3)"),
+		OntologyTerm term1 = OntologyTerm.create("1", "iri1", "label 1");
+		OntologyTerm term2 = OntologyTerm.create("2", "iri2", "label 2");
+		OntologyTerm term3 = OntologyTerm.create("3", "iri3", "label 3");
+		Assert.assertEquals(OntologyTerm.create("1,2", "iri1,iri2", "(label 1 and label 2)"),
+				OntologyTerm.and(term1, term2));
+		Assert.assertEquals(OntologyTerm.create("1,2,3", "iri1,iri2,iri3", "(label 1 and label 2 and label 3)"),
 				OntologyTerm.and(term1, term2, term3));
 	}
 }
