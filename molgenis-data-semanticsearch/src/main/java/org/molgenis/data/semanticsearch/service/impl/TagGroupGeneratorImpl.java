@@ -6,12 +6,13 @@ import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.collectLowerCaseTerms;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
+import static org.molgenis.ontology.utils.Stemmer.stem;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -20,6 +21,8 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.search.spell.StringDistance;
 import org.elasticsearch.common.base.Joiner;
+import org.molgenis.data.semanticsearch.explain.criteria.MatchingCriterion;
+import org.molgenis.data.semanticsearch.explain.criteria.impl.StrictMatchingCriterion;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
@@ -47,6 +50,7 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 
 	public final static int MAX_NUM_TAGS = 50;
 	private final static String ILLEGAL_CHARS_REGEX = "[^\\p{L}'a-zA-Z0-9\\.~]+";
+	private final static MatchingCriterion STRICT_MATCHING_CRITERION = new StrictMatchingCriterion();
 	private Joiner termJoiner = Joiner.on(' ');
 
 	@Autowired
@@ -56,7 +60,7 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 	}
 
 	@Override
-	public List<TagGroup> findTagGroups(String queryString, List<String> ontologyIds)
+	public List<TagGroup> generateTagGroups(String queryString, List<String> ontologyIds)
 	{
 		Set<String> queryWords = splitRemoveStopWords(queryString);
 
@@ -69,7 +73,7 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 				MAX_NUM_TAGS);
 
 		List<TagGroup> orderOntologyTermHits = Lists
-				.newArrayList(applyTagMatchingCriteria(relevantOntologyTerms, queryWords));
+				.newArrayList(applyTagMatchingCriterion(relevantOntologyTerms, queryWords, STRICT_MATCHING_CRITERION));
 
 		orderOntologyTermHits.addAll(matchCommonWordsToOntologyTerms(queryWords, ontologyIds, orderOntologyTermHits));
 
@@ -78,7 +82,7 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 			LOG.debug("Candidates: {}", orderOntologyTermHits);
 		}
 
-		List<TagGroup> ontologyTermHit = generateTagGroups(queryWords, orderOntologyTermHits);
+		List<TagGroup> ontologyTermHit = combineTagGroups(queryWords, orderOntologyTermHits);
 
 		if (LOG.isDebugEnabled())
 		{
@@ -96,7 +100,7 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 	 * @return
 	 */
 	@Override
-	public List<TagGroup> generateTagGroups(Set<String> queryWords, List<TagGroup> relevantTagGroups)
+	public List<TagGroup> combineTagGroups(Set<String> queryWords, List<TagGroup> relevantTagGroups)
 	{
 		relevantTagGroups.sort(new OntologyTermComparator());
 
@@ -171,39 +175,21 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 	}
 
 	@Override
-	public List<TagGroup> applyTagMatchingCriteria(List<OntologyTerm> relevantOntologyTerms, Set<String> searchWords)
+	public List<TagGroup> applyTagMatchingCriterion(List<OntologyTerm> relevantOntologyTerms, Set<String> searchWords,
+			MatchingCriterion matchingCriterion)
 	{
 		if (relevantOntologyTerms.size() > 0)
 		{
-			Set<String> stemmedSearchTerms = searchWords.stream().map(Stemmer::stem).collect(Collectors.toSet());
+			Set<String> stemmedSearchTerms = searchWords.stream().map(Stemmer::stem).collect(toSet());
 
 			List<TagGroup> orderedIndividualOntologyTermHits = relevantOntologyTerms.stream()
-					.filter(ontologyTerm -> matchingCriteria(stemmedSearchTerms, ontologyTerm))
+					.filter(ontologyTerm -> matchingCriterion.apply(stemmedSearchTerms, ontologyTerm))
 					.map(ontologyTerm -> createTagGroup(stemmedSearchTerms, ontologyTerm))
-					.sorted(new OntologyTermComparator()).collect(Collectors.toList());
+					.sorted(new OntologyTermComparator()).collect(toList());
 
 			return orderedIndividualOntologyTermHits;
 		}
-
-		return Collections.emptyList();
-	}
-
-	/**
-	 * All the words from the synonym
-	 * 
-	 * @param keywordsFromAttribute
-	 * @param ontologyTerm
-	 * @return
-	 */
-	private boolean matchingCriteria(Set<String> keywordsFromAttribute, OntologyTerm ontologyTerm)
-	{
-		Set<String> ontologyTermSynonyms = collectLowerCaseTerms(ontologyTerm);
-		for (String synonym : ontologyTermSynonyms)
-		{
-			Set<String> splitIntoTerms = splitRemoveStopWords(synonym).stream().map(Stemmer::stem).collect(toSet());
-			if (splitIntoTerms.size() != 0 && keywordsFromAttribute.containsAll(splitIntoTerms)) return true;
-		}
-		return false;
+		return emptyList();
 	}
 
 	/**
@@ -227,15 +213,18 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 
 			Set<String> joinedSynonymStemmedWords = Stemmer.splitAndStem(joinedMatchedSynonyms);
 
-			Set<String> commonQueryWords = queryWords.stream().map(Stemmer::stem)
-					.filter(w -> isNotBlank(w) && !joinedSynonymStemmedWords.contains(w)).collect(toSet());
+			Set<String> commonQueryWords = queryWords.stream().filter(w -> !joinedSynonymStemmedWords.contains(stem(w)))
+					.collect(toSet());
 
 			List<OntologyTerm> additionalOntologyTerms = ontologyService.findOntologyTerms(ontologyIds,
 					commonQueryWords, MAX_NUM_TAGS);
 
 			if (additionalOntologyTerms.size() > 0)
 			{
-				return applyTagMatchingCriteria(additionalOntologyTerms, commonQueryWords);
+				return applyTagMatchingCriterion(additionalOntologyTerms, commonQueryWords, STRICT_MATCHING_CRITERION)
+						.stream().map(tag -> TagGroup.create(tag.getOntologyTerm(), tag.getMatchedWords(),
+								distanceFrom(tag.getMatchedWords(), queryWords)))
+						.collect(toList());
 			}
 		}
 
@@ -304,14 +293,6 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 	{
 		return newLinkedHashSet(stream(description.split(ILLEGAL_CHARS_REGEX)).map(StringUtils::lowerCase)
 				.filter(w -> !STOPWORDSLIST.contains(w) && isNotBlank(w)).collect(toList()));
-	}
-
-	Set<String> collectLowerCaseTerms(OntologyTerm ontologyTerm)
-	{
-		Set<String> allTerms = Sets.newLinkedHashSet();
-		allTerms.addAll(ontologyTerm.getSynonyms().stream().map(StringUtils::lowerCase).collect(Collectors.toList()));
-		allTerms.add(ontologyTerm.getLabel().toLowerCase());
-		return allTerms;
 	}
 
 	float round(float score)

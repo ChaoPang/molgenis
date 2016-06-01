@@ -1,6 +1,5 @@
 package org.molgenis.ontology.core.service.impl;
 
-import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.ontology.utils.PredicateUtils.createRetrieveLevelThreePredicate;
@@ -11,7 +10,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.elasticsearch.common.collect.Lists;
 import org.molgenis.data.MolgenisDataAccessException;
@@ -117,16 +115,6 @@ public class OntologyServiceImpl implements OntologyService
 			return Lists.<OntologyTerm> newArrayList();
 		}
 		return ontologyTermRepository.findAndFilterOntologyTerms(ontologyIds, terms, pageSize, filteredOntologyTerms);
-	}
-
-	@Override
-	public List<String> getOntologyTermIds(OntologyTerm ontologyTerm)
-	{
-		if (ontologyTerm != null)
-		{
-			return Stream.of(ontologyTerm.getId().split(ONTOLOGY_TERM_IRI_SEPARATOR)).collect(Collectors.toList());
-		}
-		return emptyList();
 	}
 
 	@Override

@@ -81,7 +81,7 @@ public class SemanticSearchParamFactory
 			}
 			else
 			{
-				tagGroups = tagGroupGenerator.findTagGroups(StringUtils.join(lexicalQueries, ' '), ontologyIds);
+				tagGroups = tagGroupGenerator.generateTagGroups(StringUtils.join(lexicalQueries, ' '), ontologyIds);
 			}
 
 		}

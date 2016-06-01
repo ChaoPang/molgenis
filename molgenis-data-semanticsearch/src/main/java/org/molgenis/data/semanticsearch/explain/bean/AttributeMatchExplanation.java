@@ -1,7 +1,6 @@
 package org.molgenis.data.semanticsearch.explain.bean;
 
 import org.molgenis.gson.AutoGson;
-import org.molgenis.ontology.core.model.OntologyTerm;
 
 import com.google.auto.value.AutoValue;
 
@@ -16,13 +15,13 @@ public abstract class AttributeMatchExplanation
 	public abstract String getQueryString();
 
 	@Nullable
-	public abstract OntologyTerm getOntologyTerm();
+	public abstract OntologyTermHit getOntologyTermHit();
 
 	public abstract float getScore();
 
-	public static AttributeMatchExplanation create(String matchedWords, String queryString, OntologyTerm ontologyTerm,
-			float score)
+	public static AttributeMatchExplanation create(String matchedWords, String queryString,
+			OntologyTermHit ontologyTermhit, float score)
 	{
-		return new AutoValue_AttributeMatchExplanation(matchedWords, queryString, ontologyTerm, score);
+		return new AutoValue_AttributeMatchExplanation(matchedWords, queryString, ontologyTermhit, score);
 	}
 }

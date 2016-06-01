@@ -3,8 +3,8 @@ package org.molgenis.data.discovery.job;
 import static org.molgenis.MolgenisFieldTypes.MREF;
 import static org.molgenis.MolgenisFieldTypes.XREF;
 
-import org.molgenis.data.discovery.meta.BiobankSampleCollectionMetaData;
-import org.molgenis.data.discovery.meta.BiobankUniverseMetaData;
+import org.molgenis.data.discovery.meta.biobank.BiobankSampleCollectionMetaData;
+import org.molgenis.data.discovery.meta.biobank.BiobankUniverseMetaData;
 import org.molgenis.data.jobs.JobExecutionMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.springframework.stereotype.Component;

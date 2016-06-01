@@ -5,12 +5,12 @@ import java.util.stream.Stream;
 
 import org.molgenis.auth.MolgenisUser;
 import org.molgenis.data.Entity;
-import org.molgenis.data.discovery.model.AttributeMappingCandidate;
-import org.molgenis.data.discovery.model.BiobankSampleAttribute;
-import org.molgenis.data.discovery.model.BiobankSampleCollection;
-import org.molgenis.data.discovery.model.BiobankUniverse;
-import org.molgenis.data.discovery.model.IdentifiableTagGroup;
-import org.molgenis.data.discovery.model.SemanticType;
+import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
+import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
+import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
+import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
+import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
+import org.molgenis.data.discovery.model.semantictype.SemanticType;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.ontology.core.model.OntologyTerm;
 

@@ -4,12 +4,12 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import org.molgenis.data.Query;
-import org.molgenis.data.discovery.model.AttributeMappingCandidate;
-import org.molgenis.data.discovery.model.AttributeMappingDecision;
-import org.molgenis.data.discovery.model.BiobankSampleAttribute;
-import org.molgenis.data.discovery.model.BiobankSampleCollection;
-import org.molgenis.data.discovery.model.BiobankUniverse;
-import org.molgenis.data.discovery.model.SemanticType;
+import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
+import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
+import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
+import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
+import org.molgenis.data.discovery.model.matching.AttributeMappingDecision;
+import org.molgenis.data.discovery.model.semantictype.SemanticType;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -144,11 +144,20 @@ public interface BiobankUniverseRepository
 	public abstract void addAttributeMappingCandidates(List<AttributeMappingCandidate> attributeMappingCandidates);
 
 	/**
+	 * Get all the {@link AttributeMappingCandidate}s from the given {@link BiobankUniverse}
+	 * 
+	 * @param biobankUniverse
+	 * @return a list of {@link AttributeMappingCandidate}s
+	 */
+	public abstract List<AttributeMappingCandidate> getAttributeMappingCandidatesFromUniverse(
+			BiobankUniverse biobankUniverse);
+
+	/**
 	 * Get all the {@link AttributeMappingCandidate}s, in which either the target or the source is present in the given
 	 * list of {@link BiobankSampleAttribute}s
 	 * 
-	 * @param biobankSampleAttributes
-	 * @return a list of relevant {@link AttributeMappingCandidate}s
+	 * @param biobankUniverse
+	 * @return a list of {@link AttributeMappingCandidate}s
 	 */
 	public abstract List<AttributeMappingCandidate> getAttributeMappingCandidates(
 			List<BiobankSampleAttribute> biobankSampleAttributes);
@@ -163,14 +172,14 @@ public interface BiobankUniverseRepository
 
 	/**
 	 * Get all {@link SemanticType}s
-	 * 
+	 *
 	 * @return a list of {@link SemanticType}s
 	 */
 	public abstract List<SemanticType> getAllSemanticType();
 
 	/**
 	 * Get all {@link SemanticType}s for the given {@link OntologyTerm}
-	 * 
+	 *
 	 * @param ontologyTerm
 	 * @return a list of {@link SemanticType}s
 	 */
@@ -178,7 +187,7 @@ public interface BiobankUniverseRepository
 
 	/**
 	 * Get all {@link SemanticType}s by a list of {@link SemanticType} groups
-	 * 
+	 *
 	 * @param semanticTypeGroups
 	 * @return a list of {@link SemanticType}s
 	 */

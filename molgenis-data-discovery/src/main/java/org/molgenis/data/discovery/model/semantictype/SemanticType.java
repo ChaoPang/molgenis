@@ -1,4 +1,4 @@
-package org.molgenis.data.discovery.model;
+package org.molgenis.data.discovery.model.semantictype;
 
 import org.molgenis.gson.AutoGson;
 
@@ -14,8 +14,10 @@ public abstract class SemanticType
 
 	public abstract String getGroup();
 
-	public static SemanticType create(String identifier, String name, String group)
+	public abstract boolean isGlobalKeyConcept();
+
+	public static SemanticType create(String identifier, String name, String group, boolean globalKeyConcept)
 	{
-		return new AutoValue_SemanticType(identifier, name, group);
+		return new AutoValue_SemanticType(identifier, name, group, globalKeyConcept);
 	}
 }

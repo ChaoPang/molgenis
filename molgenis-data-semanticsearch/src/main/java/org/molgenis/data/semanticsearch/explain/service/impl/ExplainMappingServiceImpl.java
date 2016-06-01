@@ -1,5 +1,7 @@
 package org.molgenis.data.semanticsearch.explain.service.impl;
 
+import static java.util.Collections.emptyList;
+import static java.util.Comparator.naturalOrder;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
@@ -9,8 +11,6 @@ import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 import static org.molgenis.ontology.utils.Stemmer.splitAndStem;
 
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -19,8 +19,10 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
+import org.molgenis.data.semanticsearch.explain.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.explain.bean.OntologyTermQueryExpansion;
 import org.molgenis.data.semanticsearch.explain.bean.OntologyTermQueryExpansionSolution;
+import org.molgenis.data.semanticsearch.explain.criteria.impl.StrictMatchingCriterion;
 import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
@@ -69,7 +71,7 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 							semanticSearchParam.getQueryExpansionParameter()))
 					.collect(toList());
 		}
-		else ontologyTermQueryExpansions = Collections.emptyList();
+		else ontologyTermQueryExpansions = emptyList();
 
 		return explainMapping(semanticSearchParam.getLexicalQueries(), ontologyTermQueryExpansions, matchedResult);
 	}
@@ -130,8 +132,10 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 		List<OntologyTerm> relevantOntologyTerms = ontologyService.fileterOntologyTerms(ontologyIds, matchedSourceWords,
 				ontologyTermScope.size(), ontologyTermScope);
 
-		List<TagGroup> matchedSourceTagGroups = tagGroupGenerator.generateTagGroups(matchedSourceWords,
-				tagGroupGenerator.applyTagMatchingCriteria(relevantOntologyTerms, matchedSourceWords));
+		List<TagGroup> tagGroups = tagGroupGenerator.applyTagMatchingCriterion(relevantOntologyTerms,
+				matchedSourceWords, new StrictMatchingCriterion());
+
+		List<TagGroup> matchedSourceTagGroups = tagGroupGenerator.combineTagGroups(matchedSourceWords, tagGroups);
 
 		if (LOG.isDebugEnabled())
 		{
@@ -142,35 +146,39 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 		{
 			TagGroup tagGroup = matchedSourceTagGroups.get(0);
 
+			OntologyTermQueryExpansionSolution queryExpansionSolution = ontologyTermQueryExpansions.stream()
+					.map(expansion -> expansion.getQueryExpansionSolution(tagGroup)).sorted().findFirst().orElse(null);
+
 			Optional<Hit<String>> max = stream(lexicalQueries.spliterator(), false)
-					.map(lexicalQuery -> computeScoreForMatchedSource(tagGroup, ontologyTermQueryExpansions,
-							lexicalQuery, matchedSource))
-					.max(Comparator.naturalOrder());
+					.map(lexicalQuery -> computeScoreForMatchedSource(tagGroup, queryExpansionSolution, lexicalQuery,
+							matchedSource))
+					.max(naturalOrder());
 
 			if (max.isPresent())
 			{
+				OntologyTerm origin = OntologyTerm
+						.and(queryExpansionSolution.getMatchOntologyTerms().stream().toArray(OntologyTerm[]::new));
+				OntologyTermHit ontologyTermHit = OntologyTermHit.create(origin, tagGroup.getOntologyTerm());
+
 				Hit<String> joinedSynonymHit = max.get();
 				String matchedWords = termJoiner.join(findMatchedWords(joinedSynonymHit.getResult(), matchedSource));
-				return AttributeMatchExplanation.create(matchedWords, joinedSynonymHit.getResult(),
-						tagGroup.getOntologyTerm(), joinedSynonymHit.getScore());
+				return AttributeMatchExplanation.create(matchedWords, joinedSynonymHit.getResult(), ontologyTermHit,
+						joinedSynonymHit.getScore());
 			}
 		}
 
 		return EMPTY_EXPLAINATION;
 	}
 
-	Hit<String> computeScoreForMatchedSource(TagGroup hit,
-			List<OntologyTermQueryExpansion> ontologyTermQueryExpansions, String targetQueryTerm,
+	Hit<String> computeScoreForMatchedSource(TagGroup tagGroup,
+			OntologyTermQueryExpansionSolution queryExpansionSolution, String targetQueryTerm,
 			String sourceAttributeDescription)
 	{
-		OntologyTermQueryExpansionSolution queryExpansionSolution = ontologyTermQueryExpansions.stream()
-				.map(expansion -> expansion.getQueryExpansionSolution(hit)).sorted().findFirst().orElse(null);
+		String matchedOntologyTermsInSource = tagGroup.getMatchedWords();
 
-		String matchedOntologyTermsInSource = hit.getMatchedWords();
+		if (queryExpansionSolution == null) return Hit.create(matchedOntologyTermsInSource, tagGroup.getScore());
 
-		if (queryExpansionSolution == null) return Hit.create(matchedOntologyTermsInSource, hit.getScore());
-
-		Set<String> matchedOntologyTermsInTarget = findOntologyTermSynonymsInTarget(
+		Set<String> matchedOntologyTermsInTarget = findMatchedSynonymsInTarget(
 				queryExpansionSolution.getMatchOntologyTerms(), targetQueryTerm);
 
 		Set<String> unmatchedWordsInSource = findLeftUnmatchedWords(sourceAttributeDescription,
@@ -179,7 +187,7 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 		String transformedSourceDescription = termJoiner
 				.join(Sets.union(matchedOntologyTermsInTarget, unmatchedWordsInSource));
 
-		float adjustedScore = (float) stringMatching(transformedSourceDescription, targetQueryTerm, false) / 100;
+		float adjustedScore = (float) stringMatching(transformedSourceDescription, targetQueryTerm) / 100;
 
 		Set<String> additionalMatchedWords = findMatchedWords(targetQueryTerm, termJoiner.join(unmatchedWordsInSource));
 
@@ -191,6 +199,13 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 		return Hit.create(matchedOntologyTermsInSource, adjustedScore);
 	}
 
+	/**
+	 * find the unmatched word from the left argument
+	 * 
+	 * @param stringOne
+	 * @param stringTwo
+	 * @return
+	 */
 	private Set<String> findLeftUnmatchedWords(String stringOne, String stringTwo)
 	{
 		Set<String> additionalMatchedWords = new LinkedHashSet<>();
@@ -206,6 +221,13 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 		return additionalMatchedWords;
 	}
 
+	/**
+	 * find matched words between two {@link String}s
+	 * 
+	 * @param string1
+	 * @param string2
+	 * @return
+	 */
 	private Set<String> findMatchedWords(String string1, String string2)
 	{
 		Set<String> intersectedWords = new LinkedHashSet<>();
@@ -221,7 +243,14 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 		return intersectedWords;
 	}
 
-	private Set<String> findOntologyTermSynonymsInTarget(List<OntologyTerm> ontologyTerms, String targetQueryTerm)
+	/**
+	 * Get a list of matched Synonym from {@link OntologyTerm}s for the given target query
+	 * 
+	 * @param ontologyTerms
+	 * @param targetQueryTerm
+	 * @return
+	 */
+	private Set<String> findMatchedSynonymsInTarget(List<OntologyTerm> ontologyTerms, String targetQueryTerm)
 	{
 		Set<String> targetQueryTermWords = splitAndStem(targetQueryTerm);
 		Set<String> usedOntologyTermQueries = new LinkedHashSet<>();

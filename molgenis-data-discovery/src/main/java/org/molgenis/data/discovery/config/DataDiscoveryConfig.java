@@ -55,8 +55,7 @@ public class DataDiscoveryConfig
 	@Bean
 	public BiobankUniverseRepository biobankUniverseRepository()
 	{
-		return new BiobankUniverseRepositoryImpl(dataService, ontologyService, molgenisUserService, userAccountService,
-				entityManager);
+		return new BiobankUniverseRepositoryImpl(dataService, molgenisUserService, userAccountService, entityManager);
 	}
 
 	@Bean

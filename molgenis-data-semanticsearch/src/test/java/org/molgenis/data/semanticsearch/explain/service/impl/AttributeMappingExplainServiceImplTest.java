@@ -113,10 +113,10 @@ public class AttributeMappingExplainServiceImplTest extends AbstractTestNGSpring
 		when(ontologyService.fileterOntologyTerms(allOntologyIds, sourceAttributeTerms, 2,
 				Arrays.asList(hypertension, medication))).thenReturn(Arrays.asList(hypertension, medication));
 
-		when(tagGroupGenerator.applyTagMatchingCriteria(Arrays.asList(hypertension, medication), sourceAttributeTerms))
+		when(tagGroupGenerator.applyTagMatchingCriterion(Arrays.asList(hypertension, medication), sourceAttributeTerms))
 				.thenReturn(Arrays.asList(hypertensionMedicationHit));
 
-		when(tagGroupGenerator.generateTagGroups(sourceAttributeTerms, asList(hypertensionMedicationHit)))
+		when(tagGroupGenerator.combineTagGroups(sourceAttributeTerms, asList(hypertensionMedicationHit)))
 				.thenReturn(Arrays.asList(hypertensionMedicationHit));
 	}
 

@@ -202,7 +202,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	@Override
 	public List<TagGroup> findAllTags(String description, List<String> ontologyIds)
 	{
-		return tagGroupGenerator.findTagGroups(description, ontologyIds);
+		return tagGroupGenerator.generateTagGroups(description, ontologyIds);
 	}
 
 	private boolean isCurrentMatchBadQuality(SemanticSearchParam semanticSearchParam,

@@ -11,8 +11,8 @@ import java.util.stream.StreamSupport;
 
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
-import org.molgenis.data.discovery.model.BiobankSampleCollection;
-import org.molgenis.data.discovery.model.BiobankUniverse;
+import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
+import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.jobs.JobExecution;
 

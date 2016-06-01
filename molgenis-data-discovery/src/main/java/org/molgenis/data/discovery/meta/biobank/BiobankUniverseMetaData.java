@@ -1,4 +1,4 @@
-package org.molgenis.data.discovery.meta;
+package org.molgenis.data.discovery.meta.biobank;
 
 import static org.molgenis.MolgenisFieldTypes.MREF;
 import static org.molgenis.MolgenisFieldTypes.XREF;
@@ -6,6 +6,7 @@ import static org.molgenis.data.EntityMetaData.AttributeRole.ROLE_ID;
 import static org.molgenis.data.EntityMetaData.AttributeRole.ROLE_LABEL;
 
 import org.molgenis.auth.MolgenisUserMetaData;
+import org.molgenis.data.discovery.meta.semantictype.SemanticTypeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.springframework.stereotype.Component;
 

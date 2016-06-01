@@ -50,6 +50,14 @@ public class SemanticSearchServiceUtils
 		return queryTerms;
 	}
 
+	public static Set<String> collectLowerCaseTerms(OntologyTerm ontologyTerm)
+	{
+		Set<String> allTerms = Sets.newLinkedHashSet();
+		allTerms.addAll(ontologyTerm.getSynonyms().stream().map(StringUtils::lowerCase).collect(Collectors.toList()));
+		allTerms.add(ontologyTerm.getLabel().toLowerCase());
+		return allTerms;
+	}
+
 	public static Set<String> getLowerCaseTerms(OntologyTerm ontologyTerm)
 	{
 		Set<String> allTerms = Sets.newLinkedHashSet();

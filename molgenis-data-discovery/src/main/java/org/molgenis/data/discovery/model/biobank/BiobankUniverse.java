@@ -1,8 +1,9 @@
-package org.molgenis.data.discovery.model;
+package org.molgenis.data.discovery.model.biobank;
 
 import java.util.List;
 
 import org.molgenis.auth.MolgenisUser;
+import org.molgenis.data.discovery.model.semantictype.SemanticType;
 import org.molgenis.gson.AutoGson;
 
 import com.google.auto.value.AutoValue;

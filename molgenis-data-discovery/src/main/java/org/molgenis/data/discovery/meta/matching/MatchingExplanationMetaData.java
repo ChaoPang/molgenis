@@ -1,4 +1,4 @@
-package org.molgenis.data.discovery.meta;
+package org.molgenis.data.discovery.meta.matching;
 
 import static org.molgenis.data.EntityMetaData.AttributeRole.ROLE_ID;
 

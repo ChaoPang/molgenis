@@ -1,6 +1,6 @@
-package org.molgenis.data.discovery.model;
+package org.molgenis.data.discovery.model.matching;
 
-import org.molgenis.data.discovery.meta.AttributeMappingDecisionMetaData.DecisionOptions;
+import org.molgenis.data.discovery.meta.matching.AttributeMappingDecisionMetaData.DecisionOptions;
 import org.molgenis.gson.AutoGson;
 
 import com.google.auto.value.AutoValue;

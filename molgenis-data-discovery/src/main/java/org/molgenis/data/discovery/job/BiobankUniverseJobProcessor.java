@@ -1,23 +1,25 @@
 package org.molgenis.data.discovery.job;
 
 import static java.util.stream.Collectors.toList;
+import static org.molgenis.ontology.core.model.OntologyTerm.and;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.molgenis.data.discovery.controller.BiobankUniverseController;
-import org.molgenis.data.discovery.model.AttributeMappingCandidate;
-import org.molgenis.data.discovery.model.BiobankSampleAttribute;
-import org.molgenis.data.discovery.model.BiobankSampleCollection;
-import org.molgenis.data.discovery.model.BiobankUniverse;
-import org.molgenis.data.discovery.model.IdentifiableTagGroup;
+import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
+import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
+import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
+import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
+import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.jobs.Progress;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParam;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
+import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.security.core.runas.RunAsSystemProxy;
 import org.molgenis.ui.menu.MenuReaderService;
 
@@ -108,8 +110,10 @@ public class BiobankUniverseJobProcessor
 					for (BiobankSampleAttribute biobankSampleAttribute : biobankUniverseRepository
 							.getBiobankSampleAttributes(biobankSampleCollection))
 					{
-						List<TagGroup> tagGroups = biobankSampleAttribute.getTagGroups().stream().map(tag -> TagGroup
-								.create(tag.getOntologyTerm(), tag.getMatchedWords(), (float) tag.getScore()))
+						List<TagGroup> tagGroups = biobankSampleAttribute.getTagGroups().stream()
+								.map(tag -> TagGroup.create(
+										and(tag.getOntologyTerms().stream().toArray(OntologyTerm[]::new)),
+										tag.getMatchedWords(), (float) tag.getScore()))
 								.collect(toList());
 
 						// SemanticSearch finding all the relevant attributes from existing entities
@@ -126,6 +130,7 @@ public class BiobankUniverseJobProcessor
 							progress.progress(counter.get(), "Processed " + counter);
 						}
 					}
+
 					biobankUniverseRepository.addAttributeMappingCandidates(allCandidates);
 				}
 

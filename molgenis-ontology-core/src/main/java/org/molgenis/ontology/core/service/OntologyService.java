@@ -94,14 +94,6 @@ public interface OntologyService
 	List<OntologyTerm> getAtomicOntologyTerms(OntologyTerm ontologyTerm);
 
 	/**
-	 * Get the atomic {@link OntologyTerm} IRIs from the given {@link OntologyTerm}
-	 * 
-	 * @param ontologyTerm
-	 * @return a list of atomic {@link OntologyTerm} IRIs
-	 */
-	List<String> getOntologyTermIds(OntologyTerm ontologyTerm);
-
-	/**
 	 * Retrieves children with a predicate indicating at which level in the hierarchy the children should be retrieved.
 	 * 
 	 * @param ontologyTerm

@@ -1,4 +1,4 @@
-package org.molgenis.data.discovery.model;
+package org.molgenis.data.discovery.model.matching;
 
 import java.util.List;
 

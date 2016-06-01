@@ -5,7 +5,7 @@
 <@header css js/>
 <@createNewBiobankUniverseModal />
 <div class="row">
-	<div class="col-md-8">
+	<div class="col-md-10">
 		<h1>Biobank universe overview</h1>
 		<p>Create and view Biobank universes.</p>
 		<#if biobankSampleCollections?has_content>
@@ -17,7 +17,7 @@
 	</div>
 </div>
 <div class="row">
-	<div class="col-md-8">
+	<div class="col-md-10">
 		<#if biobankUniverses?has_content>
 			<table class="table table-bordered" id="biobank-universes-tbl">
 	 			<thead>

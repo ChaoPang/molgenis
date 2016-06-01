@@ -1,4 +1,4 @@
-package org.molgenis.data.discovery.model;
+package org.molgenis.data.discovery.model.biobank;
 
 import org.molgenis.gson.AutoGson;
 

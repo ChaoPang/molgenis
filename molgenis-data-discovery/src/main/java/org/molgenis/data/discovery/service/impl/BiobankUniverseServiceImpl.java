@@ -1,39 +1,44 @@
 package org.molgenis.data.discovery.service.impl;
 
+import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.molgenis.data.QueryRule.Operator.AND;
 import static org.molgenis.data.QueryRule.Operator.IN;
 import static org.molgenis.data.meta.AttributeMetaDataMetaData.IDENTIFIER;
+import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.getLowerCaseTerms;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.apache.commons.lang3.StringUtils;
 import org.molgenis.auth.MolgenisUser;
 import org.molgenis.data.Entity;
 import org.molgenis.data.IdGenerator;
 import org.molgenis.data.QueryRule;
-import org.molgenis.data.QueryRule.Operator;
-import org.molgenis.data.discovery.meta.BiobankSampleAttributeMetaData;
-import org.molgenis.data.discovery.model.AttributeMappingCandidate;
-import org.molgenis.data.discovery.model.BiobankSampleAttribute;
-import org.molgenis.data.discovery.model.BiobankSampleCollection;
-import org.molgenis.data.discovery.model.BiobankUniverse;
-import org.molgenis.data.discovery.model.IdentifiableTagGroup;
-import org.molgenis.data.discovery.model.MatchingExplanation;
-import org.molgenis.data.discovery.model.SemanticType;
+import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData;
+import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
+import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
+import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
+import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
+import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
+import org.molgenis.data.discovery.model.matching.MatchingExplanation;
+import org.molgenis.data.discovery.model.semantictype.SemanticType;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
+import org.molgenis.data.semanticsearch.explain.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
 import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
+import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParam;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
+import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
@@ -43,7 +48,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.google.common.collect.Lists;
 
-import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 
 public class BiobankUniverseServiceImpl implements BiobankUniverseService
@@ -143,9 +147,9 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	@Override
 	public List<IdentifiableTagGroup> findTagGroupsForAttributes(BiobankSampleAttribute biobankSampleAttribute)
 	{
-		return tagGroupGenerator.findTagGroups(biobankSampleAttribute.getLabel(), ontologyService.getAllOntologiesIds())
-				.stream().map(tag -> IdentifiableTagGroup.create(idGenerator.generateId(), tag))
-				.collect(Collectors.toList());
+		return tagGroupGenerator
+				.generateTagGroups(biobankSampleAttribute.getLabel(), ontologyService.getAllOntologiesIds()).stream()
+				.map(this::tagGroupToIdentifiableTagGroup).collect(toList());
 	}
 
 	@RunAsSystem
@@ -156,8 +160,10 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	{
 		List<AttributeMappingCandidate> allCandidates = new ArrayList<>();
 
-		QueryRule expandedQuery = queryExpansionService.expand(semanticSearchParam.getLexicalQueries(),
-				semanticSearchParam.getTagGroups(), semanticSearchParam.getQueryExpansionParameter());
+		List<TagGroup> tagGroups = semanticSearchParam.getTagGroups();
+
+		QueryRule expandedQuery = queryExpansionService.expand(semanticSearchParam.getLexicalQueries(), tagGroups,
+				semanticSearchParam.getQueryExpansionParameter());
 
 		if (expandedQuery != null)
 		{
@@ -170,7 +176,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 				if (expandedQuery.getNestedRules().size() > 0)
 				{
-					finalQueryRules.addAll(Arrays.asList(new QueryRule(Operator.AND), expandedQuery));
+					finalQueryRules.addAll(asList(new QueryRule(AND), expandedQuery));
 				}
 
 				List<BiobankSampleAttribute> biobankSampleAttributes = biobankUniverseRepository
@@ -178,64 +184,29 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 				biobankSampleAttributes.stream().limit(10).forEach(biobankSampleAttribute -> {
 
-					AttributeMatchExplanation attributeMatchExplanation = explainMappingService
-							.explainMapping(semanticSearchParam, biobankSampleAttribute.getLabel());
+					AttributeMatchExplanation attributeMatchExplanation = explainAttributeMatchLazy(biobankUniverse,
+							target, biobankSampleAttribute, semanticSearchParam);
 
-					if (applyKeyConceptFilter(biobankUniverse, target, attributeMatchExplanation, semanticSearchParam))
+					if (attributeMatchExplanation != null)
 					{
-						MatchingExplanation mappingExplanation = MatchingExplanation.create(idGenerator.generateId(),
-								ontologyService.getAtomicOntologyTerms(attributeMatchExplanation.getOntologyTerm()),
-								attributeMatchExplanation.getQueryString(), attributeMatchExplanation.getMatchedWords(),
-								attributeMatchExplanation.getScore());
+						OntologyTermHit ontologyTermHit = attributeMatchExplanation.getOntologyTermHit();
 
-						allCandidates.add(AttributeMappingCandidate.create(idGenerator.generateId(), target,
-								biobankSampleAttribute, mappingExplanation));
+						List<OntologyTerm> ontologyTerms = ontologyTermHit != null
+								? ontologyService.getAtomicOntologyTerms(ontologyTermHit.getOntologyTerm())
+								: emptyList();
+
+						MatchingExplanation mappingExplanation = MatchingExplanation.create(idGenerator.generateId(),
+								ontologyTerms, attributeMatchExplanation.getQueryString(),
+								attributeMatchExplanation.getMatchedWords(), attributeMatchExplanation.getScore());
+
+						allCandidates.add(AttributeMappingCandidate.create(idGenerator.generateId(), biobankUniverse,
+								target, biobankSampleAttribute, mappingExplanation));
 					}
 				});
 			}
 		}
 
 		return allCandidates;
-	}
-
-	private boolean applyKeyConceptFilter(BiobankUniverse biobankUniverse, BiobankSampleAttribute target,
-			AttributeMatchExplanation attributeMatchExplanation, SemanticSearchParam semanticSearchParam)
-	{
-		// If match is not generated using key concepts, then the similarity score needs to be higher than the
-		// high quality threshold
-		if (attributeMatchExplanation.getScore() > semanticSearchParam.getHighQualityThreshold())
-		{
-			return true;
-		}
-
-		// If the match is not generated based on the ontology term information, we cannot filter it using key concepts
-		// and hence always return true.
-		if (nonNull(attributeMatchExplanation.getOntologyTerm()))
-		{
-			List<String> matchedOntologyTermNames = ontologyService
-					.getAtomicOntologyTerms(attributeMatchExplanation.getOntologyTerm()).stream()
-					.map(OntologyTerm::getLabel).map(StringUtils::lowerCase).collect(toList());
-
-			List<OntologyTerm> ontologyTerms = target.getTagGroups().stream()
-					.flatMap(tag -> ontologyService.getAtomicOntologyTerms(tag.getOntologyTerm()).stream())
-					.filter(ot -> matchedOntologyTermNames.contains(ot.getLabel().toLowerCase())).collect(toList());
-
-			// Stream<IdentifiableTagGroup> involvedTagGroupStream = target.getTagGroups().stream()
-			// .filter(tag -> ontologyService.getAtomicOntologyTerms(tag.getOntologyTerm()).stream()
-			// .anyMatch(atomicOntologyTerms::contains));
-			//
-			// boolean keyConceptMatchEnabled = involvedTagGroupStream
-			// .flatMap(tag -> ontologyService.getAtomicOntologyTerms(tag.getOntologyTerm()).stream())
-			// .anyMatch(ot -> isOntologyTermKeyConcept(biobankUniverse, ot));
-			//
-			// if (keyConceptMatchEnabled)
-			// {
-			// return atomicOntologyTerms.stream().anyMatch(ot -> isOntologyTermKeyConcept(biobankUniverse, ot));
-			// }
-			return ontologyTerms.stream().anyMatch(ot -> isOntologyTermKeyConcept(biobankUniverse, ot));
-		}
-
-		return false;
 	}
 
 	@RunAsSystem
@@ -278,6 +249,46 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		biobankUniverseRepository.addKeyConcepts(universe, semanticTypes);
 	}
 
+	/**
+	 * A key concept filter to determined whether or not the match is generated using key concepts
+	 * 
+	 * @param biobankUniverse
+	 * @param target
+	 * @param attributeMatchExplanation
+	 * @return
+	 */
+	private boolean applyKeyConceptFilter(BiobankUniverse biobankUniverse, BiobankSampleAttribute target,
+			AttributeMatchExplanation attributeMatchExplanation)
+	{
+		// If the match is not generated based on the ontology term information, we cannot filter it using key concepts
+		// and hence always return false.
+		if (Objects.nonNull(attributeMatchExplanation.getOntologyTermHit()))
+		{
+			// we need to first of all check if any of ontology terms used to tag the target are key concepts. If there
+			// is no key concept involved, it's useless to check if the expanded ontology terms are key concepts
+
+			boolean keyConceptMatchEnabled = target.getTagGroups().stream()
+					.flatMap(tag -> tag.getOntologyTerms().stream())
+					.anyMatch(ot -> isOntologyTermKeyConcept(biobankUniverse, ot));
+
+			if (keyConceptMatchEnabled)
+			{
+				OntologyTerm origin = attributeMatchExplanation.getOntologyTermHit().getOrigin();
+
+				List<String> ontologyTermNames = ontologyService.getAtomicOntologyTerms(origin).stream()
+						.flatMap(ot -> getLowerCaseTerms(ot).stream()).collect(toList());
+
+				List<OntologyTerm> ontologyTerms = target.getTagGroups().stream()
+						.flatMap(tag -> tag.getOntologyTerms().stream())
+						.filter(ot -> ontologyTermNames.contains(ot.getLabel().toLowerCase())).collect(toList());
+
+				return ontologyTerms.stream().anyMatch(ot -> isOntologyTermKeyConcept(biobankUniverse, ot));
+			}
+		}
+
+		return false;
+	}
+
 	private BiobankSampleAttribute importedAttributEntityToBiobankSampleAttribute(BiobankSampleCollection collection,
 			Entity entity)
 	{
@@ -289,4 +300,67 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		return isNotBlank(name)
 				? BiobankSampleAttribute.create(identifier, name, label, description, collection, emptyList()) : null;
 	}
+
+	private IdentifiableTagGroup tagGroupToIdentifiableTagGroup(TagGroup tagGroup)
+	{
+		String identifier = idGenerator.generateId();
+		String matchedWords = tagGroup.getMatchedWords();
+		float score = tagGroup.getScore();
+
+		Map<OntologyTerm, List<SemanticType>> ontologyTermSemanticTypesMap = ontologyService
+				.getAtomicOntologyTerms(tagGroup.getOntologyTerm()).stream()
+				.collect(Collectors.toMap(ot -> ot, ot -> biobankUniverseRepository.getSemanticTypes(ot))).entrySet()
+				.stream().filter(entry -> entry.getValue().stream().allMatch(SemanticType::isGlobalKeyConcept))
+				.collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+
+		List<OntologyTerm> ontologyTerms = ontologyTermSemanticTypesMap.entrySet().stream().map(Entry::getKey)
+				.collect(toList());
+		List<SemanticType> semanticTypes = ontologyTermSemanticTypesMap.entrySet().stream()
+				.flatMap(entry -> entry.getValue().stream()).collect(toList());
+
+		return IdentifiableTagGroup.create(identifier, ontologyTerms, semanticTypes, matchedWords, score);
+	}
+
+	private AttributeMatchExplanation explainAttributeMatchLazy(BiobankUniverse biobankUniverse,
+			BiobankSampleAttribute target, BiobankSampleAttribute biobankSampleAttribute,
+			SemanticSearchParam semanticSearchParam)
+	{
+		// Explain the match with lexical queries
+		SemanticSearchParam explainSemanticSearchParam = SemanticSearchParam.create(
+				semanticSearchParam.getLexicalQueries(), semanticSearchParam.getTagGroups(),
+				QueryExpansionParam.create(false, false));
+		AttributeMatchExplanation attributeMatchExplanation = explainMappingService
+				.explainMapping(explainSemanticSearchParam, biobankSampleAttribute.getLabel());
+		if (isMatchHighQuality(biobankUniverse, target, attributeMatchExplanation, explainSemanticSearchParam))
+			return attributeMatchExplanation;
+
+		// Explain the match with lexical queries and ontology term synonyms
+		explainSemanticSearchParam = SemanticSearchParam.create(semanticSearchParam.getLexicalQueries(),
+				semanticSearchParam.getTagGroups(), QueryExpansionParam.create(true, false));
+		attributeMatchExplanation = explainMappingService.explainMapping(explainSemanticSearchParam,
+				biobankSampleAttribute.getLabel());
+		if (isMatchHighQuality(biobankUniverse, target, attributeMatchExplanation, explainSemanticSearchParam))
+			return attributeMatchExplanation;
+
+		// Explain the match with lexical queries, ontology term synonyms, ontology term children and parents
+		explainSemanticSearchParam = SemanticSearchParam.create(semanticSearchParam.getLexicalQueries(),
+				semanticSearchParam.getTagGroups(), QueryExpansionParam.create(true, true));
+		attributeMatchExplanation = explainMappingService.explainMapping(explainSemanticSearchParam,
+				biobankSampleAttribute.getLabel());
+		if (isMatchHighQuality(biobankUniverse, target, attributeMatchExplanation, explainSemanticSearchParam))
+			return attributeMatchExplanation;
+
+		return null;
+	}
+
+	private boolean isMatchHighQuality(BiobankUniverse biobankUniverse, BiobankSampleAttribute target,
+			AttributeMatchExplanation attributeMatchExplanation, SemanticSearchParam semanticSearchParam)
+	{
+		boolean isHighQuality = attributeMatchExplanation.getScore() > semanticSearchParam.getHighQualityThreshold();
+
+		// A high quality match is defined as either being generated with a high similarity score or being
+		// matched with key concepts
+		return isHighQuality || applyKeyConceptFilter(biobankUniverse, target, attributeMatchExplanation);
+	}
+
 }
