@@ -18,6 +18,7 @@ public class OntologyTermMetaData extends DefaultEntityMetaData
 	public final static String ONTOLOGY_TERM_SYNONYM = "ontologyTermSynonym";
 	public final static String ONTOLOGY_TERM_DYNAMIC_ANNOTATION = "ontologyTermDynamicAnnotation";
 	public final static String ONTOLOGY_TERM_NODE_PATH = "nodePath";
+	public final static String ONTOLOGY_TERM_SEMANTIC_TYPE = "semanticType";
 	public final static String ONTOLOGY = "ontology";
 	public final static String SIMPLE_NAME = "OntologyTerm";
 	public final static String ENTITY_NAME = OntologyPackage.PACKAGE_NAME + "_" + SIMPLE_NAME;
@@ -37,6 +38,8 @@ public class OntologyTermMetaData extends DefaultEntityMetaData
 				.setNillable(true).setRefEntity(OntologyTermDynamicAnnotationMetaData.INSTANCE));
 		addAttributeMetaData(new DefaultAttributeMetaData(ONTOLOGY_TERM_NODE_PATH, FieldTypeEnum.MREF).setNillable(true)
 				.setRefEntity(OntologyTermNodePathMetaData.INSTANCE));
+		addAttributeMetaData(new DefaultAttributeMetaData(ONTOLOGY_TERM_SEMANTIC_TYPE, FieldTypeEnum.MREF)
+				.setNillable(true).setRefEntity(SemanticTypeMetaData.INSTANCE));
 		addAttributeMetaData(new DefaultAttributeMetaData(ONTOLOGY, FieldTypeEnum.XREF).setNillable(false)
 				.setRefEntity(OntologyMetaData.INSTANCE));
 	}

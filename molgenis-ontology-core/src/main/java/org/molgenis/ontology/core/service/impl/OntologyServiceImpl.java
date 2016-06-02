@@ -1,5 +1,7 @@
 package org.molgenis.ontology.core.service.impl;
 
+import static java.util.Objects.nonNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.ontology.utils.PredicateUtils.createRetrieveLevelThreePredicate;
@@ -26,9 +28,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-
-import static java.util.Objects.nonNull;
-import static java.util.Objects.requireNonNull;
 
 public class OntologyServiceImpl implements OntologyService
 {
@@ -183,12 +182,6 @@ public class OntologyServiceImpl implements OntologyService
 	public List<SemanticType> getAllSemanticTypes()
 	{
 		return ontologyTermRepository.getAllSemanticType();
-	}
-
-	@Override
-	public List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm)
-	{
-		return ontologyTermRepository.getSemanticTypes(ontologyTerm);
 	}
 
 	@Override

@@ -2,6 +2,7 @@ package org.molgenis.data.discovery.service.impl;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.data.QueryRule.Operator.AND;
@@ -45,8 +46,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.google.common.collect.Lists;
-
-import static java.util.Objects.requireNonNull;
 
 public class BiobankUniverseServiceImpl implements BiobankUniverseService
 {
@@ -244,7 +243,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	public boolean isOntologyTermKeyConcept(BiobankUniverse biobankUniverse, OntologyTerm ontologyTerm)
 	{
 		List<SemanticType> keyConcepts = biobankUniverse.getKeyConcepts();
-		boolean anyMatch = ontologyService.getSemanticTypes(ontologyTerm).stream().anyMatch(keyConcepts::contains);
+		boolean anyMatch = ontologyTerm.getSemanticTypes().stream().anyMatch(keyConcepts::contains);
 		return anyMatch;
 	}
 
@@ -316,8 +315,8 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 		List<OntologyTerm> ontologyTerms = ontologyService.getAtomicOntologyTerms(tagGroup.getOntologyTerm());
 
-		List<SemanticType> semanticTypes = ontologyTerms.stream()
-				.flatMap(ot -> ontologyService.getSemanticTypes(ot).stream()).collect(toList());
+		List<SemanticType> semanticTypes = ontologyTerms.stream().flatMap(ot -> ot.getSemanticTypes().stream())
+				.collect(toList());
 
 		return IdentifiableTagGroup.create(identifier, ontologyTerms, semanticTypes, matchedWords, score);
 	}

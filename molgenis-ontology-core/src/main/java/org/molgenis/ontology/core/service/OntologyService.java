@@ -146,14 +146,6 @@ public interface OntologyService
 	List<SemanticType> getAllSemanticTypes();
 
 	/**
-	 * Get a list of {@link SemanticType}s for the given {@link OntologyTerm}
-	 * 
-	 * @param ontologyTerm
-	 * @return a list of {@link SemanticType}s
-	 */
-	List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm);
-
-	/**
 	 * Get all {@link SemanticType}s by a list of {@link SemanticType} groups
 	 *
 	 * @param semanticTypeGroups

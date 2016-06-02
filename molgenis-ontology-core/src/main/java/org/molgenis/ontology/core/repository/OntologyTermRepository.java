@@ -2,6 +2,7 @@ package org.molgenis.ontology.core.repository;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Stream.of;
@@ -13,7 +14,6 @@ import static org.molgenis.data.QueryRule.Operator.AND;
 import static org.molgenis.data.QueryRule.Operator.FUZZY_MATCH;
 import static org.molgenis.data.QueryRule.Operator.IN;
 import static org.molgenis.data.QueryRule.Operator.OR;
-import static org.molgenis.data.support.QueryImpl.EQ;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ENTITY_NAME;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ID;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY;
@@ -37,7 +37,6 @@ import java.util.stream.StreamSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
-import org.molgenis.data.Fetch;
 import org.molgenis.data.Query;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
@@ -46,7 +45,6 @@ import org.molgenis.ontology.core.meta.OntologyMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermDynamicAnnotationMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermNodePathMetaData;
-import org.molgenis.ontology.core.meta.OntologyTermSemanticTypeMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermSynonymMetaData;
 import org.molgenis.ontology.core.meta.SemanticTypeMetaData;
 import org.molgenis.ontology.core.model.Ontology;
@@ -61,8 +59,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-
-import static java.util.Objects.requireNonNull;
 
 /***
  * Maps{
@@ -555,20 +551,20 @@ public class OntologyTermRepository
 
 	public List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm)
 	{
-		Fetch fetch = new Fetch();
-		fetch.field(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE);
-
-		String iri = ontologyTerm.getIRI();
-		Entity entity = dataService.findOne(OntologyTermSemanticTypeMetaData.ENTITY_NAME,
-				EQ(OntologyTermSemanticTypeMetaData.ONTOLOGY_TERM, iri));
-
-		if (entity != null)
-		{
-			List<SemanticType> semanticTypes = stream(
-					entity.getEntities(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE).spliterator(), false)
-							.map(OntologyTermRepository::entityToSemanticType).collect(toList());
-			return semanticTypes;
-		}
+		// Fetch fetch = new Fetch();
+		// fetch.field(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE);
+		//
+		// String iri = ontologyTerm.getIRI();
+		// Entity entity = dataService.findOne(OntologyTermSemanticTypeMetaData.ENTITY_NAME,
+		// EQ(OntologyTermSemanticTypeMetaData.ONTOLOGY_TERM, iri));
+		//
+		// if (entity != null)
+		// {
+		// List<SemanticType> semanticTypes = stream(
+		// entity.getEntities(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE).spliterator(), false)
+		// .map(OntologyTermRepository::entityToSemanticType).collect(toList());
+		// return semanticTypes;
+		// }
 
 		return Collections.emptyList();
 	}
@@ -622,8 +618,18 @@ public class OntologyTermRepository
 			}
 		}
 
+		// Collect semantic types if there are any
+		List<SemanticType> semanticTypes = new ArrayList<>();
+		Iterable<Entity> ontologyTermSemanticTypeEntities = entity.getEntities(ONTOLOGY_TERM_DYNAMIC_ANNOTATION);
+		if (ontologyTermSemanticTypeEntities != null)
+		{
+			List<SemanticType> collect = StreamSupport.stream(ontologyTermSemanticTypeEntities.spliterator(), false)
+					.map(OntologyTermRepository::entityToSemanticType).collect(toList());
+			semanticTypes.addAll(collect);
+		}
+
 		return OntologyTerm.create(entity.getString(ID), entity.getString(ONTOLOGY_TERM_IRI),
-				entity.getString(ONTOLOGY_TERM_NAME), null, synonyms, nodePaths, annotations);
+				entity.getString(ONTOLOGY_TERM_NAME), null, synonyms, nodePaths, annotations, semanticTypes);
 	}
 
 	public static SemanticType entityToSemanticType(Entity entity)

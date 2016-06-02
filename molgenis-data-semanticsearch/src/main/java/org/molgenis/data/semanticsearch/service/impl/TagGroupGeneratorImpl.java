@@ -3,6 +3,7 @@ package org.molgenis.data.semanticsearch.service.impl;
 import static com.google.common.collect.Sets.newLinkedHashSet;
 import static java.util.Arrays.stream;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
@@ -40,8 +41,6 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-
-import static java.util.Objects.requireNonNull;
 
 public class TagGroupGeneratorImpl implements TagGroupGenerator
 {
@@ -90,8 +89,8 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 
 		// TODO: after adding the semantic types to the ontology term table, we need to re-write the query in which we
 		// add the semantic types as the filter
-		candidateTagGroups = candidateTagGroups.stream().filter(
-				tag -> ontologyService.getSemanticTypes(tag.getOntologyTerm()).stream().allMatch(keyConcepts::contains))
+		candidateTagGroups = candidateTagGroups.stream()
+				.filter(tag -> tag.getOntologyTerm().getSemanticTypes().stream().allMatch(keyConcepts::contains))
 				.collect(toList());
 
 		if (LOG.isDebugEnabled())

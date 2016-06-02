@@ -5,7 +5,6 @@ import static java.util.Arrays.stream;
 import static java.util.Collections.emptyList;
 import static org.apache.commons.lang.StringUtils.join;
 
-import java.util.Collections;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -34,30 +33,36 @@ public abstract class OntologyTerm
 	@Nullable
 	public abstract List<OntologyTermAnnotation> getAnnotations();
 
+	@Nullable
+	public abstract List<SemanticType> getSemanticTypes();
+
 	public static OntologyTerm create(String id, String iri, String label)
 	{
-		return new AutoValue_OntologyTerm(id, iri, label, null, emptyList(), emptyList(), emptyList());
+		return new AutoValue_OntologyTerm(id, iri, label, null, emptyList(), emptyList(), emptyList(), emptyList());
 	}
 
 	public static OntologyTerm create(String id, String iri, String label, List<String> synonyms)
 	{
-		return new AutoValue_OntologyTerm(id, iri, label, null, copyOf(synonyms), emptyList(), Collections.emptyList());
+		return new AutoValue_OntologyTerm(id, iri, label, null, copyOf(synonyms), emptyList(), emptyList(),
+				emptyList());
 	}
 
 	public static OntologyTerm create(String id, String iri, String label, String description)
 	{
-		return new AutoValue_OntologyTerm(id, iri, label, description, emptyList(), emptyList(), emptyList());
+		return new AutoValue_OntologyTerm(id, iri, label, description, emptyList(), emptyList(), emptyList(),
+				emptyList());
 	}
 
 	public static OntologyTerm create(String id, String iri, String label, String description, List<String> synonyms)
 	{
-		return new AutoValue_OntologyTerm(id, iri, label, description, copyOf(synonyms), emptyList(), emptyList());
+		return new AutoValue_OntologyTerm(id, iri, label, description, copyOf(synonyms), emptyList(), emptyList(),
+				emptyList());
 	}
 
 	public static OntologyTerm create(String id, String iri, String label, String description, List<String> synonyms,
 			List<String> nodePaths)
 	{
-		return new AutoValue_OntologyTerm(id, iri, label, description, copyOf(synonyms), copyOf(nodePaths),
+		return new AutoValue_OntologyTerm(id, iri, label, description, copyOf(synonyms), copyOf(nodePaths), emptyList(),
 				emptyList());
 	}
 
@@ -65,7 +70,14 @@ public abstract class OntologyTerm
 			List<String> nodePaths, List<OntologyTermAnnotation> annotations)
 	{
 		return new AutoValue_OntologyTerm(id, iri, label, description, copyOf(synonyms), copyOf(nodePaths),
-				copyOf(annotations));
+				copyOf(annotations), emptyList());
+	}
+
+	public static OntologyTerm create(String id, String iri, String label, String description, List<String> synonyms,
+			List<String> nodePaths, List<OntologyTermAnnotation> annotations, List<SemanticType> semanticTypes)
+	{
+		return new AutoValue_OntologyTerm(id, iri, label, description, copyOf(synonyms), copyOf(nodePaths),
+				copyOf(annotations), copyOf(semanticTypes));
 	}
 
 	/**
