@@ -4,9 +4,9 @@ import static org.molgenis.MolgenisFieldTypes.DECIMAL;
 import static org.molgenis.MolgenisFieldTypes.MREF;
 import static org.molgenis.data.EntityMetaData.AttributeRole.ROLE_ID;
 
-import org.molgenis.data.discovery.meta.semantictype.SemanticTypeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermMetaData;
+import org.molgenis.ontology.core.meta.SemanticTypeMetaData;
 import org.springframework.stereotype.Component;
 
 @Component

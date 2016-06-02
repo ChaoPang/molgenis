@@ -1,6 +1,7 @@
 package org.molgenis.data.discovery.repo.impl;
 
 import static com.google.common.collect.Lists.newArrayList;
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.molgenis.data.QueryRule.Operator.AND;
@@ -15,7 +16,6 @@ import static org.molgenis.data.support.QueryImpl.IN;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -37,8 +37,6 @@ import org.molgenis.data.discovery.meta.matching.AttributeMappingDecisionMetaDat
 import org.molgenis.data.discovery.meta.matching.AttributeMappingDecisionMetaData.DecisionOptions;
 import org.molgenis.data.discovery.meta.matching.MatchingExplanationMetaData;
 import org.molgenis.data.discovery.meta.matching.TagGroupMetaData;
-import org.molgenis.data.discovery.meta.semantictype.OntologyTermSemanticTypeMetaData;
-import org.molgenis.data.discovery.meta.semantictype.SemanticTypeMetaData;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
@@ -46,12 +44,13 @@ import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.matching.AttributeMappingDecision;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.data.discovery.model.matching.MatchingExplanation;
-import org.molgenis.data.discovery.model.semantictype.SemanticType;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.support.DefaultEntity;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.meta.OntologyTermMetaData;
+import org.molgenis.ontology.core.meta.SemanticTypeMetaData;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.repository.OntologyTermRepository;
 import org.molgenis.security.user.MolgenisUserService;
 import org.molgenis.security.user.UserAccountService;
@@ -241,7 +240,11 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	@Override
 	public void removeBiobankSampleAttributes(List<BiobankSampleAttribute> biobankSampleAttributes)
 	{
+		// Remove all associated candidate matches
 		removeAttributeMappingCandidates(getAttributeMappingCandidates(biobankSampleAttributes));
+
+		// Remove all associated tag groups
+		removeTagGroupsForAttributes(biobankSampleAttributes);
 
 		Stream<Entity> biobankSampleAttributeEntityStream = biobankSampleAttributes.stream()
 				.map(this::biobankSampleAttributeToEntity);
@@ -275,13 +278,34 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 
 	@Transactional
 	@Override
-	public void addAttributeMappingCandidates(List<AttributeMappingCandidate> candidates)
+	public void removeTagGroupsForAttributes(List<BiobankSampleAttribute> biobankSampleAttributes)
 	{
-		Stream<Entity> explanationStream = candidates.stream().map(AttributeMappingCandidate::getExplanation)
-				.map(this::mappingExplanationToEntity);
+		Stream<Entity> identifiableTagGroupEntityStream = biobankSampleAttributes.stream()
+				.flatMap(biobankSampleAttribute -> biobankSampleAttribute.getTagGroups().stream())
+				.map(this::identifiableTagGroupToEntity);
+
+		Stream<Entity> biobankSampleAttributeEntityStream = biobankSampleAttributes.stream()
+				.map(biobankSampleAttribute -> BiobankSampleAttribute.create(biobankSampleAttribute.getIdentifier(),
+						biobankSampleAttribute.getName(), biobankSampleAttribute.getLabel(),
+						biobankSampleAttribute.getDescription(), biobankSampleAttribute.getCollection(), emptyList()))
+				.map(this::biobankSampleAttributeToEntity);
+
+		// Remove the TagGroup references from BiobankSampleAttributes
+		dataService.update(BiobankSampleAttributeMetaData.ENTITY_NAME, biobankSampleAttributeEntityStream);
+
+		// Remove the TagGroups
+		dataService.delete(TagGroupMetaData.ENTITY_NAME, identifiableTagGroupEntityStream);
+	}
+
+	@Transactional
+	@Override
+	public void addAttributeMappingCandidates(List<AttributeMappingCandidate> biobankSampleAttributes)
+	{
+		Stream<Entity> explanationStream = biobankSampleAttributes.stream()
+				.map(AttributeMappingCandidate::getExplanation).map(this::mappingExplanationToEntity);
 		dataService.add(MatchingExplanationMetaData.ENTITY_NAME, explanationStream);
 
-		Stream<Entity> attributeMappingCandidateStream = candidates.stream()
+		Stream<Entity> attributeMappingCandidateStream = biobankSampleAttributes.stream()
 				.map(this::attributeMappingCandidateToEntity);
 		dataService.add(AttributeMappingCandidateMetaData.ENTITY_NAME, attributeMappingCandidateStream);
 	}
@@ -348,46 +372,6 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		dataService.delete(AttributeMappingDecisionMetaData.ENTITY_NAME, attributeMappingDecisionStream);
 	}
 
-	@Override
-	public List<SemanticType> getAllSemanticType()
-	{
-		return dataService.findAll(SemanticTypeMetaData.ENTITY_NAME).map(this::entityToSemanticType).collect(toList());
-	}
-
-	@Override
-	public List<SemanticType> getSemanticTypesByGroups(List<String> semanticTypeGroups)
-	{
-		if (semanticTypeGroups.size() > 0)
-		{
-			return dataService
-					.findAll(SemanticTypeMetaData.ENTITY_NAME,
-							QueryImpl.IN(SemanticTypeMetaData.SEMANTIC_TYPE_GROUP, semanticTypeGroups))
-					.map(this::entityToSemanticType).collect(toList());
-		}
-		return Collections.emptyList();
-	}
-
-	@Override
-	public List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm)
-	{
-		Fetch fetch = new Fetch();
-		fetch.field(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE);
-
-		String iri = ontologyTerm.getIRI();
-		Entity entity = dataService.findOne(OntologyTermSemanticTypeMetaData.ENTITY_NAME,
-				EQ(OntologyTermSemanticTypeMetaData.ONTOLOGY_TERM, iri));
-
-		if (entity != null)
-		{
-			List<SemanticType> semanticTypes = stream(
-					entity.getEntities(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE).spliterator(), false)
-							.map(this::entityToSemanticType).collect(toList());
-			return semanticTypes;
-		}
-
-		return Collections.emptyList();
-	}
-
 	private Entity biobankUniverseToEntity(BiobankUniverse biobankUniverse)
 	{
 		Iterable<Entity> semanticTypeEntities = entityManager.getReferences(SemanticTypeMetaData.INSTANCE,
@@ -425,7 +409,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		if (keyConceptIterable != null)
 		{
 			List<SemanticType> collect = StreamSupport.stream(keyConceptIterable.spliterator(), false)
-					.map(this::entityToSemanticType).collect(Collectors.toList());
+					.map(OntologyTermRepository::entityToSemanticType).collect(Collectors.toList());
 			keyConcepts.addAll(collect);
 		}
 
@@ -504,7 +488,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 				false).map(OntologyTermRepository::toOntologyTerm).collect(toList());
 
 		List<SemanticType> semanticTypes = stream(entity.getEntities(TagGroupMetaData.SEMANTIC_TYPES).spliterator(),
-				false).map(this::entityToSemanticType).collect(toList());
+				false).map(OntologyTermRepository::entityToSemanticType).collect(toList());
 
 		return IdentifiableTagGroup.create(identifier, ontologyTerms, semanticTypes, matchedWords,
 				ngramScore.floatValue());
@@ -617,14 +601,5 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		entity.set(AttributeMappingDecisionMetaData.COMMENT, comment);
 
 		return entity;
-	}
-
-	private SemanticType entityToSemanticType(Entity entity)
-	{
-		String id = entity.getString(SemanticTypeMetaData.ID);
-		String name = entity.getString(SemanticTypeMetaData.SEMANTIC_TYPE_NAME);
-		String group = entity.getString(SemanticTypeMetaData.SEMANTIC_TYPE_GROUP);
-		boolean globalKeyConcept = entity.getBoolean(SemanticTypeMetaData.SEMANTIC_TYPE_GLOBAL_KEY_CONCEPT);
-		return SemanticType.create(id, name, group, globalKeyConcept);
 	}
 }

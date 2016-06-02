@@ -13,6 +13,7 @@ import static org.molgenis.data.QueryRule.Operator.AND;
 import static org.molgenis.data.QueryRule.Operator.FUZZY_MATCH;
 import static org.molgenis.data.QueryRule.Operator.IN;
 import static org.molgenis.data.QueryRule.Operator.OR;
+import static org.molgenis.data.support.QueryImpl.EQ;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ENTITY_NAME;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ID;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY;
@@ -23,6 +24,7 @@ import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -35,6 +37,7 @@ import java.util.stream.StreamSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
+import org.molgenis.data.Fetch;
 import org.molgenis.data.Query;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
@@ -43,11 +46,14 @@ import org.molgenis.ontology.core.meta.OntologyMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermDynamicAnnotationMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermNodePathMetaData;
+import org.molgenis.ontology.core.meta.OntologyTermSemanticTypeMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermSynonymMetaData;
+import org.molgenis.ontology.core.meta.SemanticTypeMetaData;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.OntologyTermAnnotation;
 import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
+import org.molgenis.ontology.core.model.SemanticType;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.collect.Iterables;
@@ -58,8 +64,10 @@ import com.google.common.collect.Multimap;
 
 import static java.util.Objects.requireNonNull;
 
-/**
- * Maps {@link OntologyTermMetaData} {@link Entity} <-> {@link OntologyTerm}
+/***
+ * Maps{
+ * 
+ * @link OntologyTermMetaData} {@link Entity} <-> {@link OntologyTerm}
  */
 public class OntologyTermRepository
 {
@@ -78,7 +86,7 @@ public class OntologyTermRepository
 
 	/**
 	 * FIXME write docs
-	 * 
+	 *
 	 * @param term
 	 * @param pageSize
 	 * @return
@@ -115,7 +123,7 @@ public class OntologyTermRepository
 
 	/**
 	 * Finds exact {@link OntologyTerm}s within {@link Ontology}s.
-	 * 
+	 *
 	 * @param ontologyIds
 	 *            IDs of the {@link Ontology}s to search in
 	 * @param terms
@@ -150,7 +158,7 @@ public class OntologyTermRepository
 
 	/**
 	 * Finds {@link OntologyTerm}s within {@link Ontology}s.
-	 * 
+	 *
 	 * @param ontologyIds
 	 *            IDs of the {@link Ontology}s to search in
 	 * @param terms
@@ -247,7 +255,7 @@ public class OntologyTermRepository
 
 	/**
 	 * Retrieves an {@link OntologyTerm} for one or more IRIs
-	 * 
+	 *
 	 * @param iris
 	 *            Array of {@link OntologyTerm} IRIs
 	 * @return combined {@link OntologyTerm} for the iris.
@@ -270,7 +278,7 @@ public class OntologyTermRepository
 
 	/**
 	 * Retrieves a list of {@link OntologyTerm}s based on the given IRIs
-	 * 
+	 *
 	 * @param iris
 	 *            List of {@link OntologyTerm} IRIs
 	 * @return a list of {@link OntologyTerm}
@@ -287,10 +295,10 @@ public class OntologyTermRepository
 	/**
 	 * Calculate the distance between any two ontology terms in the ontology tree structure by calculating the
 	 * difference in nodePaths.
-	 * 
+	 *
 	 * @param ontologyTerm1
 	 * @param ontologyTerm2
-	 * 
+	 *
 	 * @return the distance between two ontology terms
 	 */
 	public Integer getOntologyTermDistance(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
@@ -318,10 +326,10 @@ public class OntologyTermRepository
 
 	/**
 	 * Calculate the semantic relatedness between any two ontology terms in the ontology tree
-	 * 
+	 *
 	 * @param ontologyTerm1
 	 * @param ontologyTerm2
-	 * 
+	 *
 	 * @return the distance between two ontology terms
 	 */
 	public double getOntologyTermSemanticRelatedness(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
@@ -350,7 +358,7 @@ public class OntologyTermRepository
 	/**
 	 * Calculate the distance between nodePaths, e.g. 0[0].1[1].2[2], 0[0].2[1].2[2]. The distance is the non-overlap
 	 * part of the strings
-	 * 
+	 *
 	 * @param nodePath1
 	 * @param nodePath2
 	 * @return distance
@@ -509,6 +517,62 @@ public class OntologyTermRepository
 		return parentOntologyTerms;
 	}
 
+	/**
+	 * Get all {@link SemanticType}s
+	 *
+	 * @return a list of {@link SemanticType}s
+	 */
+	public List<SemanticType> getAllSemanticType()
+	{
+		return dataService.findAll(SemanticTypeMetaData.ENTITY_NAME).map(OntologyTermRepository::entityToSemanticType)
+				.collect(toList());
+	}
+
+	/**
+	 * Get all {@link SemanticType}s by a list of {@link SemanticType} groups
+	 *
+	 * @param semanticTypeGroups
+	 * @return a list of {@link SemanticType}s
+	 */
+	public List<SemanticType> getSemanticTypesByGroups(List<String> semanticTypeGroups)
+	{
+		if (semanticTypeGroups.size() > 0)
+		{
+			return dataService
+					.findAll(SemanticTypeMetaData.ENTITY_NAME,
+							QueryImpl.IN(SemanticTypeMetaData.SEMANTIC_TYPE_GROUP, semanticTypeGroups))
+					.map(OntologyTermRepository::entityToSemanticType).collect(toList());
+		}
+		return Collections.emptyList();
+	}
+
+	/**
+	 * Get all {@link SemanticType}s for the given {@link OntologyTerm}
+	 *
+	 * @param ontologyTerm
+	 * @return a list of {@link SemanticType}s
+	 */
+
+	public List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm)
+	{
+		Fetch fetch = new Fetch();
+		fetch.field(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE);
+
+		String iri = ontologyTerm.getIRI();
+		Entity entity = dataService.findOne(OntologyTermSemanticTypeMetaData.ENTITY_NAME,
+				EQ(OntologyTermSemanticTypeMetaData.ONTOLOGY_TERM, iri));
+
+		if (entity != null)
+		{
+			List<SemanticType> semanticTypes = stream(
+					entity.getEntities(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE).spliterator(), false)
+							.map(OntologyTermRepository::entityToSemanticType).collect(toList());
+			return semanticTypes;
+		}
+
+		return Collections.emptyList();
+	}
+
 	private String getParentNodePath(String currentNodePath)
 	{
 		String[] split = currentNodePath.split(ESCAPED_NODEPATH_SEPARATOR);
@@ -560,6 +624,15 @@ public class OntologyTermRepository
 
 		return OntologyTerm.create(entity.getString(ID), entity.getString(ONTOLOGY_TERM_IRI),
 				entity.getString(ONTOLOGY_TERM_NAME), null, synonyms, nodePaths, annotations);
+	}
+
+	public static SemanticType entityToSemanticType(Entity entity)
+	{
+		String id = entity.getString(SemanticTypeMetaData.ID);
+		String name = entity.getString(SemanticTypeMetaData.SEMANTIC_TYPE_NAME);
+		String group = entity.getString(SemanticTypeMetaData.SEMANTIC_TYPE_GROUP);
+		boolean globalKeyConcept = entity.getBoolean(SemanticTypeMetaData.SEMANTIC_TYPE_GLOBAL_KEY_CONCEPT);
+		return SemanticType.create(id, name, group, globalKeyConcept);
 	}
 
 	int penalize(String nodePath)

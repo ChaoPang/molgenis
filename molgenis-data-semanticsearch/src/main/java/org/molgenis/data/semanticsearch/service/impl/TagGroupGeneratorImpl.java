@@ -28,6 +28,7 @@ import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.semanticsearch.utils.OntologyTermComparator;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.utils.Stemmer;
 import org.slf4j.Logger;
@@ -48,7 +49,7 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 
 	private final OntologyService ontologyService;
 
-	public final static int MAX_NUM_TAGS = 50;
+	public final static int MAX_NUM_TAGS = 100;
 	private final static String ILLEGAL_CHARS_REGEX = "[^\\p{L}'a-zA-Z0-9\\.~]+";
 	private final static MatchingCriterion STRICT_MATCHING_CRITERION = new StrictMatchingCriterion();
 	private Joiner termJoiner = Joiner.on(' ');
@@ -62,6 +63,16 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 	@Override
 	public List<TagGroup> generateTagGroups(String queryString, List<String> ontologyIds)
 	{
+		List<SemanticType> globalKeyConcepts = ontologyService.getAllSemanticTypes().stream()
+				.filter(SemanticType::isGlobalKeyConcept).collect(Collectors.toList());
+
+		return generateTagGroups(queryString, ontologyIds, globalKeyConcepts);
+	}
+
+	@Override
+	public List<TagGroup> generateTagGroups(String queryString, List<String> ontologyIds,
+			List<SemanticType> keyConcepts)
+	{
 		Set<String> queryWords = splitRemoveStopWords(queryString);
 
 		if (LOG.isDebugEnabled())
@@ -72,17 +83,23 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 		List<OntologyTerm> relevantOntologyTerms = ontologyService.findOntologyTerms(ontologyIds, queryWords,
 				MAX_NUM_TAGS);
 
-		List<TagGroup> orderOntologyTermHits = Lists
+		List<TagGroup> candidateTagGroups = Lists
 				.newArrayList(applyTagMatchingCriterion(relevantOntologyTerms, queryWords, STRICT_MATCHING_CRITERION));
 
-		orderOntologyTermHits.addAll(matchCommonWordsToOntologyTerms(queryWords, ontologyIds, orderOntologyTermHits));
+		candidateTagGroups.addAll(matchCommonWordsToOntologyTerms(queryWords, ontologyIds, candidateTagGroups));
+
+		// TODO: after adding the semantic types to the ontology term table, we need to re-write the query in which we
+		// add the semantic types as the filter
+		candidateTagGroups = candidateTagGroups.stream().filter(
+				tag -> ontologyService.getSemanticTypes(tag.getOntologyTerm()).stream().allMatch(keyConcepts::contains))
+				.collect(toList());
 
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Candidates: {}", orderOntologyTermHits);
+			LOG.debug("Candidates: {}", candidateTagGroups);
 		}
 
-		List<TagGroup> ontologyTermHit = combineTagGroups(queryWords, orderOntologyTermHits);
+		List<TagGroup> ontologyTermHit = combineTagGroups(queryWords, candidateTagGroups);
 
 		if (LOG.isDebugEnabled())
 		{

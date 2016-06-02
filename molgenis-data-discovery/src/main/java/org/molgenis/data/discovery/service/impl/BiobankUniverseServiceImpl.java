@@ -11,8 +11,6 @@ import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -28,7 +26,6 @@ import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.data.discovery.model.matching.MatchingExplanation;
-import org.molgenis.data.discovery.model.semantictype.SemanticType;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
@@ -41,6 +38,7 @@ import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.security.core.runas.RunAsSystem;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,7 +76,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	@Override
 	public BiobankUniverse addBiobankUniverse(String universeName, List<String> semanticTypeGroups, MolgenisUser owner)
 	{
-		List<SemanticType> semanticTypes = biobankUniverseRepository.getSemanticTypesByGroups(semanticTypeGroups);
+		List<SemanticType> semanticTypes = ontologyService.getSemanticTypesByGroups(semanticTypeGroups);
 		BiobankUniverse biobankUniverse = BiobankUniverse.create(idGenerator.generateId(), universeName, emptyList(),
 				owner, semanticTypes);
 		biobankUniverseRepository.addBiobankUniverse(biobankUniverse);
@@ -130,6 +128,13 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		return biobankUniverseRepository.getBiobankSampleCollection(biobankSampleCollectionName);
 	}
 
+	@RunAsSystem
+	@Override
+	public void removeBiobankSampleCollection(BiobankSampleCollection biobankSampleCollection)
+	{
+		biobankUniverseRepository.removeBiobankSampleCollection(biobankSampleCollection);
+	}
+
 	@Override
 	public List<BiobankUniverse> getBiobankUniverses()
 	{
@@ -145,11 +150,21 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 	@RunAsSystem
 	@Override
+	public void removeAllTagGroups(BiobankSampleCollection biobankSampleCollection)
+	{
+		List<BiobankSampleAttribute> biobankSampleAttributes = biobankUniverseRepository
+				.getBiobankSampleAttributes(biobankSampleCollection);
+
+		biobankUniverseRepository.removeTagGroupsForAttributes(biobankSampleAttributes);
+	}
+
+	@RunAsSystem
+	@Override
 	public List<IdentifiableTagGroup> findTagGroupsForAttributes(BiobankSampleAttribute biobankSampleAttribute)
 	{
 		return tagGroupGenerator
 				.generateTagGroups(biobankSampleAttribute.getLabel(), ontologyService.getAllOntologiesIds()).stream()
-				.map(this::tagGroupToIdentifiableTagGroup).collect(toList());
+				.map(this::tagGroupToIdentifiableTagGroup).collect(Collectors.toList());
 	}
 
 	@RunAsSystem
@@ -229,23 +244,15 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	public boolean isOntologyTermKeyConcept(BiobankUniverse biobankUniverse, OntologyTerm ontologyTerm)
 	{
 		List<SemanticType> keyConcepts = biobankUniverse.getKeyConcepts();
-		boolean anyMatch = biobankUniverseRepository.getSemanticTypes(ontologyTerm).stream()
-				.anyMatch(keyConcepts::contains);
+		boolean anyMatch = ontologyService.getSemanticTypes(ontologyTerm).stream().anyMatch(keyConcepts::contains);
 		return anyMatch;
-	}
-
-	@RunAsSystem
-	@Override
-	public List<SemanticType> getAllSemanticType()
-	{
-		return biobankUniverseRepository.getAllSemanticType();
 	}
 
 	@RunAsSystem
 	@Override
 	public void addKeyConcepts(BiobankUniverse universe, List<String> semanticTypeGroups)
 	{
-		List<SemanticType> semanticTypes = biobankUniverseRepository.getSemanticTypesByGroups(semanticTypeGroups);
+		List<SemanticType> semanticTypes = ontologyService.getSemanticTypesByGroups(semanticTypeGroups);
 		biobankUniverseRepository.addKeyConcepts(universe, semanticTypes);
 	}
 
@@ -307,16 +314,10 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		String matchedWords = tagGroup.getMatchedWords();
 		float score = tagGroup.getScore();
 
-		Map<OntologyTerm, List<SemanticType>> ontologyTermSemanticTypesMap = ontologyService
-				.getAtomicOntologyTerms(tagGroup.getOntologyTerm()).stream()
-				.collect(Collectors.toMap(ot -> ot, ot -> biobankUniverseRepository.getSemanticTypes(ot))).entrySet()
-				.stream().filter(entry -> entry.getValue().stream().allMatch(SemanticType::isGlobalKeyConcept))
-				.collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+		List<OntologyTerm> ontologyTerms = ontologyService.getAtomicOntologyTerms(tagGroup.getOntologyTerm());
 
-		List<OntologyTerm> ontologyTerms = ontologyTermSemanticTypesMap.entrySet().stream().map(Entry::getKey)
-				.collect(toList());
-		List<SemanticType> semanticTypes = ontologyTermSemanticTypesMap.entrySet().stream()
-				.flatMap(entry -> entry.getValue().stream()).collect(toList());
+		List<SemanticType> semanticTypes = ontologyTerms.stream()
+				.flatMap(ot -> ontologyService.getSemanticTypes(ot).stream()).collect(toList());
 
 		return IdentifiableTagGroup.create(identifier, ontologyTerms, semanticTypes, matchedWords, score);
 	}
@@ -362,5 +363,4 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		// matched with key concepts
 		return isHighQuality || applyKeyConceptFilter(biobankUniverse, target, attributeMatchExplanation);
 	}
-
 }

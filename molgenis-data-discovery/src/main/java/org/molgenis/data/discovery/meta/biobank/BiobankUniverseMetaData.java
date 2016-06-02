@@ -6,8 +6,8 @@ import static org.molgenis.data.EntityMetaData.AttributeRole.ROLE_ID;
 import static org.molgenis.data.EntityMetaData.AttributeRole.ROLE_LABEL;
 
 import org.molgenis.auth.MolgenisUserMetaData;
-import org.molgenis.data.discovery.meta.semantictype.SemanticTypeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
+import org.molgenis.ontology.core.meta.SemanticTypeMetaData;
 import org.springframework.stereotype.Component;
 
 @Component

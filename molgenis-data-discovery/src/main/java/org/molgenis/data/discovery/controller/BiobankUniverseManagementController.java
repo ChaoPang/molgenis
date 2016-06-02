@@ -25,6 +25,7 @@ import org.molgenis.data.Entity;
 import org.molgenis.data.IdGenerator;
 import org.molgenis.data.csv.CsvRepository;
 import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData;
+import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.i18n.LanguageService;
 import org.molgenis.data.support.MapEntity;
@@ -89,6 +90,36 @@ public class BiobankUniverseManagementController extends MolgenisPluginControlle
 			{
 				model.addAttribute("message", "The sample name already exists!");
 			}
+		}
+
+		model.addAttribute("biobankSampleCollections", biobankUniverseService.getAllBiobankSampleCollections());
+
+		return "redirect:" + getBiobankUniverseMenuUrl();
+	}
+
+	@RequestMapping(value = "/removeTagGroups", method = RequestMethod.POST)
+	public String tagBiobankSampleAttributes(@RequestParam("sampleName") String sampleName, Model model)
+	{
+		BiobankSampleCollection biobankSampleCollection = biobankUniverseService.getBiobankSampleCollection(sampleName);
+
+		if (biobankSampleCollection != null)
+		{
+			biobankUniverseService.removeAllTagGroups(biobankSampleCollection);
+		}
+
+		model.addAttribute("biobankSampleCollections", biobankUniverseService.getAllBiobankSampleCollections());
+
+		return "redirect:" + getBiobankUniverseMenuUrl();
+	}
+
+	@RequestMapping(value = "/removeBiobankSampleCollection", method = RequestMethod.POST)
+	public String removeBiobankSampleCollection(@RequestParam("sampleName") String sampleName, Model model)
+	{
+		BiobankSampleCollection biobankSampleCollection = biobankUniverseService.getBiobankSampleCollection(sampleName);
+
+		if (biobankSampleCollection != null)
+		{
+			biobankUniverseService.removeBiobankSampleCollection(biobankSampleCollection);
 		}
 
 		model.addAttribute("biobankSampleCollections", biobankUniverseService.getAllBiobankSampleCollections());

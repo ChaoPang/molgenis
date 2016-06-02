@@ -1,5 +1,6 @@
 package org.molgenis.data.discovery.controller;
 
+import static com.google.common.collect.Sets.newLinkedHashSet;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.of;
@@ -21,9 +22,10 @@ import org.molgenis.data.discovery.job.BiobankUniverseJobFactory;
 import org.molgenis.data.discovery.job.BiobankUniverseJobImpl;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
-import org.molgenis.data.discovery.model.semantictype.SemanticType;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.i18n.LanguageService;
+import org.molgenis.ontology.core.model.SemanticType;
+import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.security.core.runas.RunAsSystemProxy;
 import org.molgenis.security.core.utils.SecurityUtils;
 import org.molgenis.security.user.UserAccountService;
@@ -37,8 +39,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import com.google.common.collect.Sets;
-
 import static java.util.Objects.requireNonNull;
 
 @Controller
@@ -49,6 +49,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 	private final BiobankUniverseJobFactory biobankUniverseJobFactory;
 	private final ExecutorService taskExecutor;
 	private final BiobankUniverseService biobankUniverseService;
+	private final OntologyService ontologyService;
 	private final UserAccountService userAccountService;
 	private final MenuReaderService menuReaderService;
 
@@ -59,12 +60,13 @@ public class BiobankUniverseController extends MolgenisPluginController
 
 	@Autowired
 	public BiobankUniverseController(BiobankUniverseJobFactory biobankUniverseJobFactory,
-			BiobankUniverseService biobankUniverseService, ExecutorService taskExecutor,
-			UserAccountService userAccountService, DataService dataService, MenuReaderService menuReaderService,
-			LanguageService languageService)
+			BiobankUniverseService biobankUniverseService, OntologyService ontologyService,
+			ExecutorService taskExecutor, UserAccountService userAccountService, DataService dataService,
+			MenuReaderService menuReaderService, LanguageService languageService)
 	{
 		super(URI);
 		this.biobankUniverseService = requireNonNull(biobankUniverseService);
+		this.ontologyService = requireNonNull(ontologyService);
 		this.biobankUniverseJobFactory = requireNonNull(biobankUniverseJobFactory);
 		this.taskExecutor = requireNonNull(taskExecutor);
 		this.dataService = requireNonNull(dataService);
@@ -181,8 +183,8 @@ public class BiobankUniverseController extends MolgenisPluginController
 
 	private Set<String> getSemanticTypeGroups()
 	{
-		return Sets.newLinkedHashSet(
-				biobankUniverseService.getAllSemanticType().stream().map(SemanticType::getGroup).collect(toList()));
+		return newLinkedHashSet(
+				ontologyService.getAllSemanticTypes().stream().map(SemanticType::getGroup).collect(toList()));
 	}
 
 	private List<BiobankUniverse> getUserBiobankUniverses()

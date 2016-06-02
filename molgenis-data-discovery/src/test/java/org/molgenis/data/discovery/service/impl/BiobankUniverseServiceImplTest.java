@@ -42,6 +42,9 @@ public class BiobankUniverseServiceImplTest extends AbstractTestNGSpringContextT
 	@Autowired
 	BiobankUniverseService biobankUniverseService;
 
+	@Autowired
+	OntologyService ontologyService;
+
 	MolgenisUser molgenisUser;
 
 	BiobankUniverse biobankUniverse;
@@ -60,7 +63,7 @@ public class BiobankUniverseServiceImplTest extends AbstractTestNGSpringContextT
 		sampleCollection2 = BiobankSampleCollection.create("sampleCollection2");
 
 		// Set up the generic method invocations
-		when(biobankUniverseRepository.getSemanticTypesByGroups(any())).thenReturn(emptyList());
+		when(ontologyService.getSemanticTypesByGroups(any())).thenReturn(emptyList());
 		when(biobankUniverseRepository.getUniverse(biobankUniverse.getIdentifier())).thenReturn(biobankUniverse);
 	}
 

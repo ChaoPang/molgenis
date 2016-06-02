@@ -2,9 +2,9 @@ package org.molgenis.data.discovery.model.matching;
 
 import java.util.List;
 
-import org.molgenis.data.discovery.model.semantictype.SemanticType;
 import org.molgenis.gson.AutoGson;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.model.SemanticType;
 
 import com.google.auto.value.AutoValue;
 

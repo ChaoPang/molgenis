@@ -3,8 +3,8 @@ package org.molgenis.data.discovery.model.biobank;
 import java.util.List;
 
 import org.molgenis.auth.MolgenisUser;
-import org.molgenis.data.discovery.model.semantictype.SemanticType;
 import org.molgenis.gson.AutoGson;
+import org.molgenis.ontology.core.model.SemanticType;
 
 import com.google.auto.value.AutoValue;
 

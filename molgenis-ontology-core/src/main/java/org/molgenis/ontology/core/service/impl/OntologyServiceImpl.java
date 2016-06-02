@@ -17,6 +17,7 @@ import org.molgenis.ontology.core.model.ConditionalChildrenRetrieval;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
+import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.repository.OntologyRepository;
 import org.molgenis.ontology.core.repository.OntologyTermRepository;
 import org.molgenis.ontology.core.service.OntologyService;
@@ -176,5 +177,23 @@ public class OntologyServiceImpl implements OntologyService
 		}
 
 		return ontologyTerms;
+	}
+
+	@Override
+	public List<SemanticType> getAllSemanticTypes()
+	{
+		return ontologyTermRepository.getAllSemanticType();
+	}
+
+	@Override
+	public List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm)
+	{
+		return ontologyTermRepository.getSemanticTypes(ontologyTerm);
+	}
+
+	@Override
+	public List<SemanticType> getSemanticTypesByGroups(List<String> semanticTypeGroups)
+	{
+		return ontologyTermRepository.getSemanticTypesByGroups(semanticTypeGroups);
 	}
 }

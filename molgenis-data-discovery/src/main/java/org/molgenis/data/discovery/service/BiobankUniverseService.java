@@ -9,10 +9,12 @@ import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
+import org.molgenis.data.discovery.model.matching.AttributeMappingDecision;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
-import org.molgenis.data.discovery.model.semantictype.SemanticType;
+import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.model.SemanticType;
 
 public interface BiobankUniverseService
 {
@@ -92,6 +94,15 @@ public interface BiobankUniverseService
 			List<String> biobankSampleCollectionNames);
 
 	/**
+	 * Cascading delete the given {@link BiobankSampleCollection} and its related entities including
+	 * {@link BiobankSampleAttribute}s, {@link AttributeMappingCandidate}s, {@link AttributeMappingDecision}s and
+	 * {@link AttributeMatchExplanation}s
+	 * 
+	 * @param biobankSampleCollection
+	 */
+	public abstract void removeBiobankSampleCollection(BiobankSampleCollection biobankSampleCollection);
+
+	/**
 	 * Generate a list of {@link AttributeMappingCandidate}s for all {@link BiobankSampleCollection}s based on the given
 	 * parameter {@link SemanticSearchParam}
 	 * 
@@ -113,6 +124,14 @@ public interface BiobankUniverseService
 	public abstract boolean isBiobankSampleCollectionTagged(BiobankSampleCollection biobankSampleCollection);
 
 	/**
+	 * Delete all {@link IdentifiableTagGroup}s associated with {@link BiobankSampleAttribute}s in the given
+	 * {@link BiobankSampleCollection}
+	 * 
+	 * @param biobankSampleCollection
+	 */
+	public abstract void removeAllTagGroups(BiobankSampleCollection biobankSampleCollection);
+
+	/**
 	 * Generate a list of {@link IdentifiableTagGroup}s for the given {@link BiobankSampleAttribute}
 	 * 
 	 * @param biobankSampleAttribute
@@ -128,13 +147,6 @@ public interface BiobankUniverseService
 	 * @return
 	 */
 	public abstract boolean isOntologyTermKeyConcept(BiobankUniverse biobankUniverse, OntologyTerm ontologyTerm);
-
-	/**
-	 * Get all {@link SemanticType}s from the database
-	 * 
-	 * @return a list of {@link SemanticType}s
-	 */
-	public abstract List<SemanticType> getAllSemanticType();
 
 	/**
 	 * Add a list of {@link SemanticType} groups to the {@link BiobankUniverse} to add the associated semantic types as

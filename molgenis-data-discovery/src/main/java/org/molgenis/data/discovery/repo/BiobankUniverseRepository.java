@@ -9,10 +9,9 @@ import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.matching.AttributeMappingDecision;
-import org.molgenis.data.discovery.model.semantictype.SemanticType;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
-import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.model.SemanticType;
 
 public interface BiobankUniverseRepository
 {
@@ -137,6 +136,13 @@ public interface BiobankUniverseRepository
 	public abstract void addTagGroupsForAttributes(List<BiobankSampleAttribute> biobankSampleAttributes);
 
 	/**
+	 * Delete all {@link TagGroup}s associated with {@link BiobankSampleAttribute}s
+	 * 
+	 * @param biobankSampleAttributes
+	 */
+	public abstract void removeTagGroupsForAttributes(List<BiobankSampleAttribute> biobankSampleAttributes);
+
+	/**
 	 * Add a list of {@link AttributeMappingCandidate}s to the database
 	 * 
 	 * @param attributeMappingCandidates
@@ -169,27 +175,4 @@ public interface BiobankUniverseRepository
 	 * @param attributeMappingCandidates
 	 */
 	public abstract void removeAttributeMappingCandidates(List<AttributeMappingCandidate> attributeMappingCandidates);
-
-	/**
-	 * Get all {@link SemanticType}s
-	 *
-	 * @return a list of {@link SemanticType}s
-	 */
-	public abstract List<SemanticType> getAllSemanticType();
-
-	/**
-	 * Get all {@link SemanticType}s for the given {@link OntologyTerm}
-	 *
-	 * @param ontologyTerm
-	 * @return a list of {@link SemanticType}s
-	 */
-	public abstract List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm);
-
-	/**
-	 * Get all {@link SemanticType}s by a list of {@link SemanticType} groups
-	 *
-	 * @param semanticTypeGroups
-	 * @return a list of {@link SemanticType}s
-	 */
-	public abstract List<SemanticType> getSemanticTypesByGroups(List<String> semanticTypeGroups);
 }

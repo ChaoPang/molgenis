@@ -6,6 +6,7 @@ import java.util.Set;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
+import org.molgenis.ontology.core.model.SemanticType;
 
 public interface OntologyService
 {
@@ -136,4 +137,27 @@ public interface OntologyService
 	List<String> getAllOntologiesIds();
 
 	List<OntologyTerm> getParents(OntologyTerm ontologyTerm, OntologyTermChildrenPredicate continuePredicate);
+
+	/**
+	 * Get all {@link SemanticType}s
+	 * 
+	 * @return a list of {@link SemanticType}s
+	 */
+	List<SemanticType> getAllSemanticTypes();
+
+	/**
+	 * Get a list of {@link SemanticType}s for the given {@link OntologyTerm}
+	 * 
+	 * @param ontologyTerm
+	 * @return a list of {@link SemanticType}s
+	 */
+	List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm);
+
+	/**
+	 * Get all {@link SemanticType}s by a list of {@link SemanticType} groups
+	 *
+	 * @param semanticTypeGroups
+	 * @return a list of {@link SemanticType}s
+	 */
+	List<SemanticType> getSemanticTypesByGroups(List<String> semanticTypeGroups);
 }
