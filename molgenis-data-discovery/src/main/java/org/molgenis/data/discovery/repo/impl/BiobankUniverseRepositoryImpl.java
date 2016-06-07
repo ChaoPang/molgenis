@@ -2,6 +2,7 @@ package org.molgenis.data.discovery.repo.impl;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.molgenis.data.QueryRule.Operator.AND;
@@ -58,10 +59,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.google.common.collect.Lists;
 
-import static java.util.Objects.requireNonNull;
-
 public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 {
+	// private static final Logger LOG = LoggerFactory.getLogger(BiobankUniverseRepositoryImpl.class);
+
 	private final DataService dataService;
 	private final MolgenisUserService molgenisUserService;
 	private final UserAccountService userAcountService;
@@ -215,8 +216,8 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	public List<BiobankSampleAttribute> getBiobankSampleAttributes(BiobankSampleCollection biobankSampleCollection)
 	{
 		Fetch fetch = new Fetch();
-		fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS);
 		fetch.field(BiobankSampleAttributeMetaData.COLLECTION);
+		fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS);
 
 		List<BiobankSampleAttribute> biobankSampleAttributes = dataService
 				.findAll(BiobankSampleAttributeMetaData.ENTITY_NAME,
@@ -224,6 +225,17 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 				.map(this::entityToBiobankSampleAttribute).collect(toList());
 
 		return biobankSampleAttributes;
+	}
+
+	@Override
+	public List<String> getBiobankSampleAttributeIdentifiers(BiobankSampleCollection biobankSampleCollection)
+	{
+		List<String> biobankSampleAttributeIdentifiers = dataService
+				.findAll(BiobankSampleAttributeMetaData.ENTITY_NAME,
+						EQ(BiobankSampleAttributeMetaData.COLLECTION, biobankSampleCollection.getName()))
+				.map(entity -> entity.getIdValue().toString()).collect(Collectors.toList());
+
+		return biobankSampleAttributeIdentifiers;
 	}
 
 	@Transactional
@@ -253,14 +265,14 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	}
 
 	@Override
-	public List<BiobankSampleAttribute> queryBiobankSampleAttribute(Query query)
+	public Stream<BiobankSampleAttribute> queryBiobankSampleAttribute(Query query)
 	{
 		Fetch fetch = new Fetch();
 		fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS);
 		fetch.field(BiobankSampleAttributeMetaData.COLLECTION);
 
 		return dataService.findAll(BiobankSampleAttributeMetaData.ENTITY_NAME, query.fetch(fetch))
-				.map(this::entityToBiobankSampleAttribute).collect(Collectors.toList());
+				.map(this::entityToBiobankSampleAttribute);
 	}
 
 	@Transactional
@@ -276,7 +288,6 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		dataService.update(BiobankSampleAttributeMetaData.ENTITY_NAME, attributeEntityStream);
 	}
 
-	@Transactional
 	@Override
 	public void removeTagGroupsForAttributes(List<BiobankSampleAttribute> biobankSampleAttributes)
 	{
@@ -443,6 +454,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		Iterable<Entity> entities = entity.getEntities(BiobankSampleAttributeMetaData.TAG_GROUPS);
 		List<IdentifiableTagGroup> tagGroups = StreamSupport.stream(entities.spliterator(), false)
 				.map(this::entityToIdentifiableTagGroup).collect(Collectors.toList());
+
 		return BiobankSampleAttribute.create(identifier, name, label, description, biobankSampleCollection, tagGroups);
 	}
 

@@ -1,11 +1,13 @@
 package org.molgenis.data.discovery.job;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.molgenis.ontology.core.model.OntologyTerm.and;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import org.molgenis.data.discovery.controller.BiobankUniverseController;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
@@ -20,13 +22,12 @@ import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParam;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.security.core.runas.RunAsSystemProxy;
 import org.molgenis.ui.menu.MenuReaderService;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-
-import static java.util.Objects.requireNonNull;
 
 public class BiobankUniverseJobProcessor
 {
@@ -62,7 +63,7 @@ public class BiobankUniverseJobProcessor
 			existingMembers.removeAll(newMembers);
 
 			int totalNumberOfAttributes = newMembers.stream()
-					.map(member -> biobankUniverseRepository.getBiobankSampleAttributes(member).size())
+					.map(member -> biobankUniverseRepository.getBiobankSampleAttributeIdentifiers(member).size())
 					.mapToInt(Integer::intValue).sum();
 
 			// The process includes tagging and matching, therefore the total number is multiplied by 2
@@ -75,9 +76,9 @@ public class BiobankUniverseJobProcessor
 				{
 					List<BiobankSampleAttribute> biobankSampleAttributesToUpdate = new ArrayList<>();
 
-					for (BiobankSampleAttribute biobankSampleAttribute : biobankUniverseRepository
-							.getBiobankSampleAttributes(biobankSampleCollection))
-					{
+					biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection)
+							.forEach(biobankSampleAttribute -> {
+
 						List<IdentifiableTagGroup> identifiableTagGroups = biobankUniverseService
 								.findTagGroupsForAttributes(biobankSampleAttribute);
 
@@ -89,14 +90,14 @@ public class BiobankUniverseJobProcessor
 						{
 							progress.progress(counter.get(), "Processed " + counter);
 						}
-					}
+					});
 
 					biobankUniverseRepository.addTagGroupsForAttributes(biobankSampleAttributesToUpdate);
 				}
 				else
 				{
-					counter.set(counter.get()
-							+ biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection).size());
+					counter.set(counter.get() + (int) biobankUniverseRepository
+							.getBiobankSampleAttributes(biobankSampleCollection).size());
 				}
 			}
 
@@ -107,14 +108,17 @@ public class BiobankUniverseJobProcessor
 				{
 					List<AttributeMappingCandidate> allCandidates = new ArrayList<>();
 
-					for (BiobankSampleAttribute biobankSampleAttribute : biobankUniverseRepository
-							.getBiobankSampleAttributes(biobankSampleCollection))
-					{
-						List<TagGroup> tagGroups = biobankSampleAttribute.getTagGroups().stream()
-								.map(tag -> TagGroup.create(
-										and(tag.getOntologyTerms().stream().toArray(OntologyTerm[]::new)),
-										tag.getMatchedWords(), (float) tag.getScore()))
-								.collect(toList());
+					biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection)
+							.forEach(biobankSampleAttribute -> {
+
+						List<SemanticType> keyConceptFilter = biobankUniverse.getKeyConcepts();
+
+						Stream<IdentifiableTagGroup> filter = biobankSampleAttribute.getTagGroups().stream().filter(
+								tagGroup -> !tagGroup.getSemanticTypes().stream().anyMatch(keyConceptFilter::contains));
+
+						List<TagGroup> tagGroups = filter.map(tag -> TagGroup.create(
+								and(tag.getOntologyTerms().stream().toArray(OntologyTerm[]::new)),
+								tag.getMatchedWords(), (float) tag.getScore())).collect(toList());
 
 						// SemanticSearch finding all the relevant attributes from existing entities
 						SemanticSearchParam semanticSearchParam = SemanticSearchParam.create(
@@ -129,7 +133,7 @@ public class BiobankUniverseJobProcessor
 						{
 							progress.progress(counter.get(), "Processed " + counter);
 						}
-					}
+					});
 
 					biobankUniverseRepository.addAttributeMappingCandidates(allCandidates);
 				}

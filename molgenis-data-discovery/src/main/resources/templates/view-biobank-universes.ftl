@@ -95,7 +95,7 @@
 								        	<div class="modal-body">
 												<div class="form-group">
 								            		<label>Add new key concepts to the universe: ${universe.name?html}</label>
-							  						<select name="semanticTypeGroups" class="form-control" multiple="multiple">
+							  						<select name="semanticTypes" class="form-control" multiple="multiple">
 								    					<#assign existingKeyConceptGroups = [] />
 														<#list universe.keyConcepts as keyConcept>
 										 					<#assign existingKeyConceptGroups = existingKeyConceptGroups + [keyConcept.group] /><#if keyConcept_has_next>, </#if> 
@@ -162,7 +162,7 @@
 					<hr></hr>	
 					<div class="form-group">
 						<label>Add semantic types as the key concepts</label>
-						<select name="semanticTypeGroups" class="form-control" multiple="multiple">
+						<select name="semanticTypes" class="form-control" multiple="multiple">
 	    					<#list semanticTypeGroups as semanticTypeGroup>
 	    						<option value="${semanticTypeGroup?html}">${semanticTypeGroup?html}</option>
 	    					</#list>

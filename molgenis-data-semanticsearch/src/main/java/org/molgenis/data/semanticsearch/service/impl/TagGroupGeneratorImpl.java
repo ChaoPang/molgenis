@@ -89,8 +89,8 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 
 		// TODO: after adding the semantic types to the ontology term table, we need to re-write the query in which we
 		// add the semantic types as the filter
-		candidateTagGroups = candidateTagGroups.stream()
-				.filter(tag -> tag.getOntologyTerm().getSemanticTypes().stream().allMatch(keyConcepts::contains))
+		candidateTagGroups = candidateTagGroups.stream().filter(
+				tag -> ontologyService.getSemanticTypes(tag.getOntologyTerm()).stream().allMatch(keyConcepts::contains))
 				.collect(toList());
 
 		if (LOG.isDebugEnabled())

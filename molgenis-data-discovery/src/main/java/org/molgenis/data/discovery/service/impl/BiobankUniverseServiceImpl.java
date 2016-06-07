@@ -2,6 +2,7 @@ package org.molgenis.data.discovery.service.impl;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
@@ -34,7 +35,6 @@ import org.molgenis.data.semanticsearch.explain.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
 import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
-import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParam;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.support.QueryImpl;
@@ -73,11 +73,13 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 	@RunAsSystem
 	@Override
-	public BiobankUniverse addBiobankUniverse(String universeName, List<String> semanticTypeGroups, MolgenisUser owner)
+	public BiobankUniverse addBiobankUniverse(String universeName, List<String> semanticTypeNames, MolgenisUser owner)
 	{
-		List<SemanticType> semanticTypes = ontologyService.getSemanticTypesByGroups(semanticTypeGroups);
+		List<SemanticType> semanticTypes = ontologyService.getSemanticTypesByNames(semanticTypeNames);
+
 		BiobankUniverse biobankUniverse = BiobankUniverse.create(idGenerator.generateId(), universeName, emptyList(),
 				owner, semanticTypes);
+
 		biobankUniverseRepository.addBiobankUniverse(biobankUniverse);
 
 		return biobankUniverseRepository.getUniverse(biobankUniverse.getIdentifier());
@@ -143,8 +145,8 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	@Override
 	public boolean isBiobankSampleCollectionTagged(BiobankSampleCollection biobankSampleCollection)
 	{
-		return !biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection).stream()
-				.map(BiobankSampleAttribute::getTagGroups).allMatch(List::isEmpty);
+		return biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection).stream().limit(10)
+				.map(BiobankSampleAttribute::getTagGroups).anyMatch(list -> !list.isEmpty());
 	}
 
 	@RunAsSystem
@@ -183,8 +185,8 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		{
 			for (BiobankSampleCollection biobankSampleCollection : biobankSampleCollections)
 			{
-				List<String> identifiers = biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection)
-						.stream().map(BiobankSampleAttribute::getIdentifier).collect(Collectors.toList());
+				List<String> identifiers = biobankUniverseRepository
+						.getBiobankSampleAttributeIdentifiers(biobankSampleCollection);
 
 				List<QueryRule> finalQueryRules = Lists.newArrayList(new QueryRule(IDENTIFIER, IN, identifiers));
 
@@ -193,30 +195,32 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 					finalQueryRules.addAll(asList(new QueryRule(AND), expandedQuery));
 				}
 
-				List<BiobankSampleAttribute> biobankSampleAttributes = biobankUniverseRepository
-						.queryBiobankSampleAttribute(new QueryImpl(finalQueryRules).pageSize(MAX_NUMBER_MATCHES));
+				biobankUniverseRepository
+						.queryBiobankSampleAttribute(new QueryImpl(finalQueryRules).pageSize(MAX_NUMBER_MATCHES))
+						.limit(10).forEach(biobankSampleAttribute -> {
 
-				biobankSampleAttributes.stream().limit(10).forEach(biobankSampleAttribute -> {
+							AttributeMatchExplanation attributeMatchExplanation = explainMappingService
+									.explainMapping(semanticSearchParam, biobankSampleAttribute.getLabel());
 
-					AttributeMatchExplanation attributeMatchExplanation = explainAttributeMatchLazy(biobankUniverse,
-							target, biobankSampleAttribute, semanticSearchParam);
+							if (isMatchHighQuality(biobankUniverse, target, attributeMatchExplanation,
+									semanticSearchParam))
+							{
+								OntologyTermHit ontologyTermHit = attributeMatchExplanation.getOntologyTermHit();
 
-					if (attributeMatchExplanation != null)
-					{
-						OntologyTermHit ontologyTermHit = attributeMatchExplanation.getOntologyTermHit();
+								List<OntologyTerm> ontologyTerms = ontologyTermHit != null
+										? ontologyService.getAtomicOntologyTerms(ontologyTermHit.getOntologyTerm())
+										: emptyList();
 
-						List<OntologyTerm> ontologyTerms = ontologyTermHit != null
-								? ontologyService.getAtomicOntologyTerms(ontologyTermHit.getOntologyTerm())
-								: emptyList();
+								MatchingExplanation mappingExplanation = MatchingExplanation.create(
+										idGenerator.generateId(), ontologyTerms,
+										attributeMatchExplanation.getQueryString(),
+										attributeMatchExplanation.getMatchedWords(),
+										attributeMatchExplanation.getScore());
 
-						MatchingExplanation mappingExplanation = MatchingExplanation.create(idGenerator.generateId(),
-								ontologyTerms, attributeMatchExplanation.getQueryString(),
-								attributeMatchExplanation.getMatchedWords(), attributeMatchExplanation.getScore());
-
-						allCandidates.add(AttributeMappingCandidate.create(idGenerator.generateId(), biobankUniverse,
-								target, biobankSampleAttribute, mappingExplanation));
-					}
-				});
+								allCandidates.add(AttributeMappingCandidate.create(idGenerator.generateId(),
+										biobankUniverse, target, biobankSampleAttribute, mappingExplanation));
+							}
+						});
 			}
 		}
 
@@ -243,7 +247,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	public boolean isOntologyTermKeyConcept(BiobankUniverse biobankUniverse, OntologyTerm ontologyTerm)
 	{
 		List<SemanticType> keyConcepts = biobankUniverse.getKeyConcepts();
-		boolean anyMatch = ontologyTerm.getSemanticTypes().stream().anyMatch(keyConcepts::contains);
+		boolean anyMatch = ontologyService.getSemanticTypes(ontologyTerm).stream().anyMatch(keyConcepts::contains);
 		return anyMatch;
 	}
 
@@ -268,11 +272,10 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	{
 		// If the match is not generated based on the ontology term information, we cannot filter it using key concepts
 		// and hence always return false.
-		if (Objects.nonNull(attributeMatchExplanation.getOntologyTermHit()))
+		if (nonNull(attributeMatchExplanation.getOntologyTermHit()))
 		{
 			// we need to first of all check if any of ontology terms used to tag the target are key concepts. If there
 			// is no key concept involved, it's useless to check if the expanded ontology terms are key concepts
-
 			boolean keyConceptMatchEnabled = target.getTagGroups().stream()
 					.flatMap(tag -> tag.getOntologyTerms().stream())
 					.anyMatch(ot -> isOntologyTermKeyConcept(biobankUniverse, ot));
@@ -292,7 +295,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 			}
 		}
 
-		return false;
+		return nonNull(attributeMatchExplanation.getMatchedWords());
 	}
 
 	private BiobankSampleAttribute importedAttributEntityToBiobankSampleAttribute(BiobankSampleCollection collection,
@@ -315,43 +318,43 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 		List<OntologyTerm> ontologyTerms = ontologyService.getAtomicOntologyTerms(tagGroup.getOntologyTerm());
 
-		List<SemanticType> semanticTypes = ontologyTerms.stream().flatMap(ot -> ot.getSemanticTypes().stream())
-				.collect(toList());
+		List<SemanticType> semanticTypes = ontologyTerms.stream()
+				.flatMap(ot -> ontologyService.getSemanticTypes(ot).stream()).collect(toList());
 
 		return IdentifiableTagGroup.create(identifier, ontologyTerms, semanticTypes, matchedWords, score);
 	}
 
-	private AttributeMatchExplanation explainAttributeMatchLazy(BiobankUniverse biobankUniverse,
-			BiobankSampleAttribute target, BiobankSampleAttribute biobankSampleAttribute,
-			SemanticSearchParam semanticSearchParam)
-	{
-		// Explain the match with lexical queries
-		SemanticSearchParam explainSemanticSearchParam = SemanticSearchParam.create(
-				semanticSearchParam.getLexicalQueries(), semanticSearchParam.getTagGroups(),
-				QueryExpansionParam.create(false, false));
-		AttributeMatchExplanation attributeMatchExplanation = explainMappingService
-				.explainMapping(explainSemanticSearchParam, biobankSampleAttribute.getLabel());
-		if (isMatchHighQuality(biobankUniverse, target, attributeMatchExplanation, explainSemanticSearchParam))
-			return attributeMatchExplanation;
-
-		// Explain the match with lexical queries and ontology term synonyms
-		explainSemanticSearchParam = SemanticSearchParam.create(semanticSearchParam.getLexicalQueries(),
-				semanticSearchParam.getTagGroups(), QueryExpansionParam.create(true, false));
-		attributeMatchExplanation = explainMappingService.explainMapping(explainSemanticSearchParam,
-				biobankSampleAttribute.getLabel());
-		if (isMatchHighQuality(biobankUniverse, target, attributeMatchExplanation, explainSemanticSearchParam))
-			return attributeMatchExplanation;
-
-		// Explain the match with lexical queries, ontology term synonyms, ontology term children and parents
-		explainSemanticSearchParam = SemanticSearchParam.create(semanticSearchParam.getLexicalQueries(),
-				semanticSearchParam.getTagGroups(), QueryExpansionParam.create(true, true));
-		attributeMatchExplanation = explainMappingService.explainMapping(explainSemanticSearchParam,
-				biobankSampleAttribute.getLabel());
-		if (isMatchHighQuality(biobankUniverse, target, attributeMatchExplanation, explainSemanticSearchParam))
-			return attributeMatchExplanation;
-
-		return null;
-	}
+	// private AttributeMatchExplanation explainAttributeMatchLazy(BiobankUniverse biobankUniverse,
+	// BiobankSampleAttribute target, BiobankSampleAttribute biobankSampleAttribute,
+	// SemanticSearchParam semanticSearchParam)
+	// {
+	// // Explain the match with lexical queries
+	// SemanticSearchParam explainSemanticSearchParam = SemanticSearchParam.create(
+	// semanticSearchParam.getLexicalQueries(), semanticSearchParam.getTagGroups(),
+	// QueryExpansionParam.create(false, false));
+	// AttributeMatchExplanation attributeMatchExplanation = explainMappingService
+	// .explainMapping(explainSemanticSearchParam, biobankSampleAttribute.getLabel());
+	// if (isMatchHighQuality(biobankUniverse, target, attributeMatchExplanation, explainSemanticSearchParam))
+	// return attributeMatchExplanation;
+	//
+	// // Explain the match with lexical queries and ontology term synonyms
+	// explainSemanticSearchParam = SemanticSearchParam.create(semanticSearchParam.getLexicalQueries(),
+	// semanticSearchParam.getTagGroups(), QueryExpansionParam.create(true, false));
+	// attributeMatchExplanation = explainMappingService.explainMapping(explainSemanticSearchParam,
+	// biobankSampleAttribute.getLabel());
+	// if (isMatchHighQuality(biobankUniverse, target, attributeMatchExplanation, explainSemanticSearchParam))
+	// return attributeMatchExplanation;
+	//
+	// // Explain the match with lexical queries, ontology term synonyms, ontology term children and parents
+	// explainSemanticSearchParam = SemanticSearchParam.create(semanticSearchParam.getLexicalQueries(),
+	// semanticSearchParam.getTagGroups(), QueryExpansionParam.create(true, true));
+	// attributeMatchExplanation = explainMappingService.explainMapping(explainSemanticSearchParam,
+	// biobankSampleAttribute.getLabel());
+	// if (isMatchHighQuality(biobankUniverse, target, attributeMatchExplanation, explainSemanticSearchParam))
+	// return attributeMatchExplanation;
+	//
+	// return null;
+	// }
 
 	private boolean isMatchHighQuality(BiobankUniverse biobankUniverse, BiobankSampleAttribute target,
 			AttributeMatchExplanation attributeMatchExplanation, SemanticSearchParam semanticSearchParam)

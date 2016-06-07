@@ -14,6 +14,8 @@ import static org.molgenis.data.QueryRule.Operator.AND;
 import static org.molgenis.data.QueryRule.Operator.FUZZY_MATCH;
 import static org.molgenis.data.QueryRule.Operator.IN;
 import static org.molgenis.data.QueryRule.Operator.OR;
+import static org.molgenis.data.support.QueryImpl.EQ;
+import static org.molgenis.data.support.QueryImpl.IN;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ENTITY_NAME;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ID;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY;
@@ -37,6 +39,7 @@ import java.util.stream.StreamSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
+import org.molgenis.data.Fetch;
 import org.molgenis.data.Query;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
@@ -45,6 +48,7 @@ import org.molgenis.ontology.core.meta.OntologyMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermDynamicAnnotationMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermNodePathMetaData;
+import org.molgenis.ontology.core.meta.OntologyTermSemanticTypeMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermSynonymMetaData;
 import org.molgenis.ontology.core.meta.SemanticTypeMetaData;
 import org.molgenis.ontology.core.model.Ontology;
@@ -494,12 +498,12 @@ public class OntologyTermRepository
 			{
 				List<String> nodePathEntityIdentifiers = nodePaths.stream()
 						.map(nodePath -> dataService.findOne(OntologyTermNodePathMetaData.ENTITY_NAME,
-								QueryImpl.EQ(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH, nodePath)))
-						.map(entity -> entity.getIdValue().toString()).collect(Collectors.toList());
+								EQ(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH, nodePath)))
+						.map(entity -> entity.getIdValue().toString()).collect(toList());
 
 				List<OntologyTerm> ontologyTerms = dataService
 						.findAll(OntologyTermMetaData.ENTITY_NAME,
-								QueryImpl.IN(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, nodePathEntityIdentifiers))
+								IN(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, nodePathEntityIdentifiers))
 						.map(OntologyTermRepository::toOntologyTerm).filter(Objects::nonNull).collect(toList());
 
 				nodePaths = ontologyTerms.stream().flatMap(ot -> ot.getNodePaths().stream())
@@ -522,6 +526,18 @@ public class OntologyTermRepository
 	{
 		return dataService.findAll(SemanticTypeMetaData.ENTITY_NAME).map(OntologyTermRepository::entityToSemanticType)
 				.collect(toList());
+	}
+
+	public List<SemanticType> getSemanticTypesByNames(List<String> semanticTypeNames)
+	{
+		if (semanticTypeNames.size() > 0)
+		{
+			return dataService
+					.findAll(SemanticTypeMetaData.ENTITY_NAME,
+							QueryImpl.IN(SemanticTypeMetaData.SEMANTIC_TYPE_NAME, semanticTypeNames))
+					.map(OntologyTermRepository::entityToSemanticType).collect(toList());
+		}
+		return Collections.emptyList();
 	}
 
 	/**
@@ -551,21 +567,23 @@ public class OntologyTermRepository
 
 	public List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm)
 	{
-		// Fetch fetch = new Fetch();
-		// fetch.field(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE);
-		//
-		// String iri = ontologyTerm.getIRI();
-		// Entity entity = dataService.findOne(OntologyTermSemanticTypeMetaData.ENTITY_NAME,
-		// EQ(OntologyTermSemanticTypeMetaData.ONTOLOGY_TERM, iri));
-		//
-		// if (entity != null)
-		// {
-		// List<SemanticType> semanticTypes = stream(
-		// entity.getEntities(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE).spliterator(), false)
-		// .map(OntologyTermRepository::entityToSemanticType).collect(toList());
-		// return semanticTypes;
-		// }
+		String iri = ontologyTerm.getIRI();
+		Fetch fetch = new Fetch();
+		fetch.field(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE);
+		Entity entity = dataService.findOne(OntologyTermSemanticTypeMetaData.ENTITY_NAME,
+				EQ(OntologyTermSemanticTypeMetaData.ONTOLOGY_TERM, iri));
 
+		if (entity != null)
+		{
+			String semanticType = entity.getString(OntologyTermSemanticTypeMetaData.SEMANTIC_TYPE);
+			List<String> semanticTypeIds = Stream.of(semanticType.split(",")).collect(Collectors.toList());
+
+			List<SemanticType> semanticTypes = dataService
+					.findAll(SemanticTypeMetaData.ENTITY_NAME, QueryImpl.IN(SemanticTypeMetaData.ID, semanticTypeIds))
+					.map(OntologyTermRepository::entityToSemanticType).collect(toList());
+
+			return semanticTypes;
+		}
 		return Collections.emptyList();
 	}
 

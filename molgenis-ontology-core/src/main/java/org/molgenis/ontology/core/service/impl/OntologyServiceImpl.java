@@ -189,4 +189,16 @@ public class OntologyServiceImpl implements OntologyService
 	{
 		return ontologyTermRepository.getSemanticTypesByGroups(semanticTypeGroups);
 	}
+
+	@Override
+	public List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm)
+	{
+		return ontologyTermRepository.getSemanticTypes(ontologyTerm);
+	}
+
+	@Override
+	public List<SemanticType> getSemanticTypesByNames(List<String> semanticTypeNames)
+	{
+		return ontologyTermRepository.getSemanticTypesByNames(semanticTypeNames);
+	}
 }

@@ -2,6 +2,7 @@ package org.molgenis.data.discovery.controller;
 
 import static com.google.common.collect.Sets.newLinkedHashSet;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.of;
 import static org.molgenis.data.discovery.controller.BiobankUniverseController.URI;
@@ -38,8 +39,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
-
-import static java.util.Objects.requireNonNull;
 
 @Controller
 @RequestMapping(URI)
@@ -79,7 +78,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 	{
 		model.addAttribute("biobankUniverses", getUserBiobankUniverses());
 		model.addAttribute("biobankSampleCollections", getBiobankSampleCollecitons());
-		model.addAttribute("semanticTypeGroups", getSemanticTypeGroups());
+		model.addAttribute("semanticTypeGroups", getSemanticTypes());
 		return VIEW_BIOBANK_UNIVERSES;
 	}
 
@@ -93,12 +92,12 @@ public class BiobankUniverseController extends MolgenisPluginController
 	@RequestMapping(value = "/addUniverse", method = RequestMethod.POST)
 	public String addUniverse(@RequestParam("universeName") String universeName,
 			@RequestParam(required = false) String[] biobankSampleCollectionNames,
-			@RequestParam(required = false) String[] semanticTypeGroups, Model model)
+			@RequestParam(required = false) String[] semanticTypes, Model model)
 	{
 		if (StringUtils.isNotBlank(universeName))
 		{
 			BiobankUniverse biobankUniverse = biobankUniverseService.addBiobankUniverse(universeName,
-					semanticTypeGroups != null ? of(semanticTypeGroups).collect(toList()) : emptyList(),
+					semanticTypes != null ? of(semanticTypes).collect(toList()) : emptyList(),
 					userAccountService.getCurrentUser());
 
 			if (biobankSampleCollectionNames != null)
@@ -112,7 +111,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 
 		model.addAttribute("biobankUniverses", getUserBiobankUniverses());
 		model.addAttribute("biobankSampleCollections", getBiobankSampleCollecitons());
-		model.addAttribute("semanticTypeGroups", getSemanticTypeGroups());
+		model.addAttribute("semanticTypeGroups", getSemanticTypes());
 
 		return "redirect:" + getBiobankUniverseMenuUrl();
 	}
@@ -123,7 +122,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 		biobankUniverseService.deleteBiobankUniverse(biobankUniverseId);
 		model.addAttribute("biobankUniverses", getUserBiobankUniverses());
 		model.addAttribute("biobankSampleCollections", getBiobankSampleCollecitons());
-		model.addAttribute("semanticTypeGroups", getSemanticTypeGroups());
+		model.addAttribute("semanticTypeGroups", getSemanticTypes());
 		return "redirect:" + getBiobankUniverseMenuUrl();
 	}
 
@@ -155,7 +154,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 
 		model.addAttribute("biobankUniverses", getUserBiobankUniverses());
 		model.addAttribute("biobankSampleCollections", getBiobankSampleCollecitons());
-		model.addAttribute("semanticTypeGroups", getSemanticTypeGroups());
+		model.addAttribute("semanticTypeGroups", getSemanticTypes());
 
 		return "redirect:" + getBiobankUniverseMenuUrl();
 	}
@@ -181,10 +180,10 @@ public class BiobankUniverseController extends MolgenisPluginController
 		taskExecutor.submit(biobankUniverseJobImpl);
 	}
 
-	private Set<String> getSemanticTypeGroups()
+	private Set<String> getSemanticTypes()
 	{
 		return newLinkedHashSet(
-				ontologyService.getAllSemanticTypes().stream().map(SemanticType::getGroup).collect(toList()));
+				ontologyService.getAllSemanticTypes().stream().map(SemanticType::getName).collect(toList()));
 	}
 
 	private List<BiobankUniverse> getUserBiobankUniverses()

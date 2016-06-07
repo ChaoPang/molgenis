@@ -152,4 +152,8 @@ public interface OntologyService
 	 * @return a list of {@link SemanticType}s
 	 */
 	List<SemanticType> getSemanticTypesByGroups(List<String> semanticTypeGroups);
+
+	List<SemanticType> getSemanticTypesByNames(List<String> semanticTypeNames);
+
+	List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm);
 }

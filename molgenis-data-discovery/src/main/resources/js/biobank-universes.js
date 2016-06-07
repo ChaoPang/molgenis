@@ -66,7 +66,7 @@
 		updateTableProgressBars($('#biobank-universes-tbl'));
 
 		$('select[name="biobankSampleCollectionNames"]').select2();
-		$('select[name="semanticTypeGroups"]').select2();
+		$('select[name="semanticTypes"]').select2();
 	});
 		
 }($, window.top.molgenis = window.top.molgenis || {}));
