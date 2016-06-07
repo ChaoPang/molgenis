@@ -98,7 +98,7 @@
 							  						<select name="semanticTypes" class="form-control" multiple="multiple">
 								    					<#assign existingKeyConceptGroups = [] />
 														<#list universe.keyConcepts as keyConcept>
-										 					<#assign existingKeyConceptGroups = existingKeyConceptGroups + [keyConcept.group] /><#if keyConcept_has_next>, </#if> 
+										 					<#assign existingKeyConceptGroups = existingKeyConceptGroups + [keyConcept.name] /><#if keyConcept_has_next>, </#if> 
 									 					</#list>
 														<#list semanticTypeGroups as semanticTypeGroup>
 															<#if !existingKeyConceptGroups?seq_contains(semanticTypeGroup)>
@@ -119,8 +119,8 @@
 							</div>
 							<#assign existingKeyConceptGroups=[]>
 	 						<#list universe.keyConcepts as keyConcept>
-	 							<#if !existingKeyConceptGroups?seq_contains(keyConcept.group)>
-									<#assign existingKeyConceptGroups = existingKeyConceptGroups + [keyConcept.group] />
+	 							<#if !existingKeyConceptGroups?seq_contains(keyConcept.name)>
+									<#assign existingKeyConceptGroups = existingKeyConceptGroups + [keyConcept.name] />
 								</#if>
 	 						</#list>
 							<#list existingKeyConceptGroups as semanticTypeGroup>

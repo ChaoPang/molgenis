@@ -215,9 +215,13 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	@Override
 	public List<BiobankSampleAttribute> getBiobankSampleAttributes(BiobankSampleCollection biobankSampleCollection)
 	{
+		Fetch fetchTagGroupFields = new Fetch();
+		TagGroupMetaData.INSTANCE.getAtomicAttributes()
+				.forEach(attribute -> fetchTagGroupFields.field(attribute.getName()));
+
 		Fetch fetch = new Fetch();
 		fetch.field(BiobankSampleAttributeMetaData.COLLECTION);
-		fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS);
+		fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS, fetchTagGroupFields);
 
 		List<BiobankSampleAttribute> biobankSampleAttributes = dataService
 				.findAll(BiobankSampleAttributeMetaData.ENTITY_NAME,
@@ -248,7 +252,6 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		dataService.add(BiobankSampleAttributeMetaData.ENTITY_NAME, biobankSampleAttributeEntityStream);
 	}
 
-	@Transactional
 	@Override
 	public void removeBiobankSampleAttributes(List<BiobankSampleAttribute> biobankSampleAttributes)
 	{
@@ -275,7 +278,6 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 				.map(this::entityToBiobankSampleAttribute);
 	}
 
-	@Transactional
 	@Override
 	public void addTagGroupsForAttributes(List<BiobankSampleAttribute> biobankSampleAttributes)
 	{
@@ -308,7 +310,6 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		dataService.delete(TagGroupMetaData.ENTITY_NAME, identifiableTagGroupEntityStream);
 	}
 
-	@Transactional
 	@Override
 	public void addAttributeMappingCandidates(List<AttributeMappingCandidate> biobankSampleAttributes)
 	{
@@ -447,9 +448,8 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		String label = entity.getString(BiobankSampleAttributeMetaData.LABEL);
 		String description = entity.getString(BiobankSampleAttributeMetaData.DESCRIPTION);
 
-		BiobankSampleCollection biobankSampleCollection = entityToBiobankSampleCollection(dataService
-				.findOne(BiobankSampleCollectionMetaData.ENTITY_NAME, QueryImpl.EQ(BiobankSampleCollectionMetaData.NAME,
-						entity.getString(BiobankSampleAttributeMetaData.COLLECTION))));
+		BiobankSampleCollection biobankSampleCollection = entityToBiobankSampleCollection(
+				entity.getEntity(BiobankSampleAttributeMetaData.COLLECTION));
 
 		Iterable<Entity> entities = entity.getEntities(BiobankSampleAttributeMetaData.TAG_GROUPS);
 		List<IdentifiableTagGroup> tagGroups = StreamSupport.stream(entities.spliterator(), false)

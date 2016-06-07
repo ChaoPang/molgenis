@@ -145,12 +145,12 @@ public class BiobankUniverseController extends MolgenisPluginController
 
 	@RequestMapping(value = "/addKeyConcepts", method = POST)
 	public String addKeyConcepts(@RequestParam(required = true) String biobankUniverseId,
-			@RequestParam(required = false) String[] semanticTypeGroups, Model model)
+			@RequestParam(required = false) String[] semanticTypes, Model model)
 	{
 		BiobankUniverse universe = biobankUniverseService.getBiobankUniverse(biobankUniverseId);
 
 		biobankUniverseService.addKeyConcepts(universe,
-				semanticTypeGroups != null ? of(semanticTypeGroups).collect(toList()) : emptyList());
+				semanticTypes != null ? of(semanticTypes).collect(toList()) : emptyList());
 
 		model.addAttribute("biobankUniverses", getUserBiobankUniverses());
 		model.addAttribute("biobankSampleCollections", getBiobankSampleCollecitons());

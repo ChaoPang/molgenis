@@ -10,6 +10,7 @@ import static org.molgenis.data.QueryRule.Operator.AND;
 import static org.molgenis.data.QueryRule.Operator.IN;
 import static org.molgenis.data.meta.AttributeMetaDataMetaData.IDENTIFIER;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.getLowerCaseTerms;
+import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.molgenis.auth.MolgenisUser;
 import org.molgenis.data.Entity;
 import org.molgenis.data.IdGenerator;
@@ -49,7 +51,7 @@ import com.google.common.collect.Lists;
 
 public class BiobankUniverseServiceImpl implements BiobankUniverseService
 {
-	private final static int MAX_NUMBER_MATCHES = 50;
+	private final static int MAX_NUMBER_MATCHES = 20;
 
 	private final IdGenerator idGenerator;
 	private final BiobankUniverseRepository biobankUniverseRepository;
@@ -197,7 +199,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 				biobankUniverseRepository
 						.queryBiobankSampleAttribute(new QueryImpl(finalQueryRules).pageSize(MAX_NUMBER_MATCHES))
-						.limit(10).forEach(biobankSampleAttribute -> {
+						.forEach(biobankSampleAttribute -> {
 
 							AttributeMatchExplanation attributeMatchExplanation = explainMappingService
 									.explainMapping(semanticSearchParam, biobankSampleAttribute.getLabel());
@@ -247,15 +249,15 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	public boolean isOntologyTermKeyConcept(BiobankUniverse biobankUniverse, OntologyTerm ontologyTerm)
 	{
 		List<SemanticType> keyConcepts = biobankUniverse.getKeyConcepts();
-		boolean anyMatch = ontologyService.getSemanticTypes(ontologyTerm).stream().anyMatch(keyConcepts::contains);
+		boolean anyMatch = !ontologyService.getSemanticTypes(ontologyTerm).stream().allMatch(keyConcepts::contains);
 		return anyMatch;
 	}
 
 	@RunAsSystem
 	@Override
-	public void addKeyConcepts(BiobankUniverse universe, List<String> semanticTypeGroups)
+	public void addKeyConcepts(BiobankUniverse universe, List<String> semanticTypeNames)
 	{
-		List<SemanticType> semanticTypes = ontologyService.getSemanticTypesByGroups(semanticTypeGroups);
+		List<SemanticType> semanticTypes = ontologyService.getSemanticTypesByNames(semanticTypeNames);
 		biobankUniverseRepository.addKeyConcepts(universe, semanticTypes);
 	}
 
@@ -295,7 +297,8 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 			}
 		}
 
-		return nonNull(attributeMatchExplanation.getMatchedWords());
+		String matchedWords = attributeMatchExplanation.getMatchedWords();
+		return StringUtils.isNotBlank(matchedWords) && !STOPWORDSLIST.contains(matchedWords);
 	}
 
 	private BiobankSampleAttribute importedAttributEntityToBiobankSampleAttribute(BiobankSampleCollection collection,
