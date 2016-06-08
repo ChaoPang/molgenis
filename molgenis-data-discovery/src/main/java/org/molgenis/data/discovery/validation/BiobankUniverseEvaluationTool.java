@@ -84,7 +84,10 @@ public class BiobankUniverseEvaluationTool
 					foundMatch++;
 				}
 			}
-			System.out.format("%.3f of matches have been found within rank %d%n", (double) foundMatch / totalMatch, i);
+			double recall = (double) foundMatch / totalMatch;
+			double precision = (double) foundMatch / (matchResult.size() * i);
+			System.out.format("Recall: %.3f; Precision: %.3f; Rank %d; Total matches: %d%n", recall, precision, i,
+					totalMatch);
 		}
 	}
 
