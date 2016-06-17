@@ -25,6 +25,14 @@ public class OntologyTermComparator implements Comparator<TagGroup>
 		{
 			if (synonymEquals(synonym1, synonym2))
 			{
+				// if the current ontology term doesn't have semantic types and next ontology term does, we are in favor
+				// of the ontology terms that have semantic types
+				if (o1.getOntologyTerm().getSemanticTypes().isEmpty()
+						&& !o2.getOntologyTerm().getSemanticTypes().isEmpty())
+				{
+					return -1;
+				}
+
 				// if the next ontologyterm is matched based on its label rather than any of the synonyms, the
 				// order of the next ontologyterm should be higher than the previous one
 				if (!isOntologyTermNameMatched(o1) && isOntologyTermNameMatched(o2))
@@ -50,18 +58,8 @@ public class OntologyTermComparator implements Comparator<TagGroup>
 	float calculateInformationContent(String bestMatchingSynonym, List<String> synonyms)
 	{
 		final String bestMatchingSynonymLowerCase = bestMatchingSynonym.toLowerCase();
-		// int count = 0;
 		String joinedSynonym = StringUtils.join(synonyms, StringUtils.EMPTY).toLowerCase();
-		// Pattern pattern = Pattern.compile(Pattern.quote(bestMatchingSynonym.toLowerCase()));
-		// Matcher matcher = pattern.matcher(joinedSynonym);
-		// //
 		long count = synonyms.stream().filter(s -> s.toLowerCase().contains(bestMatchingSynonymLowerCase)).count();
-		//
-		//
-		// while (matcher.find())
-		// {
-		// count++;
-		// }
 		float contributedLength = count * bestMatchingSynonym.length();
 		return contributedLength / joinedSynonym.length();
 	}

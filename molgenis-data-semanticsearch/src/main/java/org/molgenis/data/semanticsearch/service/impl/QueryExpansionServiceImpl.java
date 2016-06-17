@@ -243,6 +243,7 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 
 			queryTerms.addAll(queryTermsFromParentOntologyTerms);
 		}
+
 		return queryTerms;
 	}
 

@@ -17,7 +17,9 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.Entity;
 import org.molgenis.data.MolgenisInvalidFormatException;
 import org.molgenis.data.Repository;
@@ -45,6 +47,7 @@ public class BiobankUniverseEvaluationTool
 			{
 				ExcelRepositoryCollection excelRepositoryCollection = new ExcelRepositoryCollection(manualMatchFile);
 				Repository manualMatchRepository = excelRepositoryCollection.getSheet(0);
+				// Repository manualMatchRepository = new CsvRepository(manualMatchFile, Arrays.asList(), ',');
 				Repository generatedMatchRepository = new CsvRepository(generatedMatchFile, Arrays.asList(), ',');
 
 				BiobankUniverseEvaluationTool tool = new BiobankUniverseEvaluationTool();
@@ -57,6 +60,7 @@ public class BiobankUniverseEvaluationTool
 	private void compare(Repository manualMatchRepository, Repository generatedMatchRepository)
 	{
 		Multimap<String, String> manualMatcheCollection = collectManualMatches(manualMatchRepository);
+		// Multimap<String, String> manualMatcheCollection = collectRelevantMatches(manualMatchRepository);
 		Map<String, List<Hit<String>>> generatedCandidateMatchCollection = collectGeneratedMatches(
 				generatedMatchRepository);
 
@@ -89,6 +93,14 @@ public class BiobankUniverseEvaluationTool
 			System.out.format("Recall: %.3f; Precision: %.3f; Rank %d; Total matches: %d%n", recall, precision, i,
 					totalMatch);
 		}
+
+		for (Match match : matchResult)
+		{
+			if (match.getRank() == null)
+			{
+				System.out.format("Target: %s; Manual matches: %s%n", match.getTarget(), match.getSource());
+			}
+		}
 	}
 
 	private Integer computeRank(String manualMatch, List<Hit<String>> candidateMatches)
@@ -117,6 +129,31 @@ public class BiobankUniverseEvaluationTool
 		return generatedCandidateMatches;
 	}
 
+	private Multimap<String, String> collectRelevantMatches(Repository manualMatchRepository)
+	{
+		Multimap<String, String> manualMatches = LinkedHashMultimap.create();
+
+		for (Entity entity : manualMatchRepository)
+		{
+			String attributeName = entity.getString("name");
+			String matches = entity.getString("matches");
+
+			if (StringUtils.isNotBlank(matches))
+			{
+				Set<String> matchedAttributeNames = Stream.of(matches.split(",")).map(StringUtils::trim)
+						.collect(Collectors.toSet());
+				manualMatches.putAll(attributeName, matchedAttributeNames);
+				System.out
+						.println("\"" + attributeName + "\",\"" + StringUtils.join(matchedAttributeNames, ',') + "\"");
+			}
+			else
+			{
+				System.out.println("\"" + attributeName + "\",\"\"");
+			}
+		}
+		return manualMatches;
+	}
+
 	private Multimap<String, String> collectManualMatches(Repository manualMatchRepository)
 	{
 		Multimap<String, String> manualMatches = LinkedHashMultimap.create();
@@ -128,13 +165,20 @@ public class BiobankUniverseEvaluationTool
 
 			if (!algorithm.equals("null"))
 			{
-				manualMatches.putAll(attributeName, extractAttributeNames(algorithm));
+				Set<String> matchedAttributeNames = extractAttributeNames(algorithm);
+				manualMatches.putAll(attributeName, matchedAttributeNames);
+				System.out
+						.println("\"" + attributeName + "\",\"" + StringUtils.join(matchedAttributeNames, ',') + "\"");
+			}
+			else
+			{
+				System.out.println("\"" + attributeName + "\",\"\"");
 			}
 		}
 		return manualMatches;
 	}
 
-	Set<String> extractAttributeNames(String algorithm)
+	private Set<String> extractAttributeNames(String algorithm)
 	{
 		Set<String> attributeNames = new LinkedHashSet<>();
 		Matcher matcher = SINGLE_ATTRIBUTE_NAME_PATTERN.matcher(algorithm);

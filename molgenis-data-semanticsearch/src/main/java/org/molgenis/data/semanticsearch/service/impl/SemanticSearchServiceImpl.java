@@ -1,5 +1,6 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.common.collect.Lists.newArrayList;
 import static org.molgenis.data.QueryRule.Operator.IN;
@@ -39,8 +40,6 @@ import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import static java.util.Objects.requireNonNull;
 
 public class SemanticSearchServiceImpl implements SemanticSearchService
 {
@@ -210,8 +209,8 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	{
 		if (matchedSourceAttributes.size() == 0) return true;
 		String matchedSource = matchedSourceAttributes.get(0).getLabel();
-		AttributeMatchExplanation explainAttributeMapping = explainMappingService
-				.explainMapping(semanticSearchParam, matchedSource);
+		AttributeMatchExplanation explainAttributeMapping = explainMappingService.explainMapping(semanticSearchParam,
+				matchedSource);
 		return explainAttributeMapping.getScore() > semanticSearchParam.getHighQualityThreshold();
 	}
 

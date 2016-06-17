@@ -1,6 +1,7 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 import java.util.List;
@@ -23,8 +24,6 @@ import org.molgenis.ontology.core.service.OntologyService;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.collect.Multimap;
-
-import static java.util.Objects.requireNonNull;
 
 public class SemanticSearchParamFactory
 {

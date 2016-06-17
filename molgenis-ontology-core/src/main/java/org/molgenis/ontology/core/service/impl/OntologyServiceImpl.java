@@ -107,7 +107,7 @@ public class OntologyServiceImpl implements OntologyService
 	}
 
 	@Override
-	public List<OntologyTerm> fileterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
+	public List<OntologyTerm> filterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
 			List<OntologyTerm> filteredOntologyTerms)
 	{
 		if (null == terms || terms.size() == 0)
@@ -188,12 +188,6 @@ public class OntologyServiceImpl implements OntologyService
 	public List<SemanticType> getSemanticTypesByGroups(List<String> semanticTypeGroups)
 	{
 		return ontologyTermRepository.getSemanticTypesByGroups(semanticTypeGroups);
-	}
-
-	@Override
-	public List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm)
-	{
-		return ontologyTermRepository.getSemanticTypes(ontologyTerm);
 	}
 
 	@Override

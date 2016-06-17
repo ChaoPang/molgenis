@@ -5,6 +5,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.data.QueryRule.Operator.AND;
 import static org.molgenis.data.QueryRule.Operator.IN;
@@ -15,6 +16,7 @@ import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -51,7 +53,7 @@ import com.google.common.collect.Lists;
 
 public class BiobankUniverseServiceImpl implements BiobankUniverseService
 {
-	private final static int MAX_NUMBER_MATCHES = 20;
+	private final static int MAX_NUMBER_MATCHES = 40;
 
 	private final IdGenerator idGenerator;
 	private final BiobankUniverseRepository biobankUniverseRepository;
@@ -147,8 +149,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	@Override
 	public boolean isBiobankSampleCollectionTagged(BiobankSampleCollection biobankSampleCollection)
 	{
-		return biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection).stream().limit(10)
-				.map(BiobankSampleAttribute::getTagGroups).anyMatch(list -> !list.isEmpty());
+		return biobankUniverseRepository.isBiobankSampleCollectionTagged(biobankSampleCollection);
 	}
 
 	@RunAsSystem
@@ -248,8 +249,11 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	@Override
 	public boolean isOntologyTermKeyConcept(BiobankUniverse biobankUniverse, OntologyTerm ontologyTerm)
 	{
+		// If ontology terms are not annotated with semantic types, we therefore cannot conclude whether or not they are
+		// ket concepts
+		if (ontologyTerm.getSemanticTypes().isEmpty()) return true;
 		List<SemanticType> keyConcepts = biobankUniverse.getKeyConcepts();
-		boolean anyMatch = !ontologyService.getSemanticTypes(ontologyTerm).stream().allMatch(keyConcepts::contains);
+		boolean anyMatch = !ontologyTerm.getSemanticTypes().stream().allMatch(keyConcepts::contains);
 		return anyMatch;
 	}
 
@@ -289,9 +293,9 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 				List<String> ontologyTermNames = ontologyService.getAtomicOntologyTerms(origin).stream()
 						.flatMap(ot -> getLowerCaseTerms(ot).stream()).collect(toList());
 
-				List<OntologyTerm> ontologyTerms = target.getTagGroups().stream()
+				Set<OntologyTerm> ontologyTerms = target.getTagGroups().stream()
 						.flatMap(tag -> tag.getOntologyTerms().stream())
-						.filter(ot -> ontologyTermNames.contains(ot.getLabel().toLowerCase())).collect(toList());
+						.filter(ot -> ontologyTermNames.contains(ot.getLabel().toLowerCase())).collect(toSet());
 
 				return ontologyTerms.stream().anyMatch(ot -> isOntologyTermKeyConcept(biobankUniverse, ot));
 			}
@@ -321,8 +325,8 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 		List<OntologyTerm> ontologyTerms = ontologyService.getAtomicOntologyTerms(tagGroup.getOntologyTerm());
 
-		List<SemanticType> semanticTypes = ontologyTerms.stream()
-				.flatMap(ot -> ontologyService.getSemanticTypes(ot).stream()).collect(toList());
+		List<SemanticType> semanticTypes = ontologyTerms.stream().flatMap(ot -> ot.getSemanticTypes().stream())
+				.collect(toList());
 
 		return IdentifiableTagGroup.create(identifier, ontologyTerms, semanticTypes, matchedWords, score);
 	}

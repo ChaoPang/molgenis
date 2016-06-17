@@ -8,7 +8,7 @@ import com.google.auto.value.AutoValue;
 @AutoGson(autoValueClass = AutoValue_QueryExpansionParam.class)
 public abstract class QueryExpansionParam
 {
-	private final static int DEFAULT_SEARCH_LEVEL = 3;
+	private final static int DEFAULT_SEARCH_LEVEL = 4;
 
 	public static QueryExpansionParam create(boolean semanticSearchEnabled, boolean childExpansionEnabled)
 	{

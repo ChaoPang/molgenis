@@ -1,5 +1,7 @@
 package org.molgenis.ontology.importer.repository;
 
+import static java.util.Collections.emptyList;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -69,8 +71,8 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 	 * @param file
 	 *            the ontology file
 	 */
-	public OntologyRepositoryCollection(File file) throws OWLOntologyCreationException, FileNotFoundException,
-			IOException
+	public OntologyRepositoryCollection(File file)
+			throws OWLOntologyCreationException, FileNotFoundException, IOException
 	{
 		super(GenericImporterExtensions.getOntology());
 		if (file == null) throw new IllegalArgumentException("file is null");
@@ -135,8 +137,8 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 
 		OWLClass pseudoRootClass = loader.createClass(PSEUDO_ROOT_CLASS_LABEL, loader.getRootClasses());
 
-		Iterator<OWLClassContainer> iterator = traverser.preOrderTraversal(
-				new OWLClassContainer(pseudoRootClass, PSEUDO_ROOT_CLASS_NODEPATH, true)).iterator();
+		Iterator<OWLClassContainer> iterator = traverser
+				.preOrderTraversal(new OWLClassContainer(pseudoRootClass, PSEUDO_ROOT_CLASS_NODEPATH, true)).iterator();
 
 		while (iterator.hasNext())
 		{
@@ -176,6 +178,7 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 		entity.set(OntologyTermMetaData.ONTOLOGY_TERM_SYNONYM, createSynonyms(ontologyTerm));
 		entity.set(OntologyTermMetaData.ONTOLOGY_TERM_DYNAMIC_ANNOTATION, createDynamicAnnotations(ontologyTerm));
 		entity.set(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, nodePathsPerOntologyTerm.get(ontologyTermIRI));
+		entity.set(OntologyTermMetaData.ONTOLOGY_TERM_SEMANTIC_TYPE, emptyList());
 		entity.set(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
 		ontologyTermRepository.add(entity);
 		return entity;

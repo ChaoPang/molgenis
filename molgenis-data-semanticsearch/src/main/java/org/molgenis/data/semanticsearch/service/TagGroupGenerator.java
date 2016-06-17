@@ -25,7 +25,7 @@ public interface TagGroupGenerator
 	 * @param queryString
 	 * @param ontologyIds
 	 * @param keyConcepts
-	 * @return a list of {@link TagGroup}ss
+	 * @return a list of {@link TagGroup}s
 	 */
 	List<TagGroup> generateTagGroups(String queryString, List<String> ontologyIds, List<SemanticType> keyConcepts);
 
@@ -49,5 +49,5 @@ public interface TagGroupGenerator
 	 * @return
 	 */
 	public abstract List<TagGroup> applyTagMatchingCriterion(List<OntologyTerm> relevantOntologyTerms,
-			Set<String> searchTerms, MatchingCriterion matchingCriterion);
+			Set<String> searchTerms, MatchingCriterion matchingCriterion);;
 }

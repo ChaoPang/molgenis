@@ -1,12 +1,12 @@
 package org.molgenis.data.discovery.job;
 
+import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
-import static org.molgenis.ontology.core.model.OntologyTerm.and;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.molgenis.data.discovery.controller.BiobankUniverseController;
@@ -117,12 +117,24 @@ public class BiobankUniverseJobProcessor
 								tagGroup -> !tagGroup.getSemanticTypes().stream().anyMatch(keyConceptFilter::contains));
 
 						List<TagGroup> tagGroups = filter.map(tag -> TagGroup.create(
-								and(tag.getOntologyTerms().stream().toArray(OntologyTerm[]::new)),
-								tag.getMatchedWords(), (float) tag.getScore())).collect(toList());
+								OntologyTerm.and(tag.getOntologyTerms().stream().toArray(OntologyTerm[]::new)),
+								tag.getMatchedWords(), (float) tag.getScore())).collect(Collectors.toList());
+
+						// Set<TagGroup> tagGroups = new LinkedHashSet<>();
+						// for (IdentifiableTagGroup tagGroup : biobankSampleAttribute.getTagGroups())
+						// {
+						// OntologyTerm ontologyTerm = filterOntologyTerms(tagGroup.getOntologyTerms(),
+						// keyConceptFilter);
+						// if (ontologyTerm != null)
+						// {
+						// tagGroups.add(TagGroup.create(ontologyTerm, tagGroup.getMatchedWords(),
+						// (float) tagGroup.getScore()));
+						// }
+						// }
 
 						// SemanticSearch finding all the relevant attributes from existing entities
 						SemanticSearchParam semanticSearchParam = SemanticSearchParam.create(
-								Sets.newHashSet(biobankSampleAttribute.getLabel()), tagGroups,
+								Sets.newHashSet(biobankSampleAttribute.getLabel()), newArrayList(tagGroups),
 								QueryExpansionParam.create(true, true));
 
 						allCandidates.addAll(biobankUniverseService.findCandidateMappings(biobankUniverse,
@@ -147,4 +159,12 @@ public class BiobankUniverseJobProcessor
 					+ "/universe/" + biobankUniverse.getIdentifier());
 		});
 	}
+	//
+	// private OntologyTerm filterOntologyTerms(List<OntologyTerm> ontologyTerms, List<SemanticType> keyConceptFilter)
+	// {
+	// return OntologyTerm.and(ontologyTerms.stream()
+	// .filter(ot -> ot.getSemanticTypes().stream()
+	// .allMatch(semanticType -> !keyConceptFilter.contains(semanticType)))
+	// .toArray(OntologyTerm[]::new));
+	// }
 }

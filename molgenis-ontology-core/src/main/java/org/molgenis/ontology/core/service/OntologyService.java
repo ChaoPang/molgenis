@@ -59,7 +59,7 @@ public interface OntologyService
 	 * @param scope
 	 * @return
 	 */
-	List<OntologyTerm> fileterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
+	List<OntologyTerm> filterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
 			List<OntologyTerm> scope);
 
 	/**
@@ -154,6 +154,4 @@ public interface OntologyService
 	List<SemanticType> getSemanticTypesByGroups(List<String> semanticTypeGroups);
 
 	List<SemanticType> getSemanticTypesByNames(List<String> semanticTypeNames);
-
-	List<SemanticType> getSemanticTypes(OntologyTerm ontologyTerm);
 }

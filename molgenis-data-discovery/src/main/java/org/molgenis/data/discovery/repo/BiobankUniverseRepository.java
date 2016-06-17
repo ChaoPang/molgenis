@@ -177,4 +177,6 @@ public interface BiobankUniverseRepository
 	public abstract void removeAttributeMappingCandidates(List<AttributeMappingCandidate> attributeMappingCandidates);
 
 	public abstract List<String> getBiobankSampleAttributeIdentifiers(BiobankSampleCollection biobankSampleCollection);
+
+	public abstract boolean isBiobankSampleCollectionTagged(BiobankSampleCollection biobankSampleCollection);
 }

@@ -2,6 +2,7 @@ package org.molgenis.data.semanticsearch.explain.service.impl;
 
 import static java.util.Collections.emptyList;
 import static java.util.Comparator.naturalOrder;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
@@ -37,8 +38,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.base.Joiner;
-
-import static java.util.Objects.requireNonNull;
 
 import autovalue.shaded.com.google.common.common.collect.Sets;
 
@@ -129,12 +128,13 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 			LOG.debug("OntologyTerms {}", ontologyTermScope);
 		}
 
-		List<OntologyTerm> relevantOntologyTerms = ontologyService.fileterOntologyTerms(ontologyIds, matchedSourceWords,
+		List<OntologyTerm> relevantOntologyTerms = ontologyService.filterOntologyTerms(ontologyIds, matchedSourceWords,
 				ontologyTermScope.size(), ontologyTermScope);
 
 		List<TagGroup> tagGroups = tagGroupGenerator.applyTagMatchingCriterion(relevantOntologyTerms,
 				matchedSourceWords, new StrictMatchingCriterion());
 
+		// TODO
 		List<TagGroup> matchedSourceTagGroups = tagGroupGenerator.combineTagGroups(matchedSourceWords, tagGroups);
 
 		if (LOG.isDebugEnabled())
@@ -144,6 +144,12 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 
 		if (matchedSourceTagGroups.size() > 0)
 		{
+			// float maxScore = (float) tagGroups.stream().map(TagGroup::getScore).mapToDouble(Float::doubleValue).max()
+			// .getAsDouble();
+			//
+			// tagGroups = tagGroups.stream().sorted().filter(tagGroup -> tagGroup.getScore() >= maxScore)
+			// .collect(Collectors.toList());
+
 			TagGroup tagGroup = matchedSourceTagGroups.get(0);
 
 			OntologyTermQueryExpansionSolution queryExpansionSolution = ontologyTermQueryExpansions.stream()
