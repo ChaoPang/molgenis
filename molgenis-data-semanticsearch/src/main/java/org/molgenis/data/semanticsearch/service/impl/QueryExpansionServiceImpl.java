@@ -14,9 +14,12 @@ import static org.molgenis.data.semanticsearch.service.bean.CachedOntologyTermQu
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.getLowerCaseTerms;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.splitRemoveStopWords;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -59,6 +62,8 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 
 	private static final float LEXICAL_QUERY_BOOSTVALUE = 1.0f;
 
+	private static DecimalFormat DECIMAL_FORMATTER = new DecimalFormat("#.#####", new DecimalFormatSymbols(Locale.US));
+
 	private final TermFrequencyService termFrequencyService;
 	private final OntologyService ontologyService;
 
@@ -98,7 +103,7 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 		List<QueryRule> rules = new ArrayList<>();
 
 		// Parse the lexical queries
-		if (lexicalQueries != null && lexicalQueries.isEmpty())
+		if (lexicalQueries != null && !lexicalQueries.isEmpty())
 		{
 			List<String> queryTerms = lexicalQueries.stream().filter(StringUtils::isNotBlank)
 					.map(this::parseQueryString).map(this::boostLexicalQuery).collect(toList());
@@ -380,7 +385,7 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 
 	String parseBoostQueryString(String queryString, double boost)
 	{
-		return termJoiner.join(
-				splitRemoveStopWords(queryString).stream().map(w -> w + CARET_CHARACTER + boost).collect(toList()));
+		return termJoiner.join(splitRemoveStopWords(queryString).stream()
+				.map(w -> w + CARET_CHARACTER + DECIMAL_FORMATTER.format(boost)).collect(toList()));
 	}
 }

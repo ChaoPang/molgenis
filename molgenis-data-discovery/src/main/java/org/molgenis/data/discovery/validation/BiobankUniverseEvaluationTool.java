@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -59,8 +60,8 @@ public class BiobankUniverseEvaluationTool
 
 	private void compare(Repository manualMatchRepository, Repository generatedMatchRepository)
 	{
-		Multimap<String, String> manualMatcheCollection = collectManualMatches(manualMatchRepository);
-		// Multimap<String, String> manualMatcheCollection = collectRelevantMatches(manualMatchRepository);
+		// Multimap<String, String> manualMatcheCollection = collectManualMatches(manualMatchRepository);
+		Multimap<String, String> manualMatcheCollection = collectRelevantMatches(manualMatchRepository);
 		Map<String, List<Hit<String>>> generatedCandidateMatchCollection = collectGeneratedMatches(
 				generatedMatchRepository);
 
@@ -70,14 +71,16 @@ public class BiobankUniverseEvaluationTool
 			String target = entrySet.getKey();
 			Collection<String> manualMatches = entrySet.getValue();
 			List<Hit<String>> candidateMatches = generatedCandidateMatchCollection.containsKey(target)
-					? generatedCandidateMatchCollection.get(target).stream().sorted().collect(toList()) : emptyList();
+					? generatedCandidateMatchCollection.get(target).stream().sorted(Comparator.reverseOrder())
+							.collect(toList())
+					: emptyList();
 			List<Match> collect = manualMatches.stream()
 					.map(manualMatch -> new Match(target, manualMatch, computeRank(manualMatch, candidateMatches)))
 					.collect(Collectors.toList());
 			matchResult.addAll(collect);
 		}
 
-		for (int i = 1; i < 21; i++)
+		for (int i = 1; i < 51; i++)
 		{
 			int totalMatch = matchResult.size();
 			int foundMatch = 0;

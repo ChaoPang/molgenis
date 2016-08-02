@@ -3,6 +3,7 @@ package org.molgenis.data.discovery.repo;
 import java.util.List;
 import java.util.stream.Stream;
 
+import org.molgenis.data.Entity;
 import org.molgenis.data.Query;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
@@ -169,12 +170,12 @@ public interface BiobankUniverseRepository
 			List<BiobankSampleAttribute> biobankSampleAttributes);
 
 	/**
-	 * Cascading delete the given list of {@link AttributeMappingCandidate}s and their related entities including
+	 * Cascading delete the given list of {@link Entity}s and their related entities including
 	 * {@link AttributeMappingDecision}s and {@link AttributeMatchExplanation}s
 	 * 
 	 * @param attributeMappingCandidates
 	 */
-	public abstract void removeAttributeMappingCandidates(List<AttributeMappingCandidate> attributeMappingCandidates);
+	public abstract void removeAttributeMappingCandidates(List<Entity> attributeMappingCandidates);
 
 	public abstract List<String> getBiobankSampleAttributeIdentifiers(BiobankSampleCollection biobankSampleCollection);
 

@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
@@ -148,18 +149,19 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 						Set<String> currentMatchedWords = removeIllegalCharactersAndStopWords(
 								tagGroup.getMatchedWords());
 						// The next TagGroup words should not be present in the previous involved TagGroups
-						if (currentMatchedWords.stream().allMatch(word -> !previousJoinedMatchedWords.contains(word)))
-						{
-							String joinedTerm = termJoiner
-									.join(Sets.union(previousJoinedMatchedWords, currentMatchedWords));
-							float joinedScore = round(distanceFrom(joinedTerm, queryWords));
-							float previousScore = round(distanceFrom(previousJoinedTerm, queryWords));
+						// if (currentMatchedWords.stream().allMatch(word ->
+						// !previousJoinedMatchedWords.contains(word)))
+						// {
+						String joinedTerm = termJoiner
+								.join(Sets.union(previousJoinedMatchedWords, currentMatchedWords));
+						float joinedScore = round(distanceFrom(joinedTerm, queryWords));
+						float previousScore = round(distanceFrom(previousJoinedTerm, queryWords));
 
-							if (joinedScore > previousScore)
-							{
-								ontologyTermGroups.put(tagGroup.getMatchedWords(), tagGroup);
-							}
+						if (joinedScore > previousScore)
+						{
+							ontologyTermGroups.put(tagGroup.getMatchedWords(), tagGroup);
 						}
+						// }
 					}
 				}
 
@@ -203,7 +205,23 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 					.map(ontologyTerm -> createTagGroup(stemmedSearchTerms, ontologyTerm))
 					.sorted(new OntologyTermComparator()).collect(toList());
 
-			return orderedIndividualOntologyTermHits;
+			// Remove the low ranking ontologyterms that are the parents of the high ranking ontologyterms
+			List<TagGroup> copyOfOntologyTermHits = Lists.newArrayList(orderedIndividualOntologyTermHits);
+			for (int i = orderedIndividualOntologyTermHits.size() - 1; i > 1; i--)
+			{
+				OntologyTerm lowRankingOntologyTerm = orderedIndividualOntologyTermHits.get(i).getOntologyTerm();
+				for (int j = i - 1; j > 0; j--)
+				{
+					OntologyTerm highRankingOntologyTerm = orderedIndividualOntologyTermHits.get(j).getOntologyTerm();
+
+					if (ontologyService.isDescendant(highRankingOntologyTerm, lowRankingOntologyTerm))
+					{
+						copyOfOntologyTermHits.remove(orderedIndividualOntologyTermHits.get(i));
+					}
+				}
+			}
+
+			return copyOfOntologyTermHits;
 		}
 		return emptyList();
 	}

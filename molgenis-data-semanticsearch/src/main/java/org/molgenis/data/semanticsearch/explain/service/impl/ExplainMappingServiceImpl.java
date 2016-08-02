@@ -144,12 +144,6 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 
 		if (matchedSourceTagGroups.size() > 0)
 		{
-			// float maxScore = (float) tagGroups.stream().map(TagGroup::getScore).mapToDouble(Float::doubleValue).max()
-			// .getAsDouble();
-			//
-			// tagGroups = tagGroups.stream().sorted().filter(tagGroup -> tagGroup.getScore() >= maxScore)
-			// .collect(Collectors.toList());
-
 			TagGroup tagGroup = matchedSourceTagGroups.get(0);
 
 			OntologyTermQueryExpansionSolution queryExpansionSolution = ontologyTermQueryExpansions.stream()

@@ -130,6 +130,19 @@ public interface OntologyService
 	Double getOntologyTermSemanticRelatedness(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2);
 
 	/**
+	 * Check if the first {@link OntologyTerm} is either the parent of or child of the second {@link OntologyTerm}
+	 * 
+	 * @param ontologyTerm1
+	 * @param ontologyTerm2
+	 * @return
+	 */
+	boolean related(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2);
+
+	boolean isDescendant(OntologyTerm targetOntologyTerm, OntologyTerm sourceOntologyTerm);
+
+	boolean areWithinDistance(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2, int maxDistance);
+
+	/**
 	 * Retrieves all ontologies ids.
 	 * 
 	 * @return String Ontology Id

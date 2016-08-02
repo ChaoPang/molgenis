@@ -97,7 +97,7 @@ public class BiobankUniverseJobProcessor
 				else
 				{
 					counter.set(counter.get() + (int) biobankUniverseRepository
-							.getBiobankSampleAttributes(biobankSampleCollection).size());
+							.getBiobankSampleAttributeIdentifiers(biobankSampleCollection).size());
 				}
 			}
 

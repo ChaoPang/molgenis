@@ -12,7 +12,7 @@ import com.google.auto.value.AutoValue;
 
 @AutoValue
 @AutoGson(autoValueClass = AutoValue_AttributeMappingCandidate.class)
-public abstract class AttributeMappingCandidate
+public abstract class AttributeMappingCandidate implements Comparable<AttributeMappingCandidate>
 {
 	public abstract String getIdentifier();
 
@@ -39,5 +39,11 @@ public abstract class AttributeMappingCandidate
 	{
 		return new AutoValue_AttributeMappingCandidate(identifier, biobankUniverse, target, source, explanation,
 				decisions);
+	}
+
+	@Override
+	public int compareTo(AttributeMappingCandidate o2)
+	{
+		return Double.compare(o2.getExplanation().getNgramScore(), getExplanation().getNgramScore());
 	}
 }

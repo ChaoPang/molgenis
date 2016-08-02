@@ -77,7 +77,6 @@ public class OntologyServiceImpl implements OntologyService
 	public OntologyTerm getOntologyTerm(String iri)
 	{
 		return ontologyTermRepository.getOntologyTerm(iri.split(","));
-
 	}
 
 	@Override
@@ -150,9 +149,53 @@ public class OntologyServiceImpl implements OntologyService
 	}
 
 	@Override
+	public boolean areWithinDistance(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2, int maxDistance)
+	{
+		return ontologyTermRepository.areWithinDistance(ontologyTerm1, ontologyTerm2, maxDistance);
+	}
+
+	@Override
 	public Double getOntologyTermSemanticRelatedness(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
 	{
 		return ontologyTermRepository.getOntologyTermSemanticRelatedness(ontologyTerm1, ontologyTerm2);
+	}
+
+	@Override
+	public boolean related(OntologyTerm targetOntologyTerm, OntologyTerm sourceOntologyTerm)
+	{
+		if (targetOntologyTerm.getNodePaths().size() != 0 && sourceOntologyTerm.getNodePaths().size() != 0)
+		{
+			for (String targetNodePath : targetOntologyTerm.getNodePaths())
+			{
+				for (String sourceNodePath : sourceOntologyTerm.getNodePaths())
+				{
+					if (targetNodePath.contains(sourceNodePath) || sourceNodePath.contains(targetNodePath))
+					{
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	@Override
+	public boolean isDescendant(OntologyTerm targetOntologyTerm, OntologyTerm sourceOntologyTerm)
+	{
+		if (targetOntologyTerm.getNodePaths().size() != 0 && sourceOntologyTerm.getNodePaths().size() != 0)
+		{
+			for (String targetNodePath : targetOntologyTerm.getNodePaths())
+			{
+				for (String sourceNodePath : sourceOntologyTerm.getNodePaths())
+				{
+					if (targetNodePath.contains(sourceNodePath))
+					{
+						return true;
+					}
+				}
+			}
+		}
+		return false;
 	}
 
 	@Override

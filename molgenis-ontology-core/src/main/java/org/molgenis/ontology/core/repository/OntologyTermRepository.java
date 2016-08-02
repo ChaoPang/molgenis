@@ -344,6 +344,36 @@ public class OntologyTermRepository
 	}
 
 	/**
+	 * If any of the nodePaths of both of {@link OntologyTerm}s are within (less and equal) the max distance.
+	 * 
+	 * @param ontologyTerm1
+	 * @param ontologyTerm2
+	 * @param maxDistance
+	 * @return
+	 */
+	public boolean areWithinDistance(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2, int maxDistance)
+	{
+		// If the list of NodePaths is empty, add an empty string to the list so that it can be calculated
+		List<String> listOfNodePath1 = ontologyTerm1.getNodePaths().isEmpty() ? Arrays.asList(StringUtils.EMPTY)
+				: ontologyTerm1.getNodePaths();
+		List<String> listOfNodePath2 = ontologyTerm2.getNodePaths().isEmpty() ? Arrays.asList(StringUtils.EMPTY)
+				: ontologyTerm2.getNodePaths();
+
+		for (String nodePath1 : listOfNodePath1)
+		{
+			for (String nodePath2 : listOfNodePath2)
+			{
+				int distance = calculateNodePathDistance(nodePath1, nodePath2);
+				if (distance <= maxDistance)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Calculate the semantic relatedness between any two ontology terms in the ontology tree
 	 *
 	 * @param ontologyTerm1
@@ -388,8 +418,7 @@ public class OntologyTermRepository
 		String[] nodePathFragment2 = isBlank(nodePath2) ? new String[0] : nodePath2.split(ESCAPED_NODEPATH_SEPARATOR);
 
 		int overlapBlock = calculateOverlapBlock(nodePathFragment1, nodePathFragment2);
-		return penalize(nodePath1) + penalize(nodePath2) + nodePathFragment1.length + nodePathFragment2.length
-				- overlapBlock * 2;
+		return nodePathFragment1.length + nodePathFragment2.length - overlapBlock * 2;
 	}
 
 	public double calculateRelatedness(String nodePath1, String nodePath2)
