@@ -1,18 +1,22 @@
 package org.molgenis.ontology.core.service.impl;
 
-import static java.util.Objects.nonNull;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Stream.of;
 import static org.molgenis.ontology.utils.PredicateUtils.createRetrieveLevelThreePredicate;
+import static org.molgenis.ontology.utils.Stemmer.splitAndStem;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.common.collect.Lists;
 import org.molgenis.data.MolgenisDataAccessException;
 import org.molgenis.ontology.core.model.ConditionalChildrenRetrieval;
@@ -23,6 +27,9 @@ import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.repository.OntologyRepository;
 import org.molgenis.ontology.core.repository.OntologyTermRepository;
 import org.molgenis.ontology.core.service.OntologyService;
+import org.molgenis.ontology.utils.Stemmer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.cache.CacheBuilder;
@@ -31,12 +38,22 @@ import com.google.common.cache.LoadingCache;
 
 public class OntologyServiceImpl implements OntologyService
 {
+	private final static Logger LOG = LoggerFactory.getLogger(OntologyServiceImpl.class);
 	private final static String ONTOLOGY_TERM_IRI_SEPARATOR = ",";
 	private OntologyRepository ontologyRepository;
 	private OntologyTermRepository ontologyTermRepository;
 
+	private LoadingCache<String, OntologyTerm> cachedOntologyTerms = CacheBuilder.newBuilder().maximumSize(2000)
+			.expireAfterWrite(1, TimeUnit.HOURS).build(new CacheLoader<String, OntologyTerm>()
+			{
+				public OntologyTerm load(String iri)
+				{
+					return ontologyTermRepository.getOntologyTerm(iri.split(","));
+				}
+			});
+
 	private LoadingCache<ConditionalChildrenRetrieval, List<OntologyTerm>> cachedOntologyTermChildren = CacheBuilder
-			.newBuilder().maximumSize(1000).expireAfterWrite(1, TimeUnit.HOURS)
+			.newBuilder().maximumSize(2000).expireAfterWrite(1, TimeUnit.HOURS)
 			.build(new CacheLoader<ConditionalChildrenRetrieval, List<OntologyTerm>>()
 			{
 				public List<OntologyTerm> load(ConditionalChildrenRetrieval conditionalChildrenRetrieval)
@@ -76,6 +93,15 @@ public class OntologyServiceImpl implements OntologyService
 	@Override
 	public OntologyTerm getOntologyTerm(String iri)
 	{
+		try
+		{
+			return cachedOntologyTerms.get(iri);
+		}
+		catch (ExecutionException e)
+		{
+			LOG.error(e.getMessage());
+		}
+
 		return ontologyTermRepository.getOntologyTerm(iri.split(","));
 	}
 
@@ -88,17 +114,27 @@ public class OntologyServiceImpl implements OntologyService
 	@Override
 	public List<OntologyTerm> findExcatOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize)
 	{
-		if (null == terms || terms.size() == 0)
+		if (null == terms || terms.isEmpty())
 		{
 			return Lists.<OntologyTerm> newArrayList();
 		}
-		return ontologyTermRepository.findExcatOntologyTerms(ontologyIds, terms, pageSize);
+		Set<String> stemmedTerms = terms.stream().map(Stemmer::stem).collect(toSet());
+		List<OntologyTerm> collect = ontologyTermRepository.findOntologyTerms(ontologyIds, terms, pageSize).stream()
+				.filter(ontologyTerm -> isOntologyTermExactMatch(stemmedTerms, ontologyTerm)).collect(toList());
+		return collect;
+	}
+
+	private boolean isOntologyTermExactMatch(Set<String> terms, OntologyTerm ontologyTerm)
+	{
+		List<String> synonyms = Lists.newArrayList(ontologyTerm.getSynonyms());
+		synonyms.add(ontologyTerm.getLabel());
+		return synonyms.stream().anyMatch(synonym -> terms.containsAll(splitAndStem(synonym.toString())));
 	}
 
 	@Override
 	public List<OntologyTerm> findOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize)
 	{
-		if (null == terms || terms.size() == 0)
+		if (null == terms || terms.isEmpty())
 		{
 			return Lists.<OntologyTerm> newArrayList();
 		}
@@ -109,7 +145,7 @@ public class OntologyServiceImpl implements OntologyService
 	public List<OntologyTerm> filterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
 			List<OntologyTerm> filteredOntologyTerms)
 	{
-		if (null == terms || terms.size() == 0)
+		if (null == terms || terms.isEmpty())
 		{
 			return Lists.<OntologyTerm> newArrayList();
 		}
@@ -163,62 +199,38 @@ public class OntologyServiceImpl implements OntologyService
 	@Override
 	public boolean related(OntologyTerm targetOntologyTerm, OntologyTerm sourceOntologyTerm)
 	{
-		if (targetOntologyTerm.getNodePaths().size() != 0 && sourceOntologyTerm.getNodePaths().size() != 0)
+		if (targetOntologyTerm.getNodePaths().isEmpty() || sourceOntologyTerm.getNodePaths().isEmpty())
 		{
-			for (String targetNodePath : targetOntologyTerm.getNodePaths())
-			{
-				for (String sourceNodePath : sourceOntologyTerm.getNodePaths())
-				{
-					if (targetNodePath.contains(sourceNodePath) || sourceNodePath.contains(targetNodePath))
-					{
-						return true;
-					}
-				}
-			}
+			return false;
 		}
-		return false;
+
+		return targetOntologyTerm.getNodePaths().stream()
+				.anyMatch(targetNodePath -> sourceOntologyTerm.getNodePaths().stream()
+						.anyMatch(sourceNodePath -> targetNodePath.contains(sourceNodePath)
+								|| sourceNodePath.contains(targetNodePath)));
 	}
 
 	@Override
 	public boolean isDescendant(OntologyTerm targetOntologyTerm, OntologyTerm sourceOntologyTerm)
 	{
-		if (targetOntologyTerm.getNodePaths().size() != 0 && sourceOntologyTerm.getNodePaths().size() != 0)
+		if (targetOntologyTerm.getNodePaths().isEmpty() || sourceOntologyTerm.getNodePaths().isEmpty())
 		{
-			for (String targetNodePath : targetOntologyTerm.getNodePaths())
-			{
-				for (String sourceNodePath : sourceOntologyTerm.getNodePaths())
-				{
-					if (targetNodePath.contains(sourceNodePath))
-					{
-						return true;
-					}
-				}
-			}
+			return false;
 		}
-		return false;
+
+		return targetOntologyTerm.getNodePaths().stream().anyMatch(targetNodePath -> sourceOntologyTerm.getNodePaths()
+				.stream().anyMatch(sourceNodePath -> targetNodePath.contains(sourceNodePath)));
 	}
 
 	@Override
 	public List<OntologyTerm> getAtomicOntologyTerms(OntologyTerm ontologyTerm)
 	{
-		List<OntologyTerm> ontologyTerms = new ArrayList<>();
-
-		if (nonNull(ontologyTerm))
+		if (Objects.isNull(ontologyTerm))
 		{
-			for (String atomicOntologyTermIri : ontologyTerm.getIRI().split(ONTOLOGY_TERM_IRI_SEPARATOR))
-			{
-				if (isNotBlank(atomicOntologyTermIri))
-				{
-					OntologyTerm atomicOntologyTerm = getOntologyTerm(atomicOntologyTermIri);
-					if (atomicOntologyTerm != null)
-					{
-						ontologyTerms.add(atomicOntologyTerm);
-					}
-				}
-			}
+			return emptyList();
 		}
-
-		return ontologyTerms;
+		return of(ontologyTerm.getIRI().split(ONTOLOGY_TERM_IRI_SEPARATOR)).filter(StringUtils::isNotBlank)
+				.map(this::getOntologyTerm).collect(toList());
 	}
 
 	@Override

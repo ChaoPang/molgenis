@@ -1,13 +1,11 @@
 package org.molgenis.ontology.core.repository;
 
-import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Stream.of;
 import static java.util.stream.StreamSupport.stream;
-import static org.apache.commons.lang3.StringUtils.EMPTY;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.join;
 import static org.molgenis.data.QueryRule.Operator.AND;
@@ -27,12 +25,15 @@ import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
 import java.util.Set;
-import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -56,11 +57,15 @@ import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.OntologyTermAnnotation;
 import org.molgenis.ontology.core.model.OntologyTermChildrenPredicate;
 import org.molgenis.ontology.core.model.SemanticType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 
 /***
  * Maps{
@@ -69,12 +74,12 @@ import com.google.common.collect.Lists;
  */
 public class OntologyTermRepository
 {
+	private static final Logger LOG = LoggerFactory.getLogger(OntologyTermRepository.class);
+
 	private static final String ESCAPED_NODEPATH_SEPARATOR = "\\.";
 	private static final String NODEPATH_SEPARATOR = ".";
 
 	private final DataService dataService;
-
-	private final static int PENALIZE_EMPTY_PATH = 10;
 
 	@Autowired
 	public OntologyTermRepository(DataService dataService)
@@ -120,42 +125,6 @@ public class OntologyTermRepository
 	}
 
 	/**
-	 * Finds exact {@link OntologyTerm}s within {@link Ontology}s.
-	 *
-	 * @param ontologyIds
-	 *            IDs of the {@link Ontology}s to search in
-	 * @param terms
-	 *            {@link List} of search terms. the {@link OntologyTerm} must match at least one of these terms
-	 * @param semanticTypeFilter
-	 * @param pageSize
-	 *            max number of results
-	 * @return {@link List} of {@link OntologyTerm}s
-	 */
-	public List<OntologyTerm> findExcatOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize)
-	{
-		List<OntologyTerm> findOntologyTerms = findOntologyTerms(ontologyIds, terms, pageSize);
-		return findOntologyTerms.stream().filter(ontologyTerm -> isOntologyTermExactMatch(terms, ontologyTerm))
-				.collect(Collectors.toList());
-	}
-
-	private boolean isOntologyTermExactMatch(Set<String> terms, OntologyTerm ontologyTerm)
-	{
-		Set<String> lowerCaseSearchTerms = terms.stream().map(StringUtils::lowerCase).collect(Collectors.toSet());
-		for (String synonym : ontologyTerm.getSynonyms())
-		{
-			if (lowerCaseSearchTerms.contains(synonym.toLowerCase()))
-			{
-				return true;
-			}
-		}
-		if (lowerCaseSearchTerms.contains(ontologyTerm.getLabel().toLowerCase()))
-		{
-			return true;
-		}
-		return false;
-	}
-
-	/**
 	 * Finds {@link OntologyTerm}s within {@link Ontology}s.
 	 *
 	 * @param ontologyIds
@@ -188,18 +157,8 @@ public class OntologyTermRepository
 		rules = Arrays.asList(new QueryRule(ONTOLOGY, IN, ontologyIds), new QueryRule(Operator.AND),
 				new QueryRule(rules));
 
-		final List<QueryRule> finalRules = rules;
-		Iterable<Entity> termEntities = new Iterable<Entity>()
-		{
-			@Override
-			public Iterator<Entity> iterator()
-			{
-				return dataService.findAll(ENTITY_NAME, new QueryImpl(finalRules).pageSize(pageSize).fetch(fetch))
-						.iterator();
-			}
-		};
-
-		return Lists.newArrayList(Iterables.transform(termEntities, OntologyTermRepository::toOntologyTerm));
+		return dataService.findAll(ENTITY_NAME, new QueryImpl(rules).pageSize(pageSize).fetch(fetch))
+				.map(OntologyTermRepository::toOntologyTerm).collect(toList());
 	}
 
 	public List<OntologyTerm> findAndFilterOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize,
@@ -219,24 +178,13 @@ public class OntologyTermRepository
 		}
 		rules = Arrays.asList(new QueryRule(ONTOLOGY, IN, ontologyIds), new QueryRule(AND), new QueryRule(rules));
 
-		List<String> filteredOntologyTermIris = ontologyTermScope.stream().map(OntologyTerm::getIRI)
-				.collect(Collectors.toList());
+		List<String> filteredOntologyTermIris = ontologyTermScope.stream().map(OntologyTerm::getIRI).collect(toList());
 
 		rules = Arrays.asList(new QueryRule(ONTOLOGY_TERM_IRI, IN, filteredOntologyTermIris), new QueryRule(AND),
 				new QueryRule(rules));
 
-		final List<QueryRule> finalRules = rules;
-		Iterable<Entity> termEntities = new Iterable<Entity>()
-		{
-			@Override
-			public Iterator<Entity> iterator()
-			{
-				return dataService.findAll(ENTITY_NAME, new QueryImpl(finalRules).pageSize(pageSize).fetch(fetch))
-						.iterator();
-			}
-		};
-
-		return Lists.newArrayList(Iterables.transform(termEntities, OntologyTermRepository::toOntologyTerm));
+		return dataService.findAll(ENTITY_NAME, new QueryImpl(rules).pageSize(pageSize).fetch(fetch))
+				.map(OntologyTermRepository::toOntologyTerm).collect(toList());
 	}
 
 	public List<OntologyTerm> getAllOntologyTerms(String ontologyId)
@@ -246,21 +194,11 @@ public class OntologyTermRepository
 
 		if (ontologyEntity != null)
 		{
-			Iterable<Entity> ontologyTermEntities = new Iterable<Entity>()
-			{
-
-				@Override
-				public Iterator<Entity> iterator()
-				{
-					return dataService
-							.findAll(OntologyTermMetaData.ENTITY_NAME, new QueryImpl()
-									.eq(OntologyTermMetaData.ONTOLOGY, ontologyEntity).pageSize(Integer.MAX_VALUE))
-							.iterator();
-				}
-			};
-
-			return stream(ontologyTermEntities.spliterator(), false).map(OntologyTermRepository::toOntologyTerm)
-					.collect(toList());
+			return dataService
+					.findAll(OntologyTermMetaData.ENTITY_NAME,
+							new QueryImpl().eq(OntologyTermMetaData.ONTOLOGY, ontologyEntity)
+									.pageSize(Integer.MAX_VALUE))
+					.map(OntologyTermRepository::toOntologyTerm).collect(toList());
 		}
 		return emptyList();
 	}
@@ -322,25 +260,14 @@ public class OntologyTermRepository
 	 */
 	public Integer getOntologyTermDistance(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
 	{
-		// If the list of NodePaths is empty, add an empty string to the list so that it can be calculated
-		List<String> listOfNodePath1 = ontologyTerm1.getNodePaths().isEmpty() ? Arrays.asList(StringUtils.EMPTY)
-				: ontologyTerm1.getNodePaths();
-		List<String> listOfNodePath2 = ontologyTerm2.getNodePaths().isEmpty() ? Arrays.asList(StringUtils.EMPTY)
-				: ontologyTerm2.getNodePaths();
+		if (ontologyTerm1.getNodePaths().isEmpty() || ontologyTerm2.getNodePaths().isEmpty()) return 0;
 
-		int shortestDistance = 0;
-		for (String nodePath1 : listOfNodePath1)
-		{
-			for (String nodePath2 : listOfNodePath2)
-			{
-				int distance = calculateNodePathDistance(nodePath1, nodePath2);
-				if (shortestDistance == 0 || distance < shortestDistance)
-				{
-					shortestDistance = distance;
-				}
-			}
-		}
-		return shortestDistance;
+		OptionalInt min = ontologyTerm1.getNodePaths().stream()
+				.flatMap(nodePath1 -> ontologyTerm2.getNodePaths().stream()
+						.map(nodePath2 -> calculateNodePathDistance(nodePath1, nodePath2)))
+				.mapToInt(Integer::valueOf).min();
+
+		return min.isPresent() ? min.getAsInt() : 0;
 	}
 
 	/**
@@ -353,24 +280,12 @@ public class OntologyTermRepository
 	 */
 	public boolean areWithinDistance(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2, int maxDistance)
 	{
-		// If the list of NodePaths is empty, add an empty string to the list so that it can be calculated
-		List<String> listOfNodePath1 = ontologyTerm1.getNodePaths().isEmpty() ? Arrays.asList(StringUtils.EMPTY)
-				: ontologyTerm1.getNodePaths();
-		List<String> listOfNodePath2 = ontologyTerm2.getNodePaths().isEmpty() ? Arrays.asList(StringUtils.EMPTY)
-				: ontologyTerm2.getNodePaths();
+		if (ontologyTerm1.getNodePaths().isEmpty() || ontologyTerm2.getNodePaths().isEmpty()) return false;
 
-		for (String nodePath1 : listOfNodePath1)
-		{
-			for (String nodePath2 : listOfNodePath2)
-			{
-				int distance = calculateNodePathDistance(nodePath1, nodePath2);
-				if (distance <= maxDistance)
-				{
-					return true;
-				}
-			}
-		}
-		return false;
+		boolean anyMatch = ontologyTerm1.getNodePaths().stream().anyMatch(nodePath1 -> ontologyTerm2.getNodePaths()
+				.stream().anyMatch(nodePath2 -> calculateNodePathDistance(nodePath1, nodePath2) <= maxDistance));
+
+		return anyMatch;
 	}
 
 	/**
@@ -383,25 +298,14 @@ public class OntologyTermRepository
 	 */
 	public double getOntologyTermSemanticRelatedness(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
 	{
-		// If the list of NodePaths is empty, add an empty string to the list so that it can be calculated
-		List<String> listOfNodePath1 = ontologyTerm1.getNodePaths().isEmpty() ? asList(EMPTY)
-				: ontologyTerm1.getNodePaths();
-		List<String> listOfNodePath2 = ontologyTerm2.getNodePaths().isEmpty() ? asList(EMPTY)
-				: ontologyTerm2.getNodePaths();
+		if (ontologyTerm1.getNodePaths().isEmpty() || ontologyTerm2.getNodePaths().isEmpty()) return 0;
 
-		double maxRelatedness = 0;
-		for (String nodePath1 : listOfNodePath1)
-		{
-			for (String nodePath2 : listOfNodePath2)
-			{
-				double relatedness = calculateRelatedness(nodePath1, nodePath2);
-				if (maxRelatedness == 0 || maxRelatedness < relatedness)
-				{
-					maxRelatedness = relatedness;
-				}
-			}
-		}
-		return maxRelatedness;
+		OptionalDouble max = ontologyTerm1.getNodePaths().stream()
+				.flatMap(nodePath1 -> ontologyTerm2.getNodePaths().stream()
+						.map(nodePath2 -> calculateRelatedness(nodePath1, nodePath2)))
+				.mapToDouble(Double::valueOf).max();
+
+		return max.isPresent() ? max.getAsDouble() : 0;
 	}
 
 	/**
@@ -429,10 +333,9 @@ public class OntologyTermRepository
 		int overlapBlock = calculateOverlapBlock(nodePathFragment1, nodePathFragment2);
 		overlapBlock = overlapBlock == 0 ? 1 : overlapBlock;
 
-		int depth1 = nodePathFragment1.length == 0 ? 1 : nodePathFragment1.length;
-		int depth2 = nodePathFragment2.length == 0 ? 1 : nodePathFragment2.length;
+		if (nodePathFragment1.length == 0 || nodePathFragment2.length == 0) return 0;
 
-		return (double) 2 * overlapBlock / (penalize(nodePath1) + penalize(nodePath2) + depth1 + depth2);
+		return (double) 2 * overlapBlock / (nodePathFragment1.length + nodePathFragment2.length);
 	}
 
 	public int calculateOverlapBlock(String[] nodePathFragment1, String[] nodePathFragment2)
@@ -448,7 +351,7 @@ public class OntologyTermRepository
 
 	public Stream<OntologyTerm> getChildren(OntologyTerm ontologyTerm, OntologyTermChildrenPredicate continuePredicate)
 	{
-		return StreamSupport.stream(getChildrenByPredicate(ontologyTerm, continuePredicate).spliterator(), false);
+		return stream(getChildrenByPredicate(ontologyTerm, continuePredicate).spliterator(), false);
 	}
 
 	private Iterable<OntologyTerm> getChildrenByPredicate(OntologyTerm ontologyTerm,
@@ -470,8 +373,22 @@ public class OntologyTermRepository
 			// Since children will be the same no matter which one of nodePaths is used.
 			if (ot.getNodePaths().size() > 0)
 			{
-				iterable = childOntologyTermStream(ontologyTerm, ontologyEntity, ot.getNodePaths().get(0),
-						continuePredicate);
+				// The nodePaths that start with the same starting point have the same children in UMLS
+				Multimap<String, String> uniqueSubTrees = LinkedHashMultimap.create();
+				for (String nodePath : ot.getNodePaths())
+				{
+					String startNodePath = nodePath.split(ESCAPED_NODEPATH_SEPARATOR)[0];
+					uniqueSubTrees.put(startNodePath, nodePath);
+				}
+
+				for (Entry<String, Collection<String>> entrySet : uniqueSubTrees.asMap().entrySet())
+				{
+					String nodePath = entrySet.getValue().iterator().next();
+					Iterable<OntologyTerm> childOntologyTermStream = childOntologyTermStream(ontologyTerm,
+							ontologyEntity, nodePath, continuePredicate);
+					iterable = iterable == null ? childOntologyTermStream
+							: Iterables.concat(iterable, childOntologyTermStream);
+				}
 			}
 		}
 
@@ -486,41 +403,63 @@ public class OntologyTermRepository
 	// when we encounter the first nodePath (mismatch) that is not a child of the currentNodePath because we know the
 	// rest of the nodePaths cannot be more similar than the first mismatch.
 	Iterable<OntologyTerm> childOntologyTermStream(OntologyTerm ontologyTerm, Entity ontologyEntity,
-			final String parentNodePath, BiPredicate<OntologyTerm, OntologyTerm> continuePredicate)
+			final String parentNodePath, OntologyTermChildrenPredicate continuePredicate)
 	{
-		Query query = new QueryImpl(
-				new QueryRule(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, FUZZY_MATCH, "\"" + parentNodePath + "\""))
-						.and().eq(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
+		Query ontologyTermNodePathQuery = new QueryImpl(new QueryRule(
+				OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH, FUZZY_MATCH, "\"" + parentNodePath + "\""));
 
-		Stream<Entity> ontologyTermEntityStream = dataService.findAll(OntologyTermMetaData.ENTITY_NAME, query);
-
-		Iterable<OntologyTerm> ontologyTermIterable = new Iterable<OntologyTerm>()
+		Iterable<Entity> ontologyTermNodePathEntities = new Iterable<Entity>()
 		{
-			public Iterator<OntologyTerm> iterator()
+			public Iterator<Entity> iterator()
 			{
-				Iterator<OntologyTerm> ontologyTermIterator = new Iterator<OntologyTerm>()
+				Iterator<Entity> ontologyTermIterator = new Iterator<Entity>()
 				{
-					private OntologyTerm prevOt = null;
-					private final Iterator<Entity> ontologyTermIterator = ontologyTermEntityStream.iterator();
+					private Entity prevEntity = null;
+					private final Iterator<Entity> ontologyTermNodePathIterator = dataService
+							.findAll(OntologyTermNodePathMetaData.ENTITY_NAME, ontologyTermNodePathQuery).iterator();
 
 					public boolean hasNext()
 					{
 						boolean continueIteration = true;
-						if (prevOt != null)
+						if (prevEntity != null)
 						{
-							continueIteration = continuePredicate.test(ontologyTerm, prevOt);
+							continueIteration = calculateNodePathDistance(
+									prevEntity.getString(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH),
+									parentNodePath) <= continuePredicate.getSearchLevel();
 						}
-						return ontologyTermIterator.hasNext() && continueIteration;
+						return ontologyTermNodePathIterator.hasNext() && continueIteration;
 					}
 
-					public OntologyTerm next()
+					public Entity next()
 					{
-						prevOt = toOntologyTerm(ontologyTermIterator.next());
-						return prevOt;
+						prevEntity = ontologyTermNodePathIterator.next();
+						if (LOG.isTraceEnabled())
+						{
+							LOG.trace("Parent: " + parentNodePath + "; Child: "
+									+ prevEntity.getString(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH));
+						}
+						return prevEntity;
 					}
 				};
-				return Iterators.filter(ontologyTermIterator, ot -> !ot.getNodePaths().contains(parentNodePath)
-						&& ot.getNodePaths().stream().anyMatch(nodePath -> nodePath.startsWith(parentNodePath)));
+				return Iterators.filter(ontologyTermIterator,
+						entity -> !entity.getString(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH)
+								.equals(parentNodePath)
+								&& entity.getString(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH)
+										.startsWith(parentNodePath));
+			}
+		};
+
+		Query ontologyTermQuery = new QueryImpl(
+				new QueryRule(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, IN, ontologyTermNodePathEntities)).and()
+						.eq(OntologyTermMetaData.ONTOLOGY, ontologyEntity);
+
+		Iterable<OntologyTerm> ontologyTermIterable = new Iterable<OntologyTerm>()
+		{
+			@Override
+			public Iterator<OntologyTerm> iterator()
+			{
+				return dataService.findAll(OntologyTermMetaData.ENTITY_NAME, ontologyTermQuery)
+						.map(OntologyTermRepository::toOntologyTerm).iterator();
 			}
 		};
 
@@ -543,11 +482,10 @@ public class OntologyTermRepository
 				List<String> nodePathEntityIdentifiers = nodePaths.stream()
 						.map(nodePath -> dataService.findOne(OntologyTermNodePathMetaData.ENTITY_NAME,
 								EQ(OntologyTermNodePathMetaData.ONTOLOGY_TERM_NODE_PATH, nodePath)))
-						.filter(Objects::nonNull).map(entity -> entity.getIdValue().toString()).collect(toList());
+						.filter(Objects::nonNull).map(Entity::getIdValue).map(Object::toString).collect(toList());
 
 				if (nodePathEntityIdentifiers.size() > 0)
 				{
-
 					List<OntologyTerm> ontologyTerms = dataService
 							.findAll(OntologyTermMetaData.ENTITY_NAME,
 									IN(OntologyTermMetaData.ONTOLOGY_TERM_NODE_PATH, nodePathEntityIdentifiers))
@@ -616,6 +554,15 @@ public class OntologyTermRepository
 		return StringUtils.EMPTY;
 	}
 
+	public static SemanticType entityToSemanticType(Entity entity)
+	{
+		String id = entity.getString(SemanticTypeMetaData.ID);
+		String name = entity.getString(SemanticTypeMetaData.SEMANTIC_TYPE_NAME);
+		String group = entity.getString(SemanticTypeMetaData.SEMANTIC_TYPE_GROUP);
+		Boolean globalKeyConcept = entity.getBoolean(SemanticTypeMetaData.SEMANTIC_TYPE_GLOBAL_KEY_CONCEPT);
+		return SemanticType.create(id, name, group, globalKeyConcept == null ? true : globalKeyConcept);
+	}
+
 	public static OntologyTerm toOntologyTerm(Entity entity)
 	{
 		if (entity == null)
@@ -667,19 +614,5 @@ public class OntologyTermRepository
 
 		return OntologyTerm.create(entity.getString(ID), entity.getString(ONTOLOGY_TERM_IRI),
 				entity.getString(ONTOLOGY_TERM_NAME), null, synonyms, nodePaths, annotations, semanticTypes);
-	}
-
-	public static SemanticType entityToSemanticType(Entity entity)
-	{
-		String id = entity.getString(SemanticTypeMetaData.ID);
-		String name = entity.getString(SemanticTypeMetaData.SEMANTIC_TYPE_NAME);
-		String group = entity.getString(SemanticTypeMetaData.SEMANTIC_TYPE_GROUP);
-		Boolean globalKeyConcept = entity.getBoolean(SemanticTypeMetaData.SEMANTIC_TYPE_GLOBAL_KEY_CONCEPT);
-		return SemanticType.create(id, name, group, globalKeyConcept == null ? true : globalKeyConcept);
-	}
-
-	private int penalize(String nodePath)
-	{
-		return isBlank(nodePath) ? PENALIZE_EMPTY_PATH : 0;
 	}
 }

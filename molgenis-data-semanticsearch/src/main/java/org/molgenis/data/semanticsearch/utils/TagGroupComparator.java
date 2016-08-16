@@ -3,11 +3,10 @@ package org.molgenis.data.semanticsearch.utils;
 import java.util.Comparator;
 import java.util.List;
 
-import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.utils.Stemmer;
 
-public class OntologyTermComparator implements Comparator<TagGroup>
+public class TagGroupComparator implements Comparator<TagGroup>
 {
 	@Override
 	public int compare(TagGroup o2, TagGroup o1)
@@ -27,14 +26,23 @@ public class OntologyTermComparator implements Comparator<TagGroup>
 			{
 				// if the current ontology term doesn't have semantic types and next ontology term does, we are in favor
 				// of the ontology terms that have semantic types
-				if (o1.getOntologyTerm().getSemanticTypes().isEmpty()
-						&& !o2.getOntologyTerm().getSemanticTypes().isEmpty())
+				if (isSemanticTypesEmpty(o1) && !isSemanticTypesEmpty(o2))
 				{
 					return -1;
 				}
 
+				if (!isSemanticTypesEmpty(o1) && isSemanticTypesEmpty(o2))
+				{
+					return 1;
+				}
+
 				// if the next ontologyterm is matched based on its label rather than any of the synonyms, the
 				// order of the next ontologyterm should be higher than the previous one
+				if (isOntologyTermNameMatched(o1) && !isOntologyTermNameMatched(o2))
+				{
+					return 1;
+				}
+
 				if (!isOntologyTermNameMatched(o1) && isOntologyTermNameMatched(o2))
 				{
 					return -1;
@@ -44,24 +52,20 @@ public class OntologyTermComparator implements Comparator<TagGroup>
 				// the order of these two elements need to be re-sorted based on the synonym information content
 				if (!isOntologyTermNameMatched(o1) && !isOntologyTermNameMatched(o2))
 				{
-					float informationContent1 = calculateInformationContent(synonym1,
-							o1.getOntologyTerm().getSynonyms());
-					float informationContent2 = calculateInformationContent(synonym2,
-							o2.getOntologyTerm().getSynonyms());
-					return Float.compare(informationContent1, informationContent2);
+					int informationContent1 = calculateInformationContent(synonym1, o1.getOntologyTerm().getSynonyms());
+					int informationContent2 = calculateInformationContent(synonym2, o2.getOntologyTerm().getSynonyms());
+					return Integer.compare(informationContent1, informationContent2);
 				}
 			}
 		}
 		return compare;
 	}
 
-	float calculateInformationContent(String bestMatchingSynonym, List<String> synonyms)
+	int calculateInformationContent(String bestMatchingSynonym, List<String> synonyms)
 	{
 		final String bestMatchingSynonymLowerCase = bestMatchingSynonym.toLowerCase();
-		String joinedSynonym = StringUtils.join(synonyms, StringUtils.EMPTY).toLowerCase();
 		long count = synonyms.stream().filter(s -> s.toLowerCase().contains(bestMatchingSynonymLowerCase)).count();
-		float contributedLength = count * bestMatchingSynonym.length();
-		return contributedLength / joinedSynonym.length();
+		return (int) count;
 	}
 
 	boolean synonymEquals(String synonym1, String synonym2)
@@ -73,5 +77,10 @@ public class OntologyTermComparator implements Comparator<TagGroup>
 	boolean isOntologyTermNameMatched(TagGroup hit)
 	{
 		return hit.getOntologyTerm().getLabel().equalsIgnoreCase(hit.getMatchedWords());
+	}
+
+	boolean isSemanticTypesEmpty(TagGroup hit)
+	{
+		return hit.getOntologyTerm().getSemanticTypes().isEmpty();
 	}
 }

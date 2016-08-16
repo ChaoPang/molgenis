@@ -11,6 +11,7 @@ import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.matching.AttributeMappingDecision;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
+import org.molgenis.data.discovery.service.impl.OntologyBasedMatcher;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -156,4 +157,8 @@ public interface BiobankUniverseService
 	 * @param semanticTypeGroups
 	 */
 	public abstract void addKeyConcepts(BiobankUniverse universe, List<String> semanticTypeGroups);
+
+	List<AttributeMappingCandidate> findCandidateMappingsOntologyBased(BiobankUniverse biobankUniverse,
+			BiobankSampleAttribute target, SemanticSearchParam semanticSearchParam,
+			List<OntologyBasedMatcher> ontologyBasedInputData);
 }

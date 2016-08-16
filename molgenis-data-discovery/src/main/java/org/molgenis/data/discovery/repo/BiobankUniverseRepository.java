@@ -101,9 +101,9 @@ public interface BiobankUniverseRepository
 	 * Get all {@link BiobankSampleAttribute}s from the given {@link BiobankSampleCollection}
 	 * 
 	 * @param biobankSampleCollection
-	 * @return a list of {@link BiobankSampleAttribute}s
+	 * @return a {@link List} of {@link BiobankSampleAttribute}s
 	 */
-	public abstract List<BiobankSampleAttribute> getBiobankSampleAttributes(
+	public abstract Iterable<BiobankSampleAttribute> getBiobankSampleAttributes(
 			BiobankSampleCollection biobankSampleCollection);
 
 	/**
@@ -119,7 +119,7 @@ public interface BiobankUniverseRepository
 	 * 
 	 * @param biobankSampleAttributes
 	 */
-	public abstract void removeBiobankSampleAttributes(List<BiobankSampleAttribute> biobankSampleAttributes);
+	public abstract void removeBiobankSampleAttributes(Iterable<BiobankSampleAttribute> biobankSampleAttributes);
 
 	/**
 	 * Retrieve a list of {@link BiobankSampleAttribute}s based on the given {@link Query}
@@ -134,14 +134,14 @@ public interface BiobankUniverseRepository
 	 * 
 	 * @param biobankSampleAttributes
 	 */
-	public abstract void addTagGroupsForAttributes(List<BiobankSampleAttribute> biobankSampleAttributes);
+	public abstract void addTagGroupsForAttributes(Iterable<BiobankSampleAttribute> biobankSampleAttributes);
 
 	/**
 	 * Delete all {@link TagGroup}s
 	 * 
 	 * @param tagGroupStream
 	 */
-	public abstract void removeTagGroupsForAttributes(List<BiobankSampleAttribute> biobankSampleAttributes);
+	public abstract void removeTagGroupsForAttributes(Iterable<BiobankSampleAttribute> biobankSampleAttributes);
 
 	/**
 	 * Add a list of {@link AttributeMappingCandidate}s to the database

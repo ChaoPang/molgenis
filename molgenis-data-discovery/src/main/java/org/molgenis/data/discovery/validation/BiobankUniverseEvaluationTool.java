@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -29,6 +30,7 @@ import org.molgenis.data.excel.ExcelRepositoryCollection;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 
 import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
 public class BiobankUniverseEvaluationTool
@@ -65,6 +67,88 @@ public class BiobankUniverseEvaluationTool
 		Map<String, List<Hit<String>>> generatedCandidateMatchCollection = collectGeneratedMatches(
 				generatedMatchRepository);
 
+		generateRscriptInput(manualMatcheCollection, generatedCandidateMatchCollection);
+
+		calculatePrecisionRecallForRanks(manualMatcheCollection, generatedCandidateMatchCollection);
+
+		calculatePrecisionRecallForThresholds(manualMatcheCollection, generatedCandidateMatchCollection);
+	}
+
+	private List<Hit<String>> postProcessMatches(List<Hit<String>> candidateMatches)
+	{
+		if (candidateMatches.isEmpty()) return Collections.emptyList();
+
+		List<Float> similarityTangentValues = new ArrayList<>();
+		Hit<String> previousHit = candidateMatches.get(0);
+		for (Hit<String> hit : candidateMatches.stream().skip(1).collect(Collectors.toList()))
+		{
+			float drop = previousHit.getScore() - hit.getScore();
+			similarityTangentValues.add(drop);
+			previousHit = hit;
+		}
+
+		List<Float> qualifiedTangentValues = similarityTangentValues.stream().filter(drop -> drop >= 0.1f)
+				.collect(Collectors.toList());
+
+		if (qualifiedTangentValues.size() > 0)
+		{
+			Float lastQualifedDropValue = qualifiedTangentValues.get(qualifiedTangentValues.size() - 1);
+			int indexOf = similarityTangentValues.indexOf(lastQualifedDropValue);
+			// 1,2,3,4,5,6,7
+			for (int i = indexOf; i < similarityTangentValues.size() - 2; i++)
+			{
+				if (similarityTangentValues.get(i) <= 0.01 && similarityTangentValues.get(i + 1) <= 0.01
+						&& similarityTangentValues.get(i + 2) <= 0.01)
+				{
+					return candidateMatches.subList(0, i);
+				}
+			}
+		}
+
+		return candidateMatches;
+	}
+
+	private void calculatePrecisionRecallForThresholds(Multimap<String, String> manualMatcheCollection,
+			Map<String, List<Hit<String>>> generatedCandidateMatchCollection)
+	{
+		for (int i = 1; i < 101; i++)
+		{
+			float threshold = (float) i / 100;
+			Map<String, List<Hit<String>>> tempCandidateMatchCollection = generatedCandidateMatchCollection.entrySet()
+					.stream().collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().stream()
+							.filter(hit -> hit.getScore() >= threshold).collect(toList())));
+
+			int foundMatches = 0;
+			int retrievedMatches = 0;
+			int totalMatch = (int) manualMatcheCollection.values().stream().count();
+			for (Entry<String, List<Hit<String>>> generatedMatchesEntry : tempCandidateMatchCollection.entrySet())
+			{
+				String target = generatedMatchesEntry.getKey();
+
+				List<Hit<String>> generatedMatches = generatedMatchesEntry.getValue().stream().sorted()
+						.collect(toList());
+
+				List<String> manualMatches = manualMatcheCollection.containsKey(target)
+						? Lists.newArrayList(manualMatcheCollection.get(target)) : emptyList();
+
+				foundMatches += generatedMatches.stream().filter(hit -> manualMatches.contains(hit.getResult()))
+						.count();
+				retrievedMatches += generatedMatches.size();
+			}
+
+			double recall = (double) foundMatches / totalMatch;
+			double precision = (double) foundMatches / retrievedMatches;
+			double falseDiscoveryRate = (double) (retrievedMatches - foundMatches) / retrievedMatches;
+			double fMeasure = 2 * recall * precision / (recall + precision);
+			System.out.format(
+					"Recall: %.3f; Precision: %.3f; FDR: %.3f; F-measure: %.3f; Threshold %.3f; Total matches: %d%n",
+					recall, precision, falseDiscoveryRate, fMeasure, threshold, totalMatch);
+		}
+	}
+
+	private void calculatePrecisionRecallForRanks(Multimap<String, String> manualMatcheCollection,
+			Map<String, List<Hit<String>>> generatedCandidateMatchCollection)
+	{
 		List<Match> matchResult = new ArrayList<>();
 		for (Entry<String, Collection<String>> entrySet : manualMatcheCollection.asMap().entrySet())
 		{
@@ -91,8 +175,13 @@ public class BiobankUniverseEvaluationTool
 					foundMatch++;
 				}
 			}
+
+			final int rank = i;
+			int retrievedMatches = generatedCandidateMatchCollection.values().stream()
+					.mapToInt(candidates -> candidates.size() > rank ? rank : candidates.size()).sum();
+
 			double recall = (double) foundMatch / totalMatch;
-			double precision = (double) foundMatch / (matchResult.size() * i);
+			double precision = (double) foundMatch / retrievedMatches;
 			System.out.format("Recall: %.3f; Precision: %.3f; Rank %d; Total matches: %d%n", recall, precision, i,
 					totalMatch);
 		}
@@ -102,6 +191,26 @@ public class BiobankUniverseEvaluationTool
 			if (match.getRank() == null)
 			{
 				System.out.format("Target: %s; Manual matches: %s%n", match.getTarget(), match.getSource());
+			}
+		}
+	}
+
+	private void generateRscriptInput(Multimap<String, String> manualMatcheCollection,
+			Map<String, List<Hit<String>>> generatedCandidateMatchCollection)
+	{
+		for (Entry<String, List<Hit<String>>> entry : generatedCandidateMatchCollection.entrySet())
+		{
+			String targetAttributeName = entry.getKey();
+			Collection<String> manualMatch = manualMatcheCollection.containsKey(targetAttributeName)
+					? manualMatcheCollection.get(targetAttributeName) : emptyList();
+			List<Hit<String>> candidateMatches = entry.getValue();
+			for (Hit<String> candidateMatch : candidateMatches)
+			{
+				String candidateMatchName = candidateMatch.getResult();
+				int group = manualMatch.contains(candidateMatchName) ? 1 : 2;
+				int rank = candidateMatches.indexOf(candidateMatch) + 1;
+				System.out.format("%s,%s,%.3f,%d,%d%n", targetAttributeName, candidateMatchName,
+						candidateMatch.getScore(), rank, group);
 			}
 		}
 	}
@@ -127,7 +236,7 @@ public class BiobankUniverseEvaluationTool
 				generatedCandidateMatches.put(target, new ArrayList<>());
 			}
 
-			generatedCandidateMatches.get(target).add(Hit.create(source, (float) ngramScore.doubleValue() / 100000));
+			generatedCandidateMatches.get(target).add(Hit.create(source, (float) ngramScore.doubleValue()));
 		}
 		return generatedCandidateMatches;
 	}
@@ -156,30 +265,30 @@ public class BiobankUniverseEvaluationTool
 		}
 		return manualMatches;
 	}
-
-	private Multimap<String, String> collectManualMatches(Repository manualMatchRepository)
-	{
-		Multimap<String, String> manualMatches = LinkedHashMultimap.create();
-
-		for (Entity entity : manualMatchRepository)
-		{
-			String attributeName = entity.getString("name");
-			String algorithm = entity.getString("algorithm");
-
-			if (!algorithm.equals("null"))
-			{
-				Set<String> matchedAttributeNames = extractAttributeNames(algorithm);
-				manualMatches.putAll(attributeName, matchedAttributeNames);
-				System.out
-						.println("\"" + attributeName + "\",\"" + StringUtils.join(matchedAttributeNames, ',') + "\"");
-			}
-			else
-			{
-				System.out.println("\"" + attributeName + "\",\"\"");
-			}
-		}
-		return manualMatches;
-	}
+	//
+	// private Multimap<String, String> collectManualMatches(Repository manualMatchRepository)
+	// {
+	// Multimap<String, String> manualMatches = LinkedHashMultimap.create();
+	//
+	// for (Entity entity : manualMatchRepository)
+	// {
+	// String attributeName = entity.getString("name");
+	// String algorithm = entity.getString("algorithm");
+	//
+	// if (!algorithm.equals("null"))
+	// {
+	// Set<String> matchedAttributeNames = extractAttributeNames(algorithm);
+	// manualMatches.putAll(attributeName, matchedAttributeNames);
+	// System.out
+	// .println("\"" + attributeName + "\",\"" + StringUtils.join(matchedAttributeNames, ',') + "\"");
+	// }
+	// else
+	// {
+	// System.out.println("\"" + attributeName + "\",\"\"");
+	// }
+	// }
+	// return manualMatches;
+	// }
 
 	private Set<String> extractAttributeNames(String algorithm)
 	{

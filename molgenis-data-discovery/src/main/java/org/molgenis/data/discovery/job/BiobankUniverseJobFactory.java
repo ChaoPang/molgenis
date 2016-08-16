@@ -4,6 +4,8 @@ import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.jobs.JobExecutionUpdater;
 import org.molgenis.data.jobs.ProgressImpl;
+import org.molgenis.data.semanticsearch.service.QueryExpansionService;
+import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.security.core.runas.RunAsSystem;
 import org.molgenis.ui.menu.MenuReaderService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +21,12 @@ public class BiobankUniverseJobFactory
 {
 	@Autowired
 	private BiobankUniverseRepository biobankUniverseRepository;
+
+	@Autowired
+	private QueryExpansionService queryExpansionService;
+
+	@Autowired
+	private OntologyService ontologyService;
 
 	@Autowired
 	private BiobankUniverseService biobankUniverseService;
@@ -49,7 +57,8 @@ public class BiobankUniverseJobFactory
 
 		BiobankUniverseJobProcessor biobankUniverseJobProcessor = new BiobankUniverseJobProcessor(
 				biobankUniverseJobExecution.getUniverse(), biobankUniverseJobExecution.getMembers(),
-				biobankUniverseService, biobankUniverseRepository, progress, menuReaderService);
+				biobankUniverseService, biobankUniverseRepository, queryExpansionService, ontologyService, progress,
+				menuReaderService);
 
 		return new BiobankUniverseJobImpl(biobankUniverseJobProcessor, progress, transactionTemplate,
 				runAsAuthentication);

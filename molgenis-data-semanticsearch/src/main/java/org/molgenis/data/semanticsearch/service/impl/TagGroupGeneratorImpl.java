@@ -29,7 +29,7 @@ import org.molgenis.data.semanticsearch.explain.criteria.impl.StrictMatchingCrit
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
-import org.molgenis.data.semanticsearch.utils.OntologyTermComparator;
+import org.molgenis.data.semanticsearch.utils.TagGroupComparator;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.service.OntologyService;
@@ -112,7 +112,7 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 	@Override
 	public List<TagGroup> combineTagGroups(Set<String> queryWords, List<TagGroup> relevantTagGroups)
 	{
-		relevantTagGroups.sort(new OntologyTermComparator());
+		relevantTagGroups.sort(new TagGroupComparator());
 
 		if (LOG.isDebugEnabled())
 		{
@@ -203,7 +203,7 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 			List<TagGroup> orderedIndividualOntologyTermHits = relevantOntologyTerms.stream()
 					.filter(ontologyTerm -> matchingCriterion.apply(stemmedSearchTerms, ontologyTerm))
 					.map(ontologyTerm -> createTagGroup(stemmedSearchTerms, ontologyTerm))
-					.sorted(new OntologyTermComparator()).collect(toList());
+					.sorted(new TagGroupComparator()).collect(toList());
 
 			// Remove the low ranking ontologyterms that are the parents of the high ranking ontologyterms
 			List<TagGroup> copyOfOntologyTermHits = Lists.newArrayList(orderedIndividualOntologyTermHits);
