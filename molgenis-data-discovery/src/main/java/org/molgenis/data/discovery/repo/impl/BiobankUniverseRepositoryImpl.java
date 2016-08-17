@@ -18,7 +18,6 @@ import static org.molgenis.data.support.QueryImpl.IN;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -124,15 +123,33 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	@Override
 	public void removeBiobankUniverse(BiobankUniverse biobankUniverse)
 	{
-		// List<AttributeMappingCandidate> attributeMappingCandidates = getAttributeMappingCandidatesFromUniverse(
-		// biobankUniverse);
-
 		List<String> attributeIdentifiers = biobankUniverse.getMembers().stream()
 				.flatMap(member -> getBiobankSampleAttributeIdentifiers(member).stream()).collect(Collectors.toList());
 
-		Fetch fetch = new Fetch();
-		fetch.field(AttributeMappingCandidateMetaData.EXPLANATION);
-		fetch.field(AttributeMappingCandidateMetaData.DECISIONS);
+		Fetch fetchOntologyTerm = new Fetch();
+		OntologyTermMetaData.INSTANCE.getAtomicAttributes().forEach(field -> fetchOntologyTerm.field(field.getName()));
+
+		Fetch fetchSemanticType = new Fetch();
+		SemanticTypeMetaData.INSTANCE.getAtomicAttributes().forEach(field -> fetchSemanticType.field(field.getName()));
+
+		Fetch fetchTagGroupFields = new Fetch();
+		TagGroupMetaData.INSTANCE.getAtomicAttributes()
+				.forEach(attribute -> fetchTagGroupFields.field(attribute.getName()));
+		fetchTagGroupFields.field(TagGroupMetaData.ONTOLOGY_TERMS, fetchOntologyTerm);
+		fetchTagGroupFields.field(TagGroupMetaData.SEMANTIC_TYPES, fetchSemanticType);
+
+		Fetch fetchBiobankSampleAttribute = new Fetch();
+		fetchBiobankSampleAttribute.field(BiobankSampleAttributeMetaData.COLLECTION);
+		fetchBiobankSampleAttribute.field(BiobankSampleAttributeMetaData.TAG_GROUPS, fetchTagGroupFields);
+
+		Fetch fetchExplanation = new Fetch();
+		fetchExplanation.field(MatchingExplanationMetaData.ONTOLOGY_TERMS, fetchOntologyTerm);
+
+		Fetch attributeMappingCandidateFetch = new Fetch();
+		attributeMappingCandidateFetch.field(AttributeMappingCandidateMetaData.TARGET, fetchBiobankSampleAttribute);
+		attributeMappingCandidateFetch.field(AttributeMappingCandidateMetaData.SOURCE, fetchBiobankSampleAttribute);
+		attributeMappingCandidateFetch.field(AttributeMappingCandidateMetaData.EXPLANATION, fetchExplanation);
+		attributeMappingCandidateFetch.field(AttributeMappingCandidateMetaData.DECISIONS);
 
 		List<QueryRule> innerQueryRules = newArrayList(new QueryRule(TARGET, IN, attributeIdentifiers),
 				new QueryRule(OR), new QueryRule(SOURCE, IN, attributeIdentifiers));
@@ -142,7 +159,8 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 				new QueryRule(innerQueryRules));
 
 		List<Entity> attributeMappingCandidateEntities = dataService
-				.findAll(AttributeMappingCandidateMetaData.ENTITY_NAME, new QueryImpl(nestedQueryRules).fetch(fetch))
+				.findAll(AttributeMappingCandidateMetaData.ENTITY_NAME,
+						new QueryImpl(nestedQueryRules).fetch(attributeMappingCandidateFetch))
 				.collect(toList());
 
 		// Remove attributeMappingCandidates, explanations and decisions
@@ -152,6 +170,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		Stream<Entity> biobankUniverseJobEntityStream = dataService.findAll(
 				BiobankUniverseJobExecutionMetaData.ENTITY_NAME,
 				QueryImpl.EQ(BiobankUniverseJobExecutionMetaData.UNIVERSE, biobankUniverse.getIdentifier()));
+
 		dataService.delete(BiobankUniverseJobExecutionMetaData.ENTITY_NAME, biobankUniverseJobEntityStream);
 
 		// Remove the BiobankUniverse itself
@@ -236,12 +255,17 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		Fetch fetchOntologyTerm = new Fetch();
 		OntologyTermMetaData.INSTANCE.getAtomicAttributes().forEach(field -> fetchOntologyTerm.field(field.getName()));
 
+		Fetch fetchSemanticType = new Fetch();
+		SemanticTypeMetaData.INSTANCE.getAtomicAttributes().forEach(field -> fetchSemanticType.field(field.getName()));
+
 		Fetch fetchTagGroupFields = new Fetch();
 		TagGroupMetaData.INSTANCE.getAtomicAttributes()
 				.forEach(attribute -> fetchTagGroupFields.field(attribute.getName()));
-		fetchTagGroupFields.field(TagGroupMetaData.ONTOLOGY_TERMS, fetchTagGroupFields);
+		fetchTagGroupFields.field(TagGroupMetaData.ONTOLOGY_TERMS, fetchOntologyTerm);
+		fetchTagGroupFields.field(TagGroupMetaData.SEMANTIC_TYPES, fetchSemanticType);
 
 		Fetch fetch = new Fetch();
+		fetch.field(BiobankSampleAttributeMetaData.COLLECTION);
 		fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS, fetchTagGroupFields);
 
 		boolean anyMatch = dataService
@@ -249,83 +273,35 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 						EQ(BiobankSampleAttributeMetaData.COLLECTION, biobankSampleCollection.getName()).pageSize(50)
 								.fetch(fetch))
 				.anyMatch(entity -> Iterables.size((Iterable<?>) entity.get(TAG_GROUPS)) != 0);
+
 		return anyMatch;
 	}
 
 	@Override
 	public Iterable<BiobankSampleAttribute> getBiobankSampleAttributes(BiobankSampleCollection biobankSampleCollection)
 	{
-		// Fetch fetchOntologyTerm = new Fetch();
-		// OntologyTermMetaData.INSTANCE.getAtomicAttributes().forEach(field ->
-		// fetchOntologyTerm.field(field.getName()));
-		//
-		// Fetch fetchTagGroupFields = new Fetch();
-		// TagGroupMetaData.INSTANCE.getAtomicAttributes()
-		// .forEach(attribute -> fetchTagGroupFields.field(attribute.getName()));
-		// fetchTagGroupFields.field(TagGroupMetaData.ONTOLOGY_TERMS, fetchTagGroupFields);
-		//
-		// Fetch fetch = new Fetch();
-		// fetch.field(BiobankSampleAttributeMetaData.COLLECTION);
-		// fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS, fetchTagGroupFields);
-		//
-		// List<BiobankSampleAttribute> biobankSampleAttributes = dataService
-		// .findAll(BiobankSampleAttributeMetaData.ENTITY_NAME,
-		// EQ(BiobankSampleAttributeMetaData.COLLECTION, biobankSampleCollection.getName()).fetch(fetch))
-		// .map(this::entityToBiobankSampleAttribute).collect(toList());
+		Fetch fetchOntologyTerm = new Fetch();
+		OntologyTermMetaData.INSTANCE.getAtomicAttributes().forEach(field -> fetchOntologyTerm.field(field.getName()));
 
-		// return biobankSampleAttributes;
-		return new Iterable<BiobankSampleAttribute>()
-		{
-			private Iterator<BiobankSampleAttribute> biobankSampleAttributeIterator = null;
-			private List<BiobankSampleAttribute> biobankSampleAttributes = new ArrayList<>();
+		Fetch fetchSemanticType = new Fetch();
+		SemanticTypeMetaData.INSTANCE.getAtomicAttributes().forEach(field -> fetchSemanticType.field(field.getName()));
 
-			public Iterator<BiobankSampleAttribute> iterator()
-			{
-				if (biobankSampleAttributeIterator == null)
-				{
-					Fetch fetchOntologyTerm = new Fetch();
-					OntologyTermMetaData.INSTANCE.getAtomicAttributes()
-							.forEach(field -> fetchOntologyTerm.field(field.getName()));
+		Fetch fetchTagGroupFields = new Fetch();
+		TagGroupMetaData.INSTANCE.getAtomicAttributes()
+				.forEach(attribute -> fetchTagGroupFields.field(attribute.getName()));
+		fetchTagGroupFields.field(TagGroupMetaData.ONTOLOGY_TERMS, fetchOntologyTerm);
+		fetchTagGroupFields.field(TagGroupMetaData.SEMANTIC_TYPES, fetchSemanticType);
 
-					Fetch fetchTagGroupFields = new Fetch();
-					TagGroupMetaData.INSTANCE.getAtomicAttributes()
-							.forEach(attribute -> fetchTagGroupFields.field(attribute.getName()));
-					fetchTagGroupFields.field(TagGroupMetaData.ONTOLOGY_TERMS, fetchTagGroupFields);
+		Fetch fetch = new Fetch();
+		fetch.field(BiobankSampleAttributeMetaData.COLLECTION);
+		fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS, fetchTagGroupFields);
 
-					Fetch fetch = new Fetch();
-					fetch.field(BiobankSampleAttributeMetaData.COLLECTION);
-					fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS, fetchTagGroupFields);
+		List<BiobankSampleAttribute> biobankSampleAttributes = dataService
+				.findAll(BiobankSampleAttributeMetaData.ENTITY_NAME,
+						EQ(BiobankSampleAttributeMetaData.COLLECTION, biobankSampleCollection.getName()).fetch(fetch))
+				.map(this::entityToBiobankSampleAttribute).collect(toList());
 
-					Iterator<Entity> iterator = dataService.findAll(BiobankSampleAttributeMetaData.ENTITY_NAME,
-							EQ(BiobankSampleAttributeMetaData.COLLECTION, biobankSampleCollection.getName())
-									.fetch(fetch))
-							.iterator();
-
-					biobankSampleAttributeIterator = new Iterator<BiobankSampleAttribute>()
-					{
-						public boolean hasNext()
-						{
-							return iterator.hasNext();
-						}
-
-						@Override
-						public BiobankSampleAttribute next()
-						{
-							Entity entity = iterator.next();
-							BiobankSampleAttribute biobankSampleAttribute = entityToBiobankSampleAttribute(entity);
-							if (!biobankSampleAttributes.contains(biobankSampleAttribute))
-							{
-								biobankSampleAttributes.add(biobankSampleAttribute);
-							}
-							return biobankSampleAttribute;
-						}
-					};
-				}
-
-				return biobankSampleAttributeIterator.hasNext() ? biobankSampleAttributeIterator
-						: biobankSampleAttributes.iterator();
-			}
-		};
+		return biobankSampleAttributes;
 	}
 
 	@Override
@@ -367,16 +343,21 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	@Override
 	public Stream<BiobankSampleAttribute> queryBiobankSampleAttribute(Query query)
 	{
-		Fetch ontologyTermFetch = new Fetch();
-		OntologyTermMetaData.INSTANCE.getAtomicAttributes().forEach(field -> ontologyTermFetch.field(field.getName()));
+		Fetch fetchOntologyTerm = new Fetch();
+		OntologyTermMetaData.INSTANCE.getAtomicAttributes().forEach(field -> fetchOntologyTerm.field(field.getName()));
 
-		Fetch tagGroupFetch = new Fetch();
-		TagGroupMetaData.INSTANCE.getAtomicAttributes().forEach(field -> tagGroupFetch.field(field.getName()));
-		tagGroupFetch.field(TagGroupMetaData.ONTOLOGY_TERMS, ontologyTermFetch);
+		Fetch fetchSemanticType = new Fetch();
+		SemanticTypeMetaData.INSTANCE.getAtomicAttributes().forEach(field -> fetchSemanticType.field(field.getName()));
+
+		Fetch fetchTagGroupFields = new Fetch();
+		TagGroupMetaData.INSTANCE.getAtomicAttributes()
+				.forEach(attribute -> fetchTagGroupFields.field(attribute.getName()));
+		fetchTagGroupFields.field(TagGroupMetaData.ONTOLOGY_TERMS, fetchOntologyTerm);
+		fetchTagGroupFields.field(TagGroupMetaData.SEMANTIC_TYPES, fetchSemanticType);
 
 		Fetch fetch = new Fetch();
-		fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS, tagGroupFetch);
 		fetch.field(BiobankSampleAttributeMetaData.COLLECTION);
+		fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS, fetchTagGroupFields);
 
 		return dataService.findAll(BiobankSampleAttributeMetaData.ENTITY_NAME, query.fetch(fetch))
 				.map(this::entityToBiobankSampleAttribute);
@@ -433,11 +414,24 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		List<String> attributeIdentifiers = biobankUniverse.getMembers().stream()
 				.flatMap(member -> getBiobankSampleAttributeIdentifiers(member).stream()).collect(toList());
 
+		Fetch fetchOntologyTerm = new Fetch();
+		OntologyTermMetaData.INSTANCE.getAtomicAttributes().forEach(field -> fetchOntologyTerm.field(field.getName()));
+
+		Fetch fetchSemanticType = new Fetch();
+		SemanticTypeMetaData.INSTANCE.getAtomicAttributes().forEach(field -> fetchSemanticType.field(field.getName()));
+
+		Fetch fetchTagGroupFields = new Fetch();
+		TagGroupMetaData.INSTANCE.getAtomicAttributes()
+				.forEach(attribute -> fetchTagGroupFields.field(attribute.getName()));
+		fetchTagGroupFields.field(TagGroupMetaData.ONTOLOGY_TERMS, fetchOntologyTerm);
+		fetchTagGroupFields.field(TagGroupMetaData.SEMANTIC_TYPES, fetchSemanticType);
+
 		Fetch fetchBiobankSampleAttribute = new Fetch();
-		fetchBiobankSampleAttribute.field(BiobankSampleAttributeMetaData.TAG_GROUPS);
+		fetchBiobankSampleAttribute.field(BiobankSampleAttributeMetaData.COLLECTION);
+		fetchBiobankSampleAttribute.field(BiobankSampleAttributeMetaData.TAG_GROUPS, fetchTagGroupFields);
 
 		Fetch fetchExplanation = new Fetch();
-		fetchExplanation.field(MatchingExplanationMetaData.ONTOLOGY_TERMS);
+		fetchExplanation.field(MatchingExplanationMetaData.ONTOLOGY_TERMS, fetchOntologyTerm);
 
 		Fetch fetch = new Fetch();
 		fetch.field(AttributeMappingCandidateMetaData.TARGET, fetchBiobankSampleAttribute);

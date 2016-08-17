@@ -50,6 +50,17 @@ public class OntologyBasedMatcherTest extends AbstractTestNGSpringContextTests
 	}
 
 	@Test
+	public void getParent()
+	{
+		Assert.assertEquals(matcher.getParent("A1836683.A2656910.A2655472.A2656419.A2655207", 1),
+				"A1836683.A2656910.A2655472.A2656419");
+		Assert.assertEquals(matcher.getParent("A1836683.A2656910.A2655472.A2656419.A2655207", 3), "A1836683.A2656910");
+		Assert.assertEquals(matcher.getParent("A1836683.A2656910.A2655472.A2656419.A2655207", 4), "A1836683");
+		Assert.assertEquals(matcher.getParent("A1836683.A2656910.A2655472.A2656419.A2655207", 5), "A1836683");
+		Assert.assertEquals(matcher.getParent("A1836683.A2656910.A2655472.A2656419.A2655207", 6), "A1836683");
+	}
+
+	@Test
 	public void getAllParents()
 	{
 		List<String> actual = stream(

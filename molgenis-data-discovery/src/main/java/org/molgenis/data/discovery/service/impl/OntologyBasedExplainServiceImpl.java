@@ -5,7 +5,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.commons.lang3.StringUtils.EMPTY;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.getLowerCaseTerms;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.splitIntoTerms;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
@@ -20,12 +19,10 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.IdGenerator;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
@@ -110,49 +107,37 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 
 				if (matchedWords.isEmpty())
 				{
-					matchedWords = targetOntologyTerms.stream().flatMap(ot -> ot.getSynonyms().stream())
+					matchedWords.addAll(targetOntologyTerms.stream().flatMap(ot -> getLowerCaseTerms(ot).stream())
 							.flatMap(synonym -> findMatchedWords(synonym, sourceAttribute.getLabel()).stream())
-							.collect(toSet());
+							.collect(toSet()));
+
 					score = stringMatching(termJoiner.join(targetAttribute.getLabel(), matchedWords),
 							termJoiner.join(sourceAttribute.getLabel(), matchedWords)) / 100;
 				}
 
-				String joinedMatchedWords = matchedWords.stream().map(word -> word.replaceAll("\\d+", EMPTY))
-						.filter(StringUtils::isNotBlank).collect(joining(" "));
-
-				if (matchedWordsExplained.containsKey(joinedMatchedWords)
-						&& matchedWordsExplained.get(joinedMatchedWords))
-				{
-					explanation = MatchingExplanation.create(idGenerator.generateId(), Collections.emptyList(),
-							targetAttribute.getLabel(), joinedMatchedWords, score);
-				}
-				else if (!matchedWordsExplained.containsKey(joinedMatchedWords)
-						&& (score > semanticSearchParam.getHighQualityThreshold()
-								|| isMatchHighQuality(joinedMatchedWords, biobankUniverse)))
-				{
-					explanation = MatchingExplanation.create(idGenerator.generateId(), Collections.emptyList(),
-							targetAttribute.getLabel(), joinedMatchedWords, score);
-
-					matchedWordsExplained.put(joinedMatchedWords, true);
-				}
-				else
-				{
-					matchedWordsExplained.put(joinedMatchedWords, false);
-				}
+				explanation = MatchingExplanation.create(idGenerator.generateId(), Collections.emptyList(),
+						targetAttribute.getLabel(), termJoiner.join(matchedWords), score);
 			}
 
-			if (Objects.nonNull(explanation))
-			{
-				// The candidate matches are removed if 1. the matched words only consist of stop words; 2. the length
-				// of matched words is less than 3;
-				String matchedWords = splitIntoTerms(explanation.getMatchedWords()).stream().map(String::toLowerCase)
-						.filter(word -> !STOPWORDSLIST.contains(word)).collect(joining(" "));
+			String matchedWords = explanation.getMatchedWords();
 
-				if (matchedWords.length() >= 3)
-				{
-					candidates.add(AttributeMappingCandidate.create(idGenerator.generateId(), biobankUniverse,
-							targetAttribute, sourceAttribute, explanation));
-				}
+			if (matchedWordsExplained.containsKey(matchedWords) && matchedWordsExplained.get(matchedWords))
+			{
+				candidates.add(AttributeMappingCandidate.create(idGenerator.generateId(), biobankUniverse,
+						targetAttribute, sourceAttribute, explanation));
+			}
+			else if (!matchedWordsExplained.containsKey(matchedWords)
+					&& (explanation.getNgramScore() > semanticSearchParam.getHighQualityThreshold()
+							|| isMatchHighQuality(explanation, biobankUniverse)))
+			{
+				candidates.add(AttributeMappingCandidate.create(idGenerator.generateId(), biobankUniverse,
+						targetAttribute, sourceAttribute, explanation));
+
+				matchedWordsExplained.put(matchedWords, true);
+			}
+			else
+			{
+				matchedWordsExplained.put(matchedWords, false);
 			}
 		}
 
@@ -164,14 +149,19 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 		return candidates.stream().sorted().collect(Collectors.toList());
 	}
 
-	private boolean isMatchHighQuality(String joinedMatchedWords, BiobankUniverse biobankUniverse)
+	private boolean isMatchHighQuality(MatchingExplanation explanation, BiobankUniverse biobankUniverse)
 	{
-		List<OntologyTerm> ontologyTerms = ontologyService.findExcatOntologyTerms(ontologyService.getAllOntologiesIds(),
-				SemanticSearchServiceUtils.splitIntoTerms(joinedMatchedWords), 10);
+		List<OntologyTerm> ontologyTerms = explanation.getOntologyTerms();
+
+		if (ontologyTerms.isEmpty())
+		{
+			ontologyTerms = ontologyService.findExcatOntologyTerms(ontologyService.getAllOntologiesIds(),
+					splitIntoTerms(explanation.getMatchedWords()), 10);
+		}
 
 		List<SemanticType> conceptFilter = biobankUniverse.getKeyConcepts();
 		Multimap<String, OntologyTerm> ontologyTermWithSameSynonyms = LinkedHashMultimap.create();
-		Set<String> stemmedMatchedWords = Stemmer.splitAndStem(joinedMatchedWords);
+		Set<String> stemmedMatchedWords = Stemmer.splitAndStem(explanation.getMatchedWords());
 
 		for (OntologyTerm ontologyTerm : ontologyTerms)
 		{
@@ -203,7 +193,10 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 
 		}).collect(toList());
 
-		return !collect.isEmpty();
+		String matchedWords = splitIntoTerms(explanation.getMatchedWords()).stream().map(String::toLowerCase)
+				.filter(word -> !STOPWORDSLIST.contains(word)).collect(joining(" "));
+
+		return !collect.isEmpty() && matchedWords.length() >= 3;
 	}
 
 	private Set<OntologyTerm> getAllOntologyTerms(BiobankSampleAttribute biobankSampleAttribute,

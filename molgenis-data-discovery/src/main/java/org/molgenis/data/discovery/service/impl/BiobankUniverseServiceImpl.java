@@ -189,8 +189,8 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		}
 
 		allCandidates = allCandidates.stream().filter(candidate -> candidate.getExplanation().getNgramScore() > 0)
-				.filter(candidate -> !candidate.getExplanation().getMatchedWords().isEmpty()).limit(MAX_NUMBER_MATCHES)
-				.sorted().collect(toList());
+				.filter(candidate -> !candidate.getExplanation().getMatchedWords().isEmpty()).sorted()
+				.limit(MAX_NUMBER_MATCHES).collect(toList());
 
 		if (LOG.isTraceEnabled())
 		{

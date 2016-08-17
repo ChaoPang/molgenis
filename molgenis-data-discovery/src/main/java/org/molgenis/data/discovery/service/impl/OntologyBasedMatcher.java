@@ -4,11 +4,11 @@ import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.StreamSupport.stream;
 import static org.molgenis.data.QueryRule.Operator.AND;
 import static org.molgenis.data.QueryRule.Operator.IN;
 import static org.molgenis.data.meta.AttributeMetaDataMetaData.IDENTIFIER;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
@@ -51,14 +52,16 @@ public class OntologyBasedMatcher
 
 	private final BiobankSampleCollection biobankSampleCollection;
 	private final Iterable<BiobankSampleAttribute> biobankSampleAttributes;
-	private final Multimap<String, BiobankSampleAttribute> treeNodePathsRegistry;
+	private final Multimap<String, BiobankSampleAttribute> nodePathRegistry;
+	private final Multimap<String, BiobankSampleAttribute> descendantNodePathsRegistry;
 	private final Map<OntologyTerm, List<BiobankSampleAttribute>> cachedBiobankSampleAttributes;
 
 	public OntologyBasedMatcher(BiobankSampleCollection biobankSampleCollection,
 			BiobankUniverseRepository biobankUniverseRepository, QueryExpansionService queryExpansionService,
 			OntologyService ontologyService)
 	{
-		this.treeNodePathsRegistry = LinkedHashMultimap.create();
+		this.nodePathRegistry = LinkedHashMultimap.create();
+		this.descendantNodePathsRegistry = LinkedHashMultimap.create();
 		this.biobankUniverseRepository = requireNonNull(biobankUniverseRepository);
 		this.queryExpansionService = requireNonNull(queryExpansionService);
 		this.ontologyService = requireNonNull(ontologyService);
@@ -128,39 +131,42 @@ public class OntologyBasedMatcher
 	private List<BiobankSampleAttribute> findBiobankSampleAttributes(OntologyTerm ontologyTerm,
 			SemanticSearchParam semanticSearchParam)
 	{
+		List<BiobankSampleAttribute> candidates = new ArrayList<>();
+
 		if (cachedBiobankSampleAttributes.containsKey(ontologyTerm))
 		{
-			return cachedBiobankSampleAttributes.get(ontologyTerm);
+			candidates.addAll(cachedBiobankSampleAttributes.get(ontologyTerm));
 		}
 		else
 		{
-			Set<BiobankSampleAttribute> candidates = new LinkedHashSet<>();
-
 			for (String nodePath : ontologyTerm.getNodePaths())
 			{
-				if (treeNodePathsRegistry.containsKey(nodePath))
+				// if a direct hit for the current nodePath is found, we want to get all the associated
+				// BiobankSampleAttributes from the descendant nodePaths.
+				if (descendantNodePathsRegistry.containsKey(nodePath))
 				{
-					candidates.addAll(treeNodePathsRegistry.get(nodePath));
+					candidates.addAll(descendantNodePathsRegistry.get(nodePath));
 				}
 				else
 				{
-					for (String parentNodePath : stream(getAllParents(nodePath).spliterator(), false)
+					// if a hit for the parent nodePath is found, we only want to get associated BiobankSampleAttributes
+					// from that particular parent nodePath
+					List<BiobankSampleAttribute> collect = StreamSupport
+							.stream(getAllParents(nodePath).spliterator(), false)
 							.limit(semanticSearchParam.getQueryExpansionParameter().getExpansionLevel())
-							.collect(toList()))
-					{
-						if (treeNodePathsRegistry.containsKey(parentNodePath))
-						{
-							candidates.addAll(treeNodePathsRegistry.get(parentNodePath));
-							break;
-						}
-					}
+							.filter(nodePathRegistry::containsKey)
+							.flatMap(parentNodePath -> nodePathRegistry.get(parentNodePath).stream()).distinct()
+							.collect(Collectors.toList());
+
+					candidates.addAll(collect);
 				}
 			}
 
-			List<BiobankSampleAttribute> newArrayList = Lists.newArrayList(candidates);
-			cachedBiobankSampleAttributes.put(ontologyTerm, newArrayList);
-			return newArrayList;
+			cachedBiobankSampleAttributes.put(ontologyTerm, candidates);
 		}
+
+		return candidates;
+
 	}
 
 	private void construct()
@@ -175,10 +181,16 @@ public class OntologyBasedMatcher
 			biobankSampleAttribute.getTagGroups().stream().flatMap(tagGroup -> tagGroup.getOntologyTerms().stream())
 					.distinct().flatMap(ot -> ot.getNodePaths().stream()).forEach(nodePath -> {
 
-						treeNodePathsRegistry.put(nodePath, biobankSampleAttribute);
+						// Register the direct association between nodePaths and BiobankSampleAttributes
+						nodePathRegistry.put(nodePath, biobankSampleAttribute);
+
+						// Register the direct associations plus the descendant associations between nodePaths and
+						// BiobankSampleAttributes
+						descendantNodePathsRegistry.put(nodePath, biobankSampleAttribute);
+
 						for (String parentNodePath : getAllParents(nodePath))
 						{
-							treeNodePathsRegistry.put(parentNodePath, biobankSampleAttribute);
+							descendantNodePathsRegistry.put(parentNodePath, biobankSampleAttribute);
 						}
 					});
 		}
@@ -187,6 +199,14 @@ public class OntologyBasedMatcher
 		{
 			LOG.trace("Finished constructing the tree...");
 		}
+	}
+
+	String getParent(String nodePath, int traversalLevel)
+	{
+		String[] split = nodePath.split(ESCAPED_NODEPATH_SEPARATOR);
+		int size = split.length > traversalLevel ? split.length - traversalLevel : 1;
+		String parent = Stream.of(Arrays.copyOf(split, size)).collect(joining(NODEPATH_SEPARATOR));
+		return parent;
 	}
 
 	Iterable<String> getAllParents(String nodePath)
