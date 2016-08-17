@@ -171,7 +171,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	@Override
 	public List<AttributeMappingCandidate> findCandidateMappingsOntologyBased(BiobankUniverse biobankUniverse,
 			BiobankSampleAttribute target, SemanticSearchParam semanticSearchParam,
-			List<OntologyBasedMatcher> ontologyBasedInputData)
+			List<OntologyBasedMatcher> ontologyBasedMatchers)
 	{
 		if (LOG.isTraceEnabled())
 		{
@@ -180,7 +180,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 		List<AttributeMappingCandidate> allCandidates = new ArrayList<>();
 
-		for (OntologyBasedMatcher ontologyBasedMatcher : ontologyBasedInputData)
+		for (OntologyBasedMatcher ontologyBasedMatcher : ontologyBasedMatchers)
 		{
 			List<BiobankSampleAttribute> sourceAttributes = ontologyBasedMatcher.match(semanticSearchParam);
 

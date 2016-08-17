@@ -4,13 +4,14 @@ import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.StreamSupport.stream;
 import static org.molgenis.data.QueryRule.Operator.AND;
 import static org.molgenis.data.QueryRule.Operator.IN;
 import static org.molgenis.data.meta.AttributeMetaDataMetaData.IDENTIFIER;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -133,7 +134,7 @@ public class OntologyBasedMatcher
 		}
 		else
 		{
-			List<BiobankSampleAttribute> candidates = new ArrayList<>();
+			Set<BiobankSampleAttribute> candidates = new LinkedHashSet<>();
 
 			for (String nodePath : ontologyTerm.getNodePaths())
 			{
@@ -143,7 +144,7 @@ public class OntologyBasedMatcher
 				}
 				else
 				{
-					for (String parentNodePath : getAllParents(nodePath).stream()
+					for (String parentNodePath : stream(getAllParents(nodePath).spliterator(), false)
 							.limit(semanticSearchParam.getQueryExpansionParameter().getExpansionLevel())
 							.collect(toList()))
 					{
@@ -156,8 +157,9 @@ public class OntologyBasedMatcher
 				}
 			}
 
-			cachedBiobankSampleAttributes.put(ontologyTerm, candidates);
-			return candidates;
+			List<BiobankSampleAttribute> newArrayList = Lists.newArrayList(candidates);
+			cachedBiobankSampleAttributes.put(ontologyTerm, newArrayList);
+			return newArrayList;
 		}
 	}
 
@@ -174,9 +176,10 @@ public class OntologyBasedMatcher
 					.distinct().flatMap(ot -> ot.getNodePaths().stream()).forEach(nodePath -> {
 
 						treeNodePathsRegistry.put(nodePath, biobankSampleAttribute);
-
-						getAllParents(nodePath).forEach(
-								parentNodePath -> treeNodePathsRegistry.put(parentNodePath, biobankSampleAttribute));
+						for (String parentNodePath : getAllParents(nodePath))
+						{
+							treeNodePathsRegistry.put(parentNodePath, biobankSampleAttribute);
+						}
 					});
 		}
 
@@ -186,15 +189,31 @@ public class OntologyBasedMatcher
 		}
 	}
 
-	private List<String> getAllParents(String nodePath)
+	Iterable<String> getAllParents(String nodePath)
 	{
-		String[] split = nodePath.split(ESCAPED_NODEPATH_SEPARATOR);
-		List<String> parents = new ArrayList<>();
-		for (int i = split.length; i > 1; i--)
+		return new Iterable<String>()
 		{
-			String parent = Stream.of(Arrays.copyOf(split, i - 1)).collect(joining(NODEPATH_SEPARATOR));
-			parents.add(parent);
-		}
-		return parents;
+			final String[] split = nodePath.split(ESCAPED_NODEPATH_SEPARATOR);
+			private int size = split.length;
+
+			public Iterator<String> iterator()
+			{
+				return new Iterator<String>()
+				{
+					@Override
+					public boolean hasNext()
+					{
+						return size > 1;
+					}
+
+					@Override
+					public String next()
+					{
+						String parent = Stream.of(Arrays.copyOf(split, --size)).collect(joining(NODEPATH_SEPARATOR));
+						return parent;
+					}
+				};
+			}
+		};
 	}
 }

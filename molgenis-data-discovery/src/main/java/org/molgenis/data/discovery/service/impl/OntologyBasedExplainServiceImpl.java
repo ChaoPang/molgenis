@@ -1,7 +1,6 @@
 package org.molgenis.data.discovery.service.impl;
 
 import static com.google.common.collect.Sets.union;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -21,6 +20,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -68,7 +68,7 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 			SemanticSearchParam semanticSearchParam, BiobankSampleAttribute targetAttribute,
 			List<BiobankSampleAttribute> sourceAttributes)
 	{
-		Set<String> matchedWordsExplained = new HashSet<>();
+		Map<String, Boolean> matchedWordsExplained = new HashMap<>();
 
 		List<AttributeMappingCandidate> candidates = new ArrayList<>();
 
@@ -91,10 +91,13 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 			{
 				Hit<String> computeScoreForMatchedSource = computeScoreForMatchedSource(findAllRelatedOntologyTerms,
 						targetAttribute, sourceAttribute);
+
 				Set<String> matchedWords = findMatchedWords(computeScoreForMatchedSource.getResult(),
 						sourceAttribute.getLabel());
+
 				List<OntologyTerm> ontologyTerms = findAllRelatedOntologyTerms.stream()
 						.map(OntologyTermHit::getOntologyTerm).collect(toList());
+
 				explanation = MatchingExplanation.create(idGenerator.generateId(), ontologyTerms,
 						computeScoreForMatchedSource.getResult(), termJoiner.join(matchedWords),
 						computeScoreForMatchedSource.getScore());
@@ -102,7 +105,9 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 			else
 			{
 				Set<String> matchedWords = findMatchedWords(targetAttribute.getLabel(), sourceAttribute.getLabel());
+
 				double score = stringMatching(targetAttribute.getLabel(), sourceAttribute.getLabel()) / 100;
+
 				if (matchedWords.isEmpty())
 				{
 					matchedWords = targetOntologyTerms.stream().flatMap(ot -> ot.getSynonyms().stream())
@@ -112,38 +117,31 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 							termJoiner.join(sourceAttribute.getLabel(), matchedWords)) / 100;
 				}
 
-				matchedWords = matchedWords.stream().map(word -> word.replaceAll("\\d+", EMPTY))
-						.filter(StringUtils::isNotBlank).collect(toSet());
+				String joinedMatchedWords = matchedWords.stream().map(word -> word.replaceAll("\\d+", EMPTY))
+						.filter(StringUtils::isNotBlank).collect(joining(" "));
 
-				String joiedMatchedWords = termJoiner.join(matchedWords);
-
-				// If matchedWords can be explained due to the knowledge that the same matched words have been
-				// previously explained or if the similarity score is higher than the treshold
-				if (matchedWordsExplained.contains(joiedMatchedWords)
-						|| score > semanticSearchParam.getHighQualityThreshold())
+				if (matchedWordsExplained.containsKey(joinedMatchedWords)
+						&& matchedWordsExplained.get(joinedMatchedWords))
 				{
-					explanation = MatchingExplanation.create(idGenerator.generateId(), emptyList(),
-							targetAttribute.getLabel(), joiedMatchedWords, score);
+					explanation = MatchingExplanation.create(idGenerator.generateId(), Collections.emptyList(),
+							targetAttribute.getLabel(), joinedMatchedWords, score);
+				}
+				else if (!matchedWordsExplained.containsKey(joinedMatchedWords)
+						&& (score > semanticSearchParam.getHighQualityThreshold()
+								|| isMatchHighQuality(joinedMatchedWords, biobankUniverse)))
+				{
+					explanation = MatchingExplanation.create(idGenerator.generateId(), Collections.emptyList(),
+							targetAttribute.getLabel(), joinedMatchedWords, score);
+
+					matchedWordsExplained.put(joinedMatchedWords, true);
 				}
 				else
 				{
-					List<OntologyTerm> exactOntologyTerms = ontologyService
-							.findExcatOntologyTerms(ontologyService.getAllOntologiesIds(), matchedWords, 10);
-
-					if (exactOntologyTerms.size() > 0)
-					{
-						// If any of the ontology terms, which have the same synonyms, contains the 'bad semantic
-						// type', then all of those ontology terms disqualify
-						if (matchedWordsExplanable(matchedWords, exactOntologyTerms, biobankUniverse.getKeyConcepts()))
-						{
-							explanation = MatchingExplanation.create(idGenerator.generateId(), Collections.emptyList(),
-									targetAttribute.getLabel(), joiedMatchedWords, score);
-						}
-					}
+					matchedWordsExplained.put(joinedMatchedWords, false);
 				}
 			}
 
-			if (explanation != null)
+			if (Objects.nonNull(explanation))
 			{
 				// The candidate matches are removed if 1. the matched words only consist of stop words; 2. the length
 				// of matched words is less than 3;
@@ -154,8 +152,6 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 				{
 					candidates.add(AttributeMappingCandidate.create(idGenerator.generateId(), biobankUniverse,
 							targetAttribute, sourceAttribute, explanation));
-
-					matchedWordsExplained.add(explanation.getMatchedWords());
 				}
 			}
 		}
@@ -168,11 +164,15 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 		return candidates.stream().sorted().collect(Collectors.toList());
 	}
 
-	private boolean matchedWordsExplanable(Set<String> matchedWords, List<OntologyTerm> ontologyTerms,
-			final List<SemanticType> conceptFilter)
+	private boolean isMatchHighQuality(String joinedMatchedWords, BiobankUniverse biobankUniverse)
 	{
+		List<OntologyTerm> ontologyTerms = ontologyService.findExcatOntologyTerms(ontologyService.getAllOntologiesIds(),
+				SemanticSearchServiceUtils.splitIntoTerms(joinedMatchedWords), 10);
+
+		List<SemanticType> conceptFilter = biobankUniverse.getKeyConcepts();
 		Multimap<String, OntologyTerm> ontologyTermWithSameSynonyms = LinkedHashMultimap.create();
-		Set<String> stemmedMatchedWords = matchedWords.stream().map(Stemmer::stem).collect(toSet());
+		Set<String> stemmedMatchedWords = Stemmer.splitAndStem(joinedMatchedWords);
+
 		for (OntologyTerm ontologyTerm : ontologyTerms)
 		{
 			Optional<String> findFirst = ontologyTerm.getSynonyms().stream()
