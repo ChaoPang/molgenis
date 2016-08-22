@@ -7,18 +7,36 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
 
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.ontology.core.model.OntologyTerm;
+import org.molgenis.ontology.utils.Stemmer;
 
 import com.google.common.collect.Sets;
 
 public class SemanticSearchServiceUtils
 {
 	private final static String ILLEGAL_CHARS_REGEX = "[^\\p{L}'a-zA-Z0-9\\.~]+";
+
+	public static Set<String> findMatchedWords(String string1, String string2)
+	{
+		Set<String> intersectedWords = new LinkedHashSet<>();
+		Set<String> stemmedWordsFromString2 = splitIntoTerms(string2).stream().map(Stemmer::stem)
+				.collect(Collectors.toSet());
+		for (String wordFromString1 : splitIntoTerms(string1))
+		{
+			String stemmedSourceWord = Stemmer.stem(wordFromString1);
+			if (stemmedWordsFromString2.contains(stemmedSourceWord))
+			{
+				intersectedWords.add(wordFromString1);
+			}
+		}
+		return intersectedWords;
+	}
 
 	/**
 	 * A helper function to create a list of queryTerms based on the information from the targetAttribute as well as

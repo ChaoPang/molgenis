@@ -331,7 +331,6 @@ public class OntologyTermRepository
 		String[] nodePathFragment2 = isBlank(nodePath2) ? new String[0] : nodePath2.split(ESCAPED_NODEPATH_SEPARATOR);
 
 		int overlapBlock = calculateOverlapBlock(nodePathFragment1, nodePathFragment2);
-		overlapBlock = overlapBlock == 0 ? 1 : overlapBlock;
 
 		if (nodePathFragment1.length == 0 || nodePathFragment2.length == 0) return 0;
 
@@ -559,7 +558,9 @@ public class OntologyTermRepository
 		String id = entity.getString(SemanticTypeMetaData.ID);
 		String name = entity.getString(SemanticTypeMetaData.SEMANTIC_TYPE_NAME);
 		String group = entity.getString(SemanticTypeMetaData.SEMANTIC_TYPE_GROUP);
+		// TODO: For test purpose, now everything is used to match source attributes
 		Boolean globalKeyConcept = entity.getBoolean(SemanticTypeMetaData.SEMANTIC_TYPE_GLOBAL_KEY_CONCEPT);
+		// Boolean globalKeyConcept = true;
 		return SemanticType.create(id, name, group, globalKeyConcept == null ? true : globalKeyConcept);
 	}
 

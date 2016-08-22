@@ -1,9 +1,8 @@
 package org.molgenis.ontology.utils;
 
 import static com.google.common.collect.Lists.newArrayList;
-import static com.google.common.collect.Sets.newHashSet;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 
 import java.util.List;
@@ -13,6 +12,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.tartarus.snowball.ext.PorterStemmer;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.Sets;
 
 public class Stemmer
 {
@@ -48,8 +48,8 @@ public class Stemmer
 
 	public static Set<String> splitAndStem(String phrase)
 	{
-		return newHashSet(stream(SPLITTER.split(phrase.toLowerCase()).spliterator(), false).map(Stemmer::stem)
-				.filter(StringUtils::isNotBlank).collect(toSet()));
+		return Sets.newLinkedHashSet(stream(SPLITTER.split(phrase.toLowerCase()).spliterator(), false)
+				.map(Stemmer::stem).filter(StringUtils::isNotBlank).distinct().collect(toList()));
 	}
 
 	public static String replaceIllegalCharacter(String string)

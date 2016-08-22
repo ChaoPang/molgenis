@@ -184,13 +184,14 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		{
 			List<BiobankSampleAttribute> sourceAttributes = ontologyBasedMatcher.match(semanticSearchParam);
 
-			allCandidates.addAll(ontologyBasedExplainService.explain(biobankUniverse, semanticSearchParam, target,
-					newArrayList(sourceAttributes)));
-		}
+			List<AttributeMappingCandidate> collect = ontologyBasedExplainService
+					.explain(biobankUniverse, semanticSearchParam, target, newArrayList(sourceAttributes)).stream()
+					.filter(candidate -> candidate.getExplanation().getNgramScore() > 0)
+					.filter(candidate -> !candidate.getExplanation().getMatchedWords().isEmpty()).sorted()
+					.limit(MAX_NUMBER_MATCHES).collect(toList());
 
-		allCandidates = allCandidates.stream().filter(candidate -> candidate.getExplanation().getNgramScore() > 0)
-				.filter(candidate -> !candidate.getExplanation().getMatchedWords().isEmpty()).sorted()
-				.limit(MAX_NUMBER_MATCHES).collect(toList());
+			allCandidates.addAll(collect);
+		}
 
 		if (LOG.isTraceEnabled())
 		{
