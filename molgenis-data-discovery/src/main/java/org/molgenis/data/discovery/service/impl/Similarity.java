@@ -8,6 +8,7 @@ import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
@@ -69,7 +70,7 @@ public class Similarity
 					.collect(Collectors.toList()));
 		}
 
-		Optional<Hit<String>> findFirst = allMatchedStrings.stream().sorted().findFirst();
+		Optional<Hit<String>> findFirst = allMatchedStrings.stream().sorted(Comparator.reverseOrder()).findFirst();
 		return findFirst.isPresent() ? findFirst.get() : Hit.create(StringUtils.EMPTY, 0.0f);
 	}
 
