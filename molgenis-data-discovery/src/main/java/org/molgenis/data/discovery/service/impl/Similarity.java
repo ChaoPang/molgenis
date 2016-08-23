@@ -158,7 +158,7 @@ public class Similarity
 			float ngramContribution = adjustedScore * 2 * matchedWord.getResult().length()
 					/ (targetLabel.length() + sourceLabel.length());
 			adjustedScore = adjustedScore - ngramContribution
-					+ ngramContribution * (float) Math.pow(matchedWord.getScore(), 2.0);
+					+ ngramContribution * (float) Math.pow(matchedWord.getScore(), 3.0);
 		}
 
 		return Hit.create(termJoiner.join(queryString), adjustedScore);

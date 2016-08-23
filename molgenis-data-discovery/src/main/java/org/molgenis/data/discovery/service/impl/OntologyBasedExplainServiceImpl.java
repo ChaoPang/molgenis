@@ -8,7 +8,6 @@ import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.splitIntoTerms;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
-import static org.molgenis.ontology.utils.Stemmer.splitAndStem;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -151,11 +150,12 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 
 		for (OntologyTerm ontologyTerm : ontologyTerms)
 		{
-			Optional<String> findFirst = ontologyTerm.getSynonyms().stream()
-					.filter(synonym -> stemmedMatchedWords.containsAll(splitAndStem(synonym))).findFirst();
+			Optional<String> findFirst = ontologyTerm.getSynonyms().stream().map(Stemmer::splitAndStem)
+					.filter(stemmedSynonymWords -> stemmedMatchedWords.containsAll(stemmedSynonymWords))
+					.map(words -> words.stream().sorted().collect(Collectors.joining(" "))).findFirst();
 			if (findFirst.isPresent())
 			{
-				ontologyTermWithSameSynonyms.put(Stemmer.cleanStemPhrase(findFirst.get()), ontologyTerm);
+				ontologyTermWithSameSynonyms.put(findFirst.get(), ontologyTerm);
 			}
 		}
 
