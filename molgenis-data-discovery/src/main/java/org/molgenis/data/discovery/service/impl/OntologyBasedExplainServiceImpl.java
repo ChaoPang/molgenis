@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,7 +25,6 @@ import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.matching.MatchingExplanation;
 import org.molgenis.data.discovery.service.OntologyBasedExplainService;
-import org.molgenis.data.semanticsearch.explain.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -74,21 +72,21 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 
 		for (BiobankSampleAttribute sourceAttribute : sourceAttributes)
 		{
-			Set<OntologyTermHit> findAllRelatedOntologyTerms = findAllRelatedOntologyTerms(targetAttribute,
+			Multimap<OntologyTerm, OntologyTerm> relatedOntologyTerms = findAllRelatedOntologyTerms(targetAttribute,
 					sourceAttribute, biobankUniverse, semanticSearchParam);
 
 			MatchingExplanation explanation = null;
 
-			if (findAllRelatedOntologyTerms.size() > 0)
+			if (!relatedOntologyTerms.isEmpty())
 			{
 				Hit<String> computeScoreForMatchedSource = similarity.score(targetAttribute, sourceAttribute,
-						biobankUniverse, semanticSearchParam);
+						biobankUniverse, relatedOntologyTerms);
 
 				Set<String> matchedWords = findMatchedWords(computeScoreForMatchedSource.getResult(),
 						sourceAttribute.getLabel());
 
-				List<OntologyTerm> ontologyTerms = findAllRelatedOntologyTerms.stream()
-						.map(OntologyTermHit::getOntologyTerm).collect(toList());
+				List<OntologyTerm> ontologyTerms = relatedOntologyTerms.values().stream().distinct()
+						.collect(Collectors.toList());
 
 				explanation = MatchingExplanation.create(idGenerator.generateId(), ontologyTerms,
 						computeScoreForMatchedSource.getResult(), termJoiner.join(matchedWords),
@@ -198,16 +196,18 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 				.collect(toSet());
 	}
 
-	private Set<OntologyTermHit> findAllRelatedOntologyTerms(BiobankSampleAttribute targetAttribute,
+	private Multimap<OntologyTerm, OntologyTerm> findAllRelatedOntologyTerms(BiobankSampleAttribute targetAttribute,
 			BiobankSampleAttribute sourceAttribute, BiobankUniverse biobankUniverse,
 			SemanticSearchParam semanticSearchParam)
 	{
+		Multimap<OntologyTerm, OntologyTerm> relatedOntologyTerms = LinkedHashMultimap.create();
+
 		Set<OntologyTerm> targetOntologyTerms = getAllOntologyTerms(targetAttribute, biobankUniverse);
 
 		Set<OntologyTerm> sourceOntologyTerms = getAllOntologyTerms(sourceAttribute, biobankUniverse);
 
 		int expansionLevel = semanticSearchParam.getQueryExpansionParameter().getExpansionLevel();
-		Set<OntologyTermHit> relatedOntologyTerms = new LinkedHashSet<>();
+
 		for (OntologyTerm targetOntologyTerm : targetOntologyTerms)
 		{
 			for (OntologyTerm sourceOntologyTerm : sourceOntologyTerms)
@@ -215,7 +215,7 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 				if (ontologyService.related(targetOntologyTerm, sourceOntologyTerm)
 						&& ontologyService.areWithinDistance(targetOntologyTerm, sourceOntologyTerm, expansionLevel))
 				{
-					relatedOntologyTerms.add(OntologyTermHit.create(targetOntologyTerm, sourceOntologyTerm));
+					relatedOntologyTerms.put(targetOntologyTerm, sourceOntologyTerm);
 				}
 			}
 		}
