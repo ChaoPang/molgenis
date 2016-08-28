@@ -40,6 +40,7 @@ import com.google.common.collect.Multimap;
 
 public class OntologyBasedMatcher
 {
+	private static final int STOP_LEVEL = 4;
 	private static final Logger LOG = LoggerFactory.getLogger(OntologyBasedMatcher.class);
 	private static final String ESCAPED_NODEPATH_SEPARATOR = "\\.";
 	private static final String NODEPATH_SEPARATOR = ".";
@@ -147,19 +148,19 @@ public class OntologyBasedMatcher
 				{
 					candidates.addAll(descendantNodePathsRegistry.get(nodePath));
 				}
-				else
-				{
-					// if a hit for the parent nodePath is found, we only want to get associated BiobankSampleAttributes
-					// from that particular parent nodePath
-					List<BiobankSampleAttribute> collect = StreamSupport
-							.stream(getAllParents(nodePath).spliterator(), false)
-							.limit(semanticSearchParam.getQueryExpansionParameter().getExpansionLevel())
-							.filter(nodePathRegistry::containsKey)
-							.flatMap(parentNodePath -> nodePathRegistry.get(parentNodePath).stream()).distinct()
-							.collect(Collectors.toList());
+				// else
+				// {
+				// if a hit for the parent nodePath is found, we only want to get associated BiobankSampleAttributes
+				// from that particular parent nodePath
+				List<BiobankSampleAttribute> collect = StreamSupport
+						.stream(getAllParents(nodePath).spliterator(), false)
+						.limit(semanticSearchParam.getQueryExpansionParameter().getExpansionLevel())
+						.filter(nodePathRegistry::containsKey)
+						.flatMap(parentNodePath -> nodePathRegistry.get(parentNodePath).stream()).distinct()
+						.collect(Collectors.toList());
 
-					candidates.addAll(collect);
-				}
+				candidates.addAll(collect);
+				// }
 			}
 
 			cachedBiobankSampleAttributes.put(ontologyTerm, candidates);
@@ -181,16 +182,22 @@ public class OntologyBasedMatcher
 			biobankSampleAttribute.getTagGroups().stream().flatMap(tagGroup -> tagGroup.getOntologyTerms().stream())
 					.distinct().flatMap(ot -> ot.getNodePaths().stream()).forEach(nodePath -> {
 
-						// Register the direct association between nodePaths and BiobankSampleAttributes
-						nodePathRegistry.put(nodePath, biobankSampleAttribute);
-
-						// Register the direct associations plus the descendant associations between nodePaths and
-						// BiobankSampleAttributes
-						descendantNodePathsRegistry.put(nodePath, biobankSampleAttribute);
-
-						for (String parentNodePath : getAllParents(nodePath))
+						if (getNodePathLevel(nodePath) > STOP_LEVEL)
 						{
-							descendantNodePathsRegistry.put(parentNodePath, biobankSampleAttribute);
+							// Register the direct association between nodePaths and BiobankSampleAttributes
+							nodePathRegistry.put(nodePath, biobankSampleAttribute);
+
+							// Register the direct associations plus the descendant associations between nodePaths and
+							// BiobankSampleAttributes
+							descendantNodePathsRegistry.put(nodePath, biobankSampleAttribute);
+
+							for (String parentNodePath : getAllParents(nodePath))
+							{
+								if (getNodePathLevel(parentNodePath) > STOP_LEVEL)
+								{
+									descendantNodePathsRegistry.put(parentNodePath, biobankSampleAttribute);
+								}
+							}
 						}
 					});
 		}
@@ -199,6 +206,11 @@ public class OntologyBasedMatcher
 		{
 			LOG.trace("Finished constructing the tree...");
 		}
+	}
+
+	int getNodePathLevel(String nodePath)
+	{
+		return nodePath.split(ESCAPED_NODEPATH_SEPARATOR).length;
 	}
 
 	String getParent(String nodePath, int traversalLevel)

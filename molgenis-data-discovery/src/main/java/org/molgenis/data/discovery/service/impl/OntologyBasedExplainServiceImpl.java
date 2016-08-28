@@ -85,6 +85,9 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 				Set<String> matchedWords = findMatchedWords(computeScoreForMatchedSource.getResult(),
 						sourceAttribute.getLabel());
 
+				matchedWords
+						.addAll(findMatchedWords(computeScoreForMatchedSource.getResult(), targetAttribute.getLabel()));
+
 				List<OntologyTerm> ontologyTerms = relatedOntologyTerms.values().stream().distinct()
 						.collect(Collectors.toList());
 

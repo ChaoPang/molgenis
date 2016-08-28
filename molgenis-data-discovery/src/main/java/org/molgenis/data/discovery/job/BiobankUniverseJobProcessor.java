@@ -3,12 +3,14 @@ package org.molgenis.data.discovery.job;
 import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.molgenis.ontology.core.model.OntologyTerm.and;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.molgenis.data.discovery.controller.BiobankUniverseController;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
@@ -127,12 +129,27 @@ public class BiobankUniverseJobProcessor
 
 						List<SemanticType> keyConceptFilter = biobankUniverse.getKeyConcepts();
 
-						Stream<IdentifiableTagGroup> filter = biobankSampleAttribute.getTagGroups().stream().filter(
-								tagGroup -> !tagGroup.getSemanticTypes().stream().anyMatch(keyConceptFilter::contains));
+						// Stream<IdentifiableTagGroup> filter = biobankSampleAttribute.getTagGroups().stream().filter(
+						// tagGroup -> !tagGroup.getSemanticTypes().stream().anyMatch(keyConceptFilter::contains));
+						//
+						// List<TagGroup> tagGroups = filter.map(tag -> TagGroup.create(
+						// OntologyTerm.and(tag.getOntologyTerms().stream().toArray(OntologyTerm[]::new)),
+						// tag.getMatchedWords(), (float) tag.getScore())).collect(Collectors.toList());
 
-						List<TagGroup> tagGroups = filter.map(tag -> TagGroup.create(
-								OntologyTerm.and(tag.getOntologyTerms().stream().toArray(OntologyTerm[]::new)),
-								tag.getMatchedWords(), (float) tag.getScore())).collect(Collectors.toList());
+						Set<TagGroup> tagGroups = new HashSet<>();
+						for (IdentifiableTagGroup tagGroup : biobankSampleAttribute.getTagGroups())
+						{
+							List<OntologyTerm> filteredOntologyTerms = tagGroup.getOntologyTerms().stream()
+									.filter(ot -> ot.getSemanticTypes().stream()
+											.allMatch(st -> !keyConceptFilter.contains(st)))
+									.collect(Collectors.toList());
+							if (!filteredOntologyTerms.isEmpty())
+							{
+								tagGroups.add(TagGroup.create(
+										and(filteredOntologyTerms.stream().toArray(OntologyTerm[]::new)),
+										tagGroup.getMatchedWords(), (float) tagGroup.getScore()));
+							}
+						}
 
 						// SemanticSearch finding all the relevant attributes from existing entities
 						SemanticSearchParam semanticSearchParam = SemanticSearchParam.create(
