@@ -30,8 +30,11 @@ import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
+import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
+import org.molgenis.data.discovery.service.impl.OntologyBasedMatcher;
 import org.molgenis.data.i18n.LanguageService;
+import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParam;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
@@ -64,6 +67,8 @@ public class BiobankUniverseController extends MolgenisPluginController
 	private final BiobankUniverseJobFactory biobankUniverseJobFactory;
 	private final ExecutorService taskExecutor;
 	private final BiobankUniverseService biobankUniverseService;
+	private final QueryExpansionService queryExpansionService;
+	private final BiobankUniverseRepository biobankUniverseRepository;
 	private final OntologyService ontologyService;
 	private final UserAccountService userAccountService;
 	private final MenuReaderService menuReaderService;
@@ -76,6 +81,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 	@Autowired
 	public BiobankUniverseController(TagGroupGenerator tagGroupGenerator,
 			BiobankUniverseJobFactory biobankUniverseJobFactory, BiobankUniverseService biobankUniverseService,
+			QueryExpansionService queryExpansionService, BiobankUniverseRepository biobankUniverseRepository,
 			OntologyService ontologyService, ExecutorService taskExecutor, UserAccountService userAccountService,
 			DataService dataService, MenuReaderService menuReaderService, LanguageService languageService)
 	{
@@ -84,6 +90,8 @@ public class BiobankUniverseController extends MolgenisPluginController
 		this.biobankUniverseService = requireNonNull(biobankUniverseService);
 		this.ontologyService = requireNonNull(ontologyService);
 		this.biobankUniverseJobFactory = requireNonNull(biobankUniverseJobFactory);
+		this.queryExpansionService = requireNonNull(queryExpansionService);
+		this.biobankUniverseRepository = requireNonNull(biobankUniverseRepository);
 		this.taskExecutor = requireNonNull(taskExecutor);
 		this.dataService = requireNonNull(dataService);
 		this.userAccountService = requireNonNull(userAccountService);
@@ -122,23 +130,29 @@ public class BiobankUniverseController extends MolgenisPluginController
 	@ResponseBody
 	public List<String> match(@RequestBody Map<String, String> request)
 	{
-		String collection = request.get("collection");
+		String targetCollection = request.get("targetCollection");
 		String queryString = request.get("queryString");
+		String sourceCollection = request.get("sourceCollection");
+		boolean strictMatch = request.containsKey("strictMatch");
 
-		if (isNotBlank(collection) && isNotBlank(queryString))
+		if (isNotBlank(targetCollection) && isNotBlank(sourceCollection) && isNotBlank(queryString))
 		{
 			List<TagGroup> generateTagGroups = tagGroupGenerator.generateTagGroups(queryString,
 					ontologyService.getAllOntologiesIds());
 
-			BiobankSampleCollection biobankSampleCollection = biobankUniverseService
-					.getBiobankSampleCollection(collection);
+			BiobankSampleCollection targetSampleCollection = biobankUniverseService
+					.getBiobankSampleCollection(targetCollection);
+
+			BiobankSampleCollection sourceSampleCollection = biobankUniverseService
+					.getBiobankSampleCollection(sourceCollection);
 
 			List<SemanticType> keyConcepts = Arrays.asList(
 					SemanticType.create("1", "Gene or Genome", "test group", true),
 					SemanticType.create("2", "Genetic Function", "test group", true));
 
-			BiobankUniverse biobankUniverse = BiobankUniverse.create("1", "tes", Arrays.asList(biobankSampleCollection),
-					userAccountService.getCurrentUser(), keyConcepts);
+			BiobankUniverse biobankUniverse = BiobankUniverse.create("1", "test",
+					Arrays.asList(targetSampleCollection, sourceSampleCollection), userAccountService.getCurrentUser(),
+					keyConcepts);
 
 			List<IdentifiableTagGroup> collect = generateTagGroups.stream()
 					.map(tagGroup -> IdentifiableTagGroup.create("1",
@@ -147,17 +161,21 @@ public class BiobankUniverseController extends MolgenisPluginController
 					.collect(Collectors.toList());
 
 			BiobankSampleAttribute target = BiobankSampleAttribute.create("1", "name", "queryString", StringUtils.EMPTY,
-					biobankSampleCollection, collect);
+					targetSampleCollection, collect);
 
 			SemanticSearchParam semanticSearchParam = SemanticSearchParam.create(Sets.newHashSet(queryString),
-					generateTagGroups, QueryExpansionParam.create(true, true));
+					generateTagGroups, QueryExpansionParam.create(true, false), strictMatch);
 
-			List<AttributeMappingCandidate> findCandidateMappings = biobankUniverseService.findCandidateMappings(
-					biobankUniverse, target, semanticSearchParam, Arrays.asList(biobankSampleCollection));
+			List<OntologyBasedMatcher> matchers = Arrays.asList(new OntologyBasedMatcher(sourceSampleCollection,
+					biobankUniverseRepository, queryExpansionService, ontologyService));
+
+			List<AttributeMappingCandidate> findCandidateMappings = biobankUniverseService
+					.findCandidateMappingsOntologyBased(biobankUniverse, target, semanticSearchParam, matchers);
 
 			return findCandidateMappings.stream().map(AttributeMappingCandidate::getSource)
 					.map(BiobankSampleAttribute::getLabel).collect(Collectors.toList());
 		}
+
 		return Collections.emptyList();
 	}
 

@@ -21,17 +21,26 @@ public abstract class SemanticSearchParam
 
 	public abstract float getHighQualityThreshold();
 
+	public abstract boolean isStrictMatch();
+
 	public static SemanticSearchParam create(Set<String> lexicalQueries, List<TagGroup> tagGroups,
 			QueryExpansionParam queryExpansionParameter)
 	{
 		return new AutoValue_SemanticSearchParam(lexicalQueries, tagGroups, queryExpansionParameter,
-				DEFAULT_HIGH_QUALITY_THRESHOLD);
+				DEFAULT_HIGH_QUALITY_THRESHOLD, false);
+	}
+
+	public static SemanticSearchParam create(Set<String> lexicalQueries, List<TagGroup> tagGroups,
+			QueryExpansionParam queryExpansionParameter, boolean strictMatch)
+	{
+		return new AutoValue_SemanticSearchParam(lexicalQueries, tagGroups, queryExpansionParameter,
+				DEFAULT_HIGH_QUALITY_THRESHOLD, strictMatch);
 	}
 
 	public static SemanticSearchParam create(Set<String> lexicalQueries, List<TagGroup> tagGroups,
 			QueryExpansionParam queryExpansionParameter, float highQualityThreshold)
 	{
 		return new AutoValue_SemanticSearchParam(lexicalQueries, tagGroups, queryExpansionParameter,
-				highQualityThreshold);
+				highQualityThreshold, false);
 	}
 }

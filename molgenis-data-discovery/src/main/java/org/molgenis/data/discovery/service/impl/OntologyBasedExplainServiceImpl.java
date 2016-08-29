@@ -80,7 +80,7 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 			if (!relatedOntologyTerms.isEmpty())
 			{
 				Hit<String> computeScoreForMatchedSource = similarity.score(targetAttribute, sourceAttribute,
-						biobankUniverse, relatedOntologyTerms);
+						biobankUniverse, relatedOntologyTerms, semanticSearchParam.isStrictMatch());
 
 				Set<String> matchedWords = findMatchedWords(computeScoreForMatchedSource.getResult(),
 						sourceAttribute.getLabel());

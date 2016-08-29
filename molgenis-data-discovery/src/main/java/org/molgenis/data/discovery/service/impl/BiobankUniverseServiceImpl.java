@@ -1,14 +1,10 @@
 package org.molgenis.data.discovery.service.impl;
 
 import static com.google.common.collect.Lists.newArrayList;
-import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
-import static org.molgenis.data.QueryRule.Operator.AND;
-import static org.molgenis.data.QueryRule.Operator.IN;
-import static org.molgenis.data.meta.AttributeMetaDataMetaData.IDENTIFIER;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +15,6 @@ import java.util.stream.Stream;
 import org.molgenis.auth.MolgenisUser;
 import org.molgenis.data.Entity;
 import org.molgenis.data.IdGenerator;
-import org.molgenis.data.QueryRule;
 import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
@@ -30,11 +25,9 @@ import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.discovery.service.OntologyBasedExplainService;
 import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
-import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
-import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.service.OntologyService;
@@ -43,8 +36,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
-
-import com.google.common.collect.Lists;
 
 public class BiobankUniverseServiceImpl implements BiobankUniverseService
 {
@@ -55,20 +46,17 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	private final BiobankUniverseRepository biobankUniverseRepository;
 	private final OntologyService ontologyService;
 	private final TagGroupGenerator tagGroupGenerator;
-	private final QueryExpansionService queryExpansionService;
 	private final OntologyBasedExplainService ontologyBasedExplainService;
 
 	@Autowired
 	public BiobankUniverseServiceImpl(IdGenerator idGenerator, BiobankUniverseRepository biobankUniverseRepository,
 			OntologyService ontologyService, TagGroupGenerator tagGroupGenerator,
-			QueryExpansionService queryExpansionService, ExplainMappingService explainMappingService,
-			OntologyBasedExplainService ontologyBasedExplainService)
+			ExplainMappingService explainMappingService, OntologyBasedExplainService ontologyBasedExplainService)
 	{
 		this.idGenerator = requireNonNull(idGenerator);
 		this.biobankUniverseRepository = biobankUniverseRepository;
 		this.ontologyService = requireNonNull(ontologyService);
 		this.tagGroupGenerator = requireNonNull(tagGroupGenerator);
-		this.queryExpansionService = requireNonNull(queryExpansionService);
 		this.ontologyBasedExplainService = requireNonNull(ontologyBasedExplainService);
 	}
 
@@ -192,58 +180,6 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 			allCandidates.addAll(collect);
 		}
-
-		if (LOG.isTraceEnabled())
-		{
-			LOG.trace("Finished matching the target attribute: (" + target.getName() + ":" + target.getLabel() + ")");
-		}
-
-		return allCandidates;
-	}
-
-	@RunAsSystem
-	@Override
-	public List<AttributeMappingCandidate> findCandidateMappings(BiobankUniverse biobankUniverse,
-			BiobankSampleAttribute target, SemanticSearchParam semanticSearchParam,
-			List<BiobankSampleCollection> biobankSampleCollections)
-	{
-		if (LOG.isTraceEnabled())
-		{
-			LOG.trace("Started matching the target attribute: (" + target.getName() + ":" + target.getLabel() + ")");
-		}
-
-		List<AttributeMappingCandidate> allCandidates = new ArrayList<>();
-
-		List<TagGroup> tagGroups = semanticSearchParam.getTagGroups();
-
-		QueryRule expandedQuery = queryExpansionService.expand(semanticSearchParam.getLexicalQueries(), tagGroups,
-				semanticSearchParam.getQueryExpansionParameter());
-
-		if (expandedQuery != null)
-		{
-			for (BiobankSampleCollection biobankSampleCollection : biobankSampleCollections)
-			{
-				List<String> identifiers = biobankUniverseRepository
-						.getBiobankSampleAttributeIdentifiers(biobankSampleCollection);
-
-				List<QueryRule> finalQueryRules = Lists.newArrayList(new QueryRule(IDENTIFIER, IN, identifiers));
-
-				if (expandedQuery.getNestedRules().size() > 0)
-				{
-					finalQueryRules.addAll(asList(new QueryRule(AND), expandedQuery));
-				}
-
-				List<BiobankSampleAttribute> sourceAttributes = biobankUniverseRepository
-						.queryBiobankSampleAttribute(new QueryImpl(finalQueryRules).pageSize(MAX_NUMBER_MATCHES))
-						.collect(Collectors.toList());
-
-				allCandidates.addAll(ontologyBasedExplainService.explain(biobankUniverse, semanticSearchParam, target,
-						sourceAttributes));
-			}
-		}
-
-		allCandidates = allCandidates.stream().filter(candidate -> candidate.getExplanation().getNgramScore() > 0)
-				.filter(candidate -> !candidate.getExplanation().getMatchedWords().isEmpty()).collect(toList());
 
 		if (LOG.isTraceEnabled())
 		{

@@ -64,7 +64,7 @@ public class DataDiscoveryConfig
 	public BiobankUniverseService biobankUniverseService()
 	{
 		return new BiobankUniverseServiceImpl(idGenerator, biobankUniverseRepository(), ontologyService,
-				tagGroupGenerator, queryExpansionService, explainMappingService, ontologyBasedExplainService());
+				tagGroupGenerator, explainMappingService, ontologyBasedExplainService());
 	}
 
 	@Bean

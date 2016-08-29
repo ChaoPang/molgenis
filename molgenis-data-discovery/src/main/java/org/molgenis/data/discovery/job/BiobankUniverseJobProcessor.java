@@ -1,6 +1,5 @@
 package org.molgenis.data.discovery.job;
 
-import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.molgenis.ontology.core.model.OntologyTerm.and;
@@ -129,13 +128,6 @@ public class BiobankUniverseJobProcessor
 
 						List<SemanticType> keyConceptFilter = biobankUniverse.getKeyConcepts();
 
-						// Stream<IdentifiableTagGroup> filter = biobankSampleAttribute.getTagGroups().stream().filter(
-						// tagGroup -> !tagGroup.getSemanticTypes().stream().anyMatch(keyConceptFilter::contains));
-						//
-						// List<TagGroup> tagGroups = filter.map(tag -> TagGroup.create(
-						// OntologyTerm.and(tag.getOntologyTerms().stream().toArray(OntologyTerm[]::new)),
-						// tag.getMatchedWords(), (float) tag.getScore())).collect(Collectors.toList());
-
 						Set<TagGroup> tagGroups = new HashSet<>();
 						for (IdentifiableTagGroup tagGroup : biobankSampleAttribute.getTagGroups())
 						{
@@ -153,8 +145,8 @@ public class BiobankUniverseJobProcessor
 
 						// SemanticSearch finding all the relevant attributes from existing entities
 						SemanticSearchParam semanticSearchParam = SemanticSearchParam.create(
-								Sets.newHashSet(biobankSampleAttribute.getLabel()), newArrayList(tagGroups),
-								QueryExpansionParam.create(true, true));
+								Sets.newHashSet(biobankSampleAttribute.getLabel()), Lists.newArrayList(tagGroups),
+								QueryExpansionParam.create(true, false), true);
 
 						allCandidates.addAll(biobankUniverseService.findCandidateMappingsOntologyBased(biobankUniverse,
 								biobankSampleAttribute, semanticSearchParam, matchers));

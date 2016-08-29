@@ -104,19 +104,6 @@ public interface BiobankUniverseService
 	public abstract void removeBiobankSampleCollection(BiobankSampleCollection biobankSampleCollection);
 
 	/**
-	 * Generate a list of {@link AttributeMappingCandidate}s for all {@link BiobankSampleCollection}s based on the given
-	 * parameter {@link SemanticSearchParam}
-	 * 
-	 * @param target
-	 * @param semanticSearchParam
-	 * @param existingMembers
-	 * @return
-	 */
-	public abstract List<AttributeMappingCandidate> findCandidateMappings(BiobankUniverse biobankUniverse,
-			BiobankSampleAttribute target, SemanticSearchParam semanticSearchParam,
-			List<BiobankSampleCollection> existingMembers);
-
-	/**
 	 * Check if any of the {@link BiobankSampleAttribute}s in the {@link BiobankSampleCollection} has been tagged
 	 * 
 	 * @param biobankSampleCollection
@@ -158,7 +145,17 @@ public interface BiobankUniverseService
 	 */
 	public abstract void addKeyConcepts(BiobankUniverse universe, List<String> semanticTypeGroups);
 
-	List<AttributeMappingCandidate> findCandidateMappingsOntologyBased(BiobankUniverse biobankUniverse,
+	/**
+	 * Generate a list of {@link AttributeMappingCandidate}s for all {@link BiobankSampleCollection}s based on the given
+	 * parameter {@link SemanticSearchParam}
+	 * 
+	 * @param biobankUniverse
+	 * @param target
+	 * @param semanticSearchParam
+	 * @param ontologyBasedInputData
+	 * @return
+	 */
+	public abstract List<AttributeMappingCandidate> findCandidateMappingsOntologyBased(BiobankUniverse biobankUniverse,
 			BiobankSampleAttribute target, SemanticSearchParam semanticSearchParam,
 			List<OntologyBasedMatcher> ontologyBasedInputData);
 }
