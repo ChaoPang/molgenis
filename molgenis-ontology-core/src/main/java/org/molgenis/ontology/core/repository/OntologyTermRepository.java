@@ -300,6 +300,8 @@ public class OntologyTermRepository
 	 */
 	public double getOntologyTermSemanticRelatedness(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2)
 	{
+		if (ontologyTerm1.getIRI().equals(ontologyTerm2.getIRI())) return 1;
+
 		if (ontologyTerm1.getNodePaths().isEmpty() || ontologyTerm2.getNodePaths().isEmpty()) return 0;
 
 		OptionalDouble max = ontologyTerm1.getNodePaths().stream()

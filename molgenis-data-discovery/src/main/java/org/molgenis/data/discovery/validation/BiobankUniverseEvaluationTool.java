@@ -68,7 +68,7 @@ public class BiobankUniverseEvaluationTool
 				: collectRelevantMatches(relevantMatchRepository);
 
 		Map<String, List<Hit<String>>> generatedCandidateMatchCollection = collectGeneratedMatches(
-				generatedMatchRepository);
+				generatedMatchRepository, false);
 
 		generateRscriptInput(relevantMatches, generatedCandidateMatchCollection);
 
@@ -260,13 +260,14 @@ public class BiobankUniverseEvaluationTool
 		return orElse == null ? null : (candidateMatches.indexOf(orElse) + 1);
 	}
 
-	private Map<String, List<Hit<String>>> collectGeneratedMatches(Repository generatedMatchRepository)
+	public static Map<String, List<Hit<String>>> collectGeneratedMatches(Repository generatedMatchRepository,
+			boolean reversed)
 	{
 		Map<String, List<Hit<String>>> generatedCandidateMatches = new LinkedHashMap<>();
 		for (Entity entity : generatedMatchRepository)
 		{
-			String target = entity.getString("target");
-			String source = entity.getString("source");
+			String target = reversed ? entity.getString("source") : entity.getString("target");
+			String source = reversed ? entity.getString("target") : entity.getString("source");
 			Double ngramScore = entity.getDouble("ngramScore");
 
 			if (!generatedCandidateMatches.containsKey(target))
@@ -303,7 +304,7 @@ public class BiobankUniverseEvaluationTool
 		return generatedCandidateMatches;
 	}
 
-	private Multimap<String, String> collectRelevantMatches(Repository manualMatchRepository)
+	public static Multimap<String, String> collectRelevantMatches(Repository manualMatchRepository)
 	{
 		Multimap<String, String> relevantMatches = LinkedHashMultimap.create();
 
@@ -334,7 +335,7 @@ public class BiobankUniverseEvaluationTool
 		return relevantMatches;
 	}
 
-	private Multimap<String, String> collectReversedRelevantMatches(Repository manualMatchRepository)
+	public static Multimap<String, String> collectReversedRelevantMatches(Repository manualMatchRepository)
 	{
 		Multimap<String, String> relevantMatches = LinkedHashMultimap.create();
 
@@ -369,7 +370,7 @@ public class BiobankUniverseEvaluationTool
 		return relevantMatches;
 	}
 
-	private Set<String> extractAttributeNames(String algorithm)
+	public static Set<String> extractAttributeNames(String algorithm)
 	{
 		Set<String> attributeNames = new LinkedHashSet<>();
 		Matcher matcher = SINGLE_ATTRIBUTE_NAME_PATTERN.matcher(algorithm);
