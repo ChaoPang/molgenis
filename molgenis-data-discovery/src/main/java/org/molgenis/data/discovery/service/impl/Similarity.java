@@ -164,6 +164,8 @@ public class Similarity
 				sourceLabelWords.removeAll(sourceMatchedWords);
 				sourceLabel = termJoiner.join(Sets.union(sourceLabelWords, targetMatchedWords));
 
+				targetLabel = termJoiner.join(splitIntoTerms(targetLabel));
+
 				matchedWords.add(
 						Hit.create(termJoiner.join(targetMatchedWords), matchedTagGroup.getSimilarity().floatValue()));
 			}
@@ -172,6 +174,8 @@ public class Similarity
 				Set<String> targetLabelWords = splitIntoTerms(targetLabel);
 				targetLabelWords.removeAll(targetMatchedWords);
 				targetLabel = termJoiner.join(Sets.union(targetLabelWords, sourceMatchedWords));
+
+				sourceLabel = termJoiner.join(splitIntoTerms(sourceLabel));
 
 				matchedWords.add(
 						Hit.create(termJoiner.join(sourceMatchedWords), matchedTagGroup.getSimilarity().floatValue()));
