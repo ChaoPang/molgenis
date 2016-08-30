@@ -117,19 +117,22 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 			}
 		}
 
-		// Collection the queries from ontology terms and parse them
-		Multimap<String, TagGroup> groupWithSameSynonym = LinkedHashMultimap.create();
-		tagGroups.forEach(hit -> groupWithSameSynonym.put(hit.getMatchedWords(), hit));
-		for (String synonym : groupWithSameSynonym.keySet())
+		if (expansionParameter.isSemanticSearchEnabled())
 		{
-			List<TagGroup> ontologyTermGroup = Lists.newArrayList(groupWithSameSynonym.get(synonym));
-
-			QueryRule queryRuleForOntologyTerms = createQueryRuleForOntologyTerms(ontologyTermGroup,
-					expansionParameter);
-
-			if (queryRuleForOntologyTerms != null)
+			// Collection the queries from ontology terms and parse them
+			Multimap<String, TagGroup> groupWithSameSynonym = LinkedHashMultimap.create();
+			tagGroups.forEach(hit -> groupWithSameSynonym.put(hit.getMatchedWords(), hit));
+			for (String synonym : groupWithSameSynonym.keySet())
 			{
-				rules.add(queryRuleForOntologyTerms);
+				List<TagGroup> ontologyTermGroup = Lists.newArrayList(groupWithSameSynonym.get(synonym));
+
+				QueryRule queryRuleForOntologyTerms = createQueryRuleForOntologyTerms(ontologyTermGroup,
+						expansionParameter);
+
+				if (queryRuleForOntologyTerms != null)
+				{
+					rules.add(queryRuleForOntologyTerms);
+				}
 			}
 		}
 

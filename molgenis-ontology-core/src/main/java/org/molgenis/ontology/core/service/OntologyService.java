@@ -134,9 +134,10 @@ public interface OntologyService
 	 * 
 	 * @param ontologyTerm1
 	 * @param ontologyTerm2
+	 * @param stopLevel
 	 * @return
 	 */
-	boolean related(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2);
+	boolean related(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2, int stopLevel);
 
 	boolean isDescendant(OntologyTerm targetOntologyTerm, OntologyTerm sourceOntologyTerm);
 

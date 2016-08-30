@@ -280,6 +280,8 @@ public class OntologyTermRepository
 	 */
 	public boolean areWithinDistance(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2, int maxDistance)
 	{
+		if (ontologyTerm1.getIRI().equals(ontologyTerm2.getIRI())) return true;
+
 		if (ontologyTerm1.getNodePaths().isEmpty() || ontologyTerm2.getNodePaths().isEmpty()) return false;
 
 		boolean anyMatch = ontologyTerm1.getNodePaths().stream().anyMatch(nodePath1 -> ontologyTerm2.getNodePaths()
@@ -615,5 +617,10 @@ public class OntologyTermRepository
 
 		return OntologyTerm.create(entity.getString(ID), entity.getString(ONTOLOGY_TERM_IRI),
 				entity.getString(ONTOLOGY_TERM_NAME), null, synonyms, nodePaths, annotations, semanticTypes);
+	}
+
+	public int getNodePathLevel(String nodePath)
+	{
+		return nodePath.split(ESCAPED_NODEPATH_SEPARATOR).length;
 	}
 }

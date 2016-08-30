@@ -197,17 +197,25 @@ public class OntologyServiceImpl implements OntologyService
 	}
 
 	@Override
-	public boolean related(OntologyTerm targetOntologyTerm, OntologyTerm sourceOntologyTerm)
+	public boolean related(OntologyTerm targetOntologyTerm, OntologyTerm sourceOntologyTerm, int stopLevel)
 	{
-		if (targetOntologyTerm.getNodePaths().isEmpty() || sourceOntologyTerm.getNodePaths().isEmpty())
+		if (targetOntologyTerm.getIRI().equals(sourceOntologyTerm.getIRI())) return true;
+
+		List<String> targetNodePaths = targetOntologyTerm.getNodePaths().stream()
+				.filter(nodePath -> ontologyTermRepository.getNodePathLevel(nodePath) > stopLevel)
+				.collect(Collectors.toList());
+
+		List<String> sourceNodePaths = sourceOntologyTerm.getNodePaths().stream()
+				.filter(nodePath -> ontologyTermRepository.getNodePathLevel(nodePath) > stopLevel)
+				.collect(Collectors.toList());
+
+		if (targetNodePaths.isEmpty() || sourceNodePaths.isEmpty())
 		{
 			return false;
 		}
 
-		return targetOntologyTerm.getNodePaths().stream()
-				.anyMatch(targetNodePath -> sourceOntologyTerm.getNodePaths().stream()
-						.anyMatch(sourceNodePath -> targetNodePath.contains(sourceNodePath)
-								|| sourceNodePath.contains(targetNodePath)));
+		return targetNodePaths.stream().anyMatch(targetNodePath -> sourceNodePaths.stream().anyMatch(
+				sourceNodePath -> targetNodePath.contains(sourceNodePath) || sourceNodePath.contains(targetNodePath)));
 	}
 
 	@Override

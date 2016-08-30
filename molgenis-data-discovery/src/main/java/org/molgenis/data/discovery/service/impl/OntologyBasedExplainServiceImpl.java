@@ -4,6 +4,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.molgenis.data.discovery.service.impl.OntologyBasedMatcher.EXPANSION_LEVEL;
+import static org.molgenis.data.discovery.service.impl.OntologyBasedMatcher.STOP_LEVEL;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.findMatchedWords;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.splitIntoTerms;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
@@ -209,14 +211,12 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 
 		Set<OntologyTerm> sourceOntologyTerms = getAllOntologyTerms(sourceAttribute, biobankUniverse);
 
-		int expansionLevel = semanticSearchParam.getQueryExpansionParameter().getExpansionLevel();
-
 		for (OntologyTerm targetOntologyTerm : targetOntologyTerms)
 		{
 			for (OntologyTerm sourceOntologyTerm : sourceOntologyTerms)
 			{
-				if (ontologyService.related(targetOntologyTerm, sourceOntologyTerm)
-						&& ontologyService.areWithinDistance(targetOntologyTerm, sourceOntologyTerm, expansionLevel))
+				if (ontologyService.related(targetOntologyTerm, sourceOntologyTerm, STOP_LEVEL)
+						&& ontologyService.areWithinDistance(targetOntologyTerm, sourceOntologyTerm, EXPANSION_LEVEL))
 				{
 					relatedOntologyTerms.put(targetOntologyTerm, sourceOntologyTerm);
 				}

@@ -4,6 +4,7 @@ import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.StreamSupport.stream;
 import static org.molgenis.data.QueryRule.Operator.AND;
 import static org.molgenis.data.QueryRule.Operator.IN;
 import static org.molgenis.data.meta.AttributeMetaDataMetaData.IDENTIFIER;
@@ -40,12 +41,14 @@ import com.google.common.collect.Multimap;
 
 public class OntologyBasedMatcher
 {
-	private static final int STOP_LEVEL = 4;
+	public static final int STOP_LEVEL = 4;
+	public static final int EXPANSION_LEVEL = 5;
+
 	private static final Logger LOG = LoggerFactory.getLogger(OntologyBasedMatcher.class);
 	private static final String ESCAPED_NODEPATH_SEPARATOR = "\\.";
 	private static final String NODEPATH_SEPARATOR = ".";
 
-	private static final int MAX_NUMBER_LEXICAL_MATCHES = 50;
+	private static final int MAX_NUMBER_LEXICAL_MATCHES = 20;
 
 	private final BiobankUniverseRepository biobankUniverseRepository;
 	private final QueryExpansionService queryExpansionService;
@@ -84,7 +87,7 @@ public class OntologyBasedMatcher
 		// Lexical match
 		Set<String> lexicalQueries = semanticSearchParam.getLexicalQueries();
 		List<TagGroup> tagGroups = semanticSearchParam.getTagGroups();
-		QueryExpansionParam queryExpansionParameter = QueryExpansionParam.create(true, false);
+		QueryExpansionParam queryExpansionParameter = QueryExpansionParam.create(false, false);
 
 		QueryRule expandedQuery = queryExpansionService.expand(lexicalQueries, tagGroups, queryExpansionParameter);
 
@@ -148,19 +151,16 @@ public class OntologyBasedMatcher
 				{
 					candidates.addAll(descendantNodePathsRegistry.get(nodePath));
 				}
-				// else
-				// {
 				// if a hit for the parent nodePath is found, we only want to get associated BiobankSampleAttributes
 				// from that particular parent nodePath
 				List<BiobankSampleAttribute> collect = StreamSupport
-						.stream(getAllParents(nodePath).spliterator(), false)
-						.limit(semanticSearchParam.getQueryExpansionParameter().getExpansionLevel())
+						.stream(getAllParents(nodePath).spliterator(), false).limit(EXPANSION_LEVEL)
+						.filter(parentNodePath -> getNodePathLevel(parentNodePath) > STOP_LEVEL)
 						.filter(nodePathRegistry::containsKey)
 						.flatMap(parentNodePath -> nodePathRegistry.get(parentNodePath).stream()).distinct()
 						.collect(Collectors.toList());
 
 				candidates.addAll(collect);
-				// }
 			}
 
 			cachedBiobankSampleAttributes.put(ontologyTerm, candidates);
@@ -182,21 +182,23 @@ public class OntologyBasedMatcher
 			biobankSampleAttribute.getTagGroups().stream().flatMap(tagGroup -> tagGroup.getOntologyTerms().stream())
 					.distinct().flatMap(ot -> ot.getNodePaths().stream()).forEach(nodePath -> {
 
+						// Register the direct association between nodePaths and BiobankSampleAttributes
+						nodePathRegistry.put(nodePath, biobankSampleAttribute);
+
 						if (getNodePathLevel(nodePath) > STOP_LEVEL)
 						{
-							// Register the direct association between nodePaths and BiobankSampleAttributes
-							nodePathRegistry.put(nodePath, biobankSampleAttribute);
-
 							// Register the direct associations plus the descendant associations between nodePaths and
 							// BiobankSampleAttributes
 							descendantNodePathsRegistry.put(nodePath, biobankSampleAttribute);
 
-							for (String parentNodePath : getAllParents(nodePath))
+							for (String parentNodePath : stream(getAllParents(nodePath).spliterator(), false)
+									.limit(EXPANSION_LEVEL).collect(toList()))
 							{
 								if (getNodePathLevel(parentNodePath) > STOP_LEVEL)
 								{
 									descendantNodePathsRegistry.put(parentNodePath, biobankSampleAttribute);
 								}
+								else break;
 							}
 						}
 					});

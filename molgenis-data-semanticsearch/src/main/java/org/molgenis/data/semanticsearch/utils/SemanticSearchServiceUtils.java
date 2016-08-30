@@ -20,7 +20,7 @@ import com.google.common.collect.Sets;
 
 public class SemanticSearchServiceUtils
 {
-	private final static String ILLEGAL_CHARS_REGEX = "[^\\p{L}'a-zA-Z0-9\\.~]+";
+	private final static String ILLEGAL_CHARS_REGEX = "[^\\p{IsAlphabetic}0-9]+";
 
 	public static Set<String> findMatchedWords(String string1, String string2)
 	{
