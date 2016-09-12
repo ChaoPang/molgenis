@@ -139,7 +139,14 @@ public interface OntologyService
 	 */
 	boolean related(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2, int stopLevel);
 
-	boolean isDescendant(OntologyTerm targetOntologyTerm, OntologyTerm sourceOntologyTerm);
+	/**
+	 * is the first {@link OntologyTerm} descendant of the second {@link OntologyTerm}
+	 * 
+	 * @param ontologyTerm1
+	 * @param ontologyTerm2
+	 * @return
+	 */
+	boolean isDescendant(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2);
 
 	boolean areWithinDistance(OntologyTerm ontologyTerm1, OntologyTerm ontologyTerm2, int maxDistance);
 
@@ -168,4 +175,6 @@ public interface OntologyService
 	List<SemanticType> getSemanticTypesByGroups(List<String> semanticTypeGroups);
 
 	List<SemanticType> getSemanticTypesByNames(List<String> semanticTypeNames);
+
+	List<OntologyTerm> getRandomontologyTerms(List<String> entityIds);
 }

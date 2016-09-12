@@ -258,4 +258,10 @@ public class OntologyServiceImpl implements OntologyService
 	{
 		return ontologyTermRepository.getSemanticTypesByNames(semanticTypeNames);
 	}
+
+	@Override
+	public List<OntologyTerm> getRandomontologyTerms(List<String> entityIds)
+	{
+		return ontologyTermRepository.getRandomOntologyTerms(entityIds);
+	}
 }

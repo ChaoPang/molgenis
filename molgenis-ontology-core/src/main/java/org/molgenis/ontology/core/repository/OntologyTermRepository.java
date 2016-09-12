@@ -124,6 +124,14 @@ public class OntologyTermRepository
 		return Lists.newArrayList(Iterables.transform(ontologyTermEntities, OntologyTermRepository::toOntologyTerm));
 	}
 
+	public List<OntologyTerm> getRandomOntologyTerms(List<String> entityIds)
+	{
+		Fetch fetch = new Fetch();
+		OntologyTermMetaData.INSTANCE.getAtomicAttributes().forEach(attribute -> fetch.field(attribute.getName()));
+		return dataService.findAll(OntologyTermMetaData.ENTITY_NAME, entityIds.stream().map(id -> (Object) id), fetch)
+				.map(OntologyTermRepository::toOntologyTerm).collect(Collectors.toList());
+	}
+
 	/**
 	 * Finds {@link OntologyTerm}s within {@link Ontology}s.
 	 *

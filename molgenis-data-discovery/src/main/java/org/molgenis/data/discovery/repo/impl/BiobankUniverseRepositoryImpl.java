@@ -38,6 +38,7 @@ import org.molgenis.data.discovery.meta.biobank.BiobankUniverseMetaData;
 import org.molgenis.data.discovery.meta.matching.AttributeMappingCandidateMetaData;
 import org.molgenis.data.discovery.meta.matching.AttributeMappingDecisionMetaData;
 import org.molgenis.data.discovery.meta.matching.AttributeMappingDecisionMetaData.DecisionOptions;
+import org.molgenis.data.discovery.meta.matching.BiobankCollectionSimilarityMetaData;
 import org.molgenis.data.discovery.meta.matching.MatchingExplanationMetaData;
 import org.molgenis.data.discovery.meta.matching.TagGroupMetaData;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
@@ -45,6 +46,7 @@ import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.matching.AttributeMappingDecision;
+import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.data.discovery.model.matching.MatchingExplanation;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
@@ -57,7 +59,6 @@ import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.repository.OntologyTermRepository;
 import org.molgenis.security.user.MolgenisUserService;
 import org.molgenis.security.user.UserAccountService;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.google.common.collect.Lists;
 
@@ -77,13 +78,13 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		this.entityManager = requireNonNull(entityManager);
 	}
 
-	@Transactional
 	@Override
 	public void addKeyConcepts(BiobankUniverse biobankUniverse, List<SemanticType> semanticTypes)
 	{
 		List<SemanticType> keyConcepts = Lists.newArrayList(biobankUniverse.getKeyConcepts());
 		List<SemanticType> newKeyConcepts = semanticTypes.stream().filter(type -> !keyConcepts.contains(type))
 				.collect(toList());
+
 		if (newKeyConcepts.size() > 0)
 		{
 			keyConcepts.addAll(newKeyConcepts);
@@ -111,7 +112,6 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		return findOne == null ? null : entityToBiobankUniverse(findOne);
 	}
 
-	@Transactional
 	@Override
 	public void addBiobankUniverse(BiobankUniverse biobankUniverse)
 	{
@@ -119,7 +119,6 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		dataService.add(BiobankUniverseMetaData.ENTITY_NAME, entity);
 	}
 
-	@Transactional
 	@Override
 	public void removeBiobankUniverse(BiobankUniverse biobankUniverse)
 	{
@@ -166,6 +165,9 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		// Remove attributeMappingCandidates, explanations and decisions
 		removeAttributeMappingCandidates(attributeMappingCandidateEntities);
 
+		// remove BiobanKCollectionSimilarities.
+		removeCollectionSimilaritiesFromUniverse(biobankUniverse);
+
 		// Remove the BiobankUniverseJobExecutions in which the universe is involved
 		Stream<Entity> biobankUniverseJobEntityStream = dataService.findAll(
 				BiobankUniverseJobExecutionMetaData.ENTITY_NAME,
@@ -177,7 +179,6 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		dataService.delete(BiobankUniverseMetaData.ENTITY_NAME, biobankUniverseToEntity(biobankUniverse));
 	}
 
-	@Transactional
 	@Override
 	public void addUniverseMembers(BiobankUniverse biobankUniverse, List<BiobankSampleCollection> members)
 	{
@@ -194,7 +195,6 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		dataService.update(BiobankUniverseMetaData.ENTITY_NAME, biobankUniverseToEntity);
 	}
 
-	@Transactional
 	@Override
 	public void removeUniverseMembers(BiobankUniverse biobankUniverse, List<BiobankSampleCollection> members)
 	{
@@ -208,7 +208,6 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		dataService.update(BiobankUniverseMetaData.ENTITY_NAME, biobankUniverseToEntity);
 	}
 
-	@Transactional
 	@Override
 	public void addBiobankSampleCollection(BiobankSampleCollection biobankSampleCollection)
 	{
@@ -224,7 +223,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		// Remove bioibankSampleAttribute, attributeMappingCandidates, Explanations and Decisions
 		removeBiobankSampleAttributes(getBiobankSampleAttributes(biobankSampleCollection));
 
-		// Remove the biobankSampleColleciton memberships from all BiobankUniverses
+		// Remove the biobankSampleColleciton membership from all BiobankUniverses
 		dataService
 				.findAll(BiobankUniverseMetaData.ENTITY_NAME,
 						QueryImpl.EQ(BiobankUniverseMetaData.MEMBERS, biobankSampleCollectionToEntity))
@@ -315,7 +314,6 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		return biobankSampleAttributeIdentifiers;
 	}
 
-	@Transactional
 	@Override
 	public void addBiobankSampleAttributes(Stream<BiobankSampleAttribute> biobankSampleAttributeStream)
 	{
@@ -461,6 +459,68 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 				.map(this::entityToAttributeMappingCandidate).collect(toList());
 	}
 
+	@Override
+	public List<AttributeMappingCandidate> getAttributeMappingCandidates(Query query)
+	{
+		Fetch fetchOntologyTerm = new Fetch();
+		OntologyTermMetaData.INSTANCE.getAtomicAttributes().forEach(field -> fetchOntologyTerm.field(field.getName()));
+
+		Fetch fetchSemanticType = new Fetch();
+		SemanticTypeMetaData.INSTANCE.getAtomicAttributes().forEach(field -> fetchSemanticType.field(field.getName()));
+
+		Fetch fetchTagGroupFields = new Fetch();
+		TagGroupMetaData.INSTANCE.getAtomicAttributes()
+				.forEach(attribute -> fetchTagGroupFields.field(attribute.getName()));
+		fetchTagGroupFields.field(TagGroupMetaData.ONTOLOGY_TERMS, fetchOntologyTerm);
+		fetchTagGroupFields.field(TagGroupMetaData.SEMANTIC_TYPES, fetchSemanticType);
+
+		Fetch fetchBiobankSampleAttribute = new Fetch();
+		fetchBiobankSampleAttribute.field(BiobankSampleAttributeMetaData.COLLECTION);
+		fetchBiobankSampleAttribute.field(BiobankSampleAttributeMetaData.TAG_GROUPS, fetchTagGroupFields);
+
+		Fetch fetchExplanation = new Fetch();
+		fetchExplanation.field(MatchingExplanationMetaData.ONTOLOGY_TERMS, fetchOntologyTerm);
+
+		Fetch fetch = new Fetch();
+		fetch.field(AttributeMappingCandidateMetaData.TARGET, fetchBiobankSampleAttribute);
+		fetch.field(AttributeMappingCandidateMetaData.SOURCE, fetchBiobankSampleAttribute);
+		fetch.field(AttributeMappingCandidateMetaData.EXPLANATION, fetchExplanation);
+		fetch.field(AttributeMappingCandidateMetaData.DECISIONS);
+
+		return dataService.findAll(AttributeMappingCandidateMetaData.ENTITY_NAME, query.fetch(fetch))
+				.map(this::entityToAttributeMappingCandidate).collect(Collectors.toList());
+	}
+
+	@Override
+	public List<BiobankCollectionSimilarity> getCollectionSimilaritiesFromUniverse(BiobankUniverse biobankUniverse)
+	{
+		List<BiobankCollectionSimilarity> biobankCollectionSimilarities = dataService
+				.findAll(BiobankCollectionSimilarityMetaData.ENTITY_NAME,
+						QueryImpl.EQ(BiobankCollectionSimilarityMetaData.UNIVERSE, biobankUniverse.getIdentifier()))
+				.map(this::entityToBiobankCollectionSimilarity).collect(Collectors.toList());
+
+		return biobankCollectionSimilarities;
+	}
+
+	@Override
+	public void addCollectionSimilarities(List<BiobankCollectionSimilarity> biobankCollectionSimilarities)
+	{
+		Stream<Entity> biobankCollectionSimilarityEntityStream = biobankCollectionSimilarities.stream()
+				.map(this::biobankCollectionSimilarityToEntity);
+
+		dataService.add(BiobankCollectionSimilarityMetaData.ENTITY_NAME, biobankCollectionSimilarityEntityStream);
+	}
+
+	@Override
+	public void removeCollectionSimilaritiesFromUniverse(BiobankUniverse biobankUniverse)
+	{
+		Stream<Entity> biobankCollectionSimilarityEntityStream = dataService.findAll(
+				BiobankCollectionSimilarityMetaData.ENTITY_NAME,
+				QueryImpl.EQ(BiobankCollectionSimilarityMetaData.UNIVERSE, biobankUniverse.getIdentifier()));
+
+		dataService.delete(BiobankCollectionSimilarityMetaData.ENTITY_NAME, biobankCollectionSimilarityEntityStream);
+	}
+
 	private List<Entity> getAttributeMappingCandidateEntities(Iterable<BiobankSampleAttribute> biobankSampleAttributes)
 	{
 		List<String> attributeIdentifiers = stream(biobankSampleAttributes.spliterator(), false)
@@ -477,7 +537,6 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		return attributeMappingCandidateEntities;
 	}
 
-	@Transactional
 	@Override
 	public void removeAttributeMappingCandidates(List<Entity> attributeMappingCandidateEntities)
 	{
@@ -491,6 +550,42 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		dataService.delete(AttributeMappingCandidateMetaData.ENTITY_NAME, attributeMappingCandidateEntities.stream());
 		dataService.delete(MatchingExplanationMetaData.ENTITY_NAME, mappingExplanationStream);
 		dataService.delete(AttributeMappingDecisionMetaData.ENTITY_NAME, attributeMappingDecisionStream);
+	}
+
+	private BiobankCollectionSimilarity entityToBiobankCollectionSimilarity(Entity entity)
+	{
+		String identifier = entity.getString(BiobankCollectionSimilarityMetaData.IDENTIFIER);
+
+		BiobankSampleCollection target = entityToBiobankSampleCollection(
+				entity.getEntity(BiobankCollectionSimilarityMetaData.TARGET));
+
+		BiobankSampleCollection source = entityToBiobankSampleCollection(
+				entity.getEntity(BiobankCollectionSimilarityMetaData.SOURCE));
+
+		Double similarity = entity.getDouble(BiobankCollectionSimilarityMetaData.SIMILARITY);
+
+		BiobankUniverse biobankUniverse = entityToBiobankUniverse(
+				entity.getEntity(BiobankCollectionSimilarityMetaData.UNIVERSE));
+
+		return BiobankCollectionSimilarity.create(identifier, target, source, similarity, biobankUniverse);
+	}
+
+	private Entity biobankCollectionSimilarityToEntity(BiobankCollectionSimilarity biobankCollectionSimilarity)
+	{
+		String identifier = biobankCollectionSimilarity.getIdentifier();
+		BiobankSampleCollection target = biobankCollectionSimilarity.getTarget();
+		BiobankSampleCollection source = biobankCollectionSimilarity.getSource();
+		double similarity = biobankCollectionSimilarity.getSimilarity();
+		BiobankUniverse biobankUniverse = biobankCollectionSimilarity.getBiobankUniverse();
+
+		DefaultEntity entity = new DefaultEntity(BiobankCollectionSimilarityMetaData.INSTANCE, dataService);
+		entity.set(BiobankCollectionSimilarityMetaData.IDENTIFIER, identifier);
+		entity.set(BiobankCollectionSimilarityMetaData.TARGET, target.getName());
+		entity.set(BiobankCollectionSimilarityMetaData.SOURCE, source.getName());
+		entity.set(BiobankCollectionSimilarityMetaData.SIMILARITY, similarity);
+		entity.set(BiobankCollectionSimilarityMetaData.UNIVERSE, biobankUniverse.getIdentifier());
+
+		return entity;
 	}
 
 	private Entity biobankUniverseToEntity(BiobankUniverse biobankUniverse)
@@ -550,8 +645,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		return entity;
 	}
 
-	// FIXME: change the qualifier back to private
-	public BiobankSampleAttribute entityToBiobankSampleAttribute(Entity entity)
+	private BiobankSampleAttribute entityToBiobankSampleAttribute(Entity entity)
 	{
 		String identifier = entity.getString(BiobankSampleAttributeMetaData.IDENTIFIER);
 		String name = entity.getString(BiobankSampleAttributeMetaData.NAME);

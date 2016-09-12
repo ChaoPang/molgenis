@@ -324,13 +324,13 @@ public class BiobankUniverseEvaluationTool
 				Set<String> matchedAttributeNames = Stream.of(matches.split(",")).map(StringUtils::trim)
 						.collect(Collectors.toSet());
 				relevantMatches.putAll(attributeName, matchedAttributeNames);
-				System.out
-						.println("\"" + attributeName + "\",\"" + StringUtils.join(matchedAttributeNames, ',') + "\"");
+				// System.out
+				// .println("\"" + attributeName + "\",\"" + StringUtils.join(matchedAttributeNames, ',') + "\"");
 			}
-			else
-			{
-				System.out.println("\"" + attributeName + "\",\"\"");
-			}
+			// else
+			// {
+			// System.out.println("\"" + attributeName + "\",\"\"");
+			// }
 		}
 		return relevantMatches;
 	}

@@ -54,7 +54,6 @@ public class OntologyBasedMatcher
 	private final QueryExpansionService queryExpansionService;
 	private final OntologyService ontologyService;
 
-	private final BiobankSampleCollection biobankSampleCollection;
 	private final Iterable<BiobankSampleAttribute> biobankSampleAttributes;
 	private final Multimap<String, BiobankSampleAttribute> nodePathRegistry;
 	private final Multimap<String, BiobankSampleAttribute> descendantNodePathsRegistry;
@@ -69,8 +68,21 @@ public class OntologyBasedMatcher
 		this.biobankUniverseRepository = requireNonNull(biobankUniverseRepository);
 		this.queryExpansionService = requireNonNull(queryExpansionService);
 		this.ontologyService = requireNonNull(ontologyService);
-		this.biobankSampleCollection = requireNonNull(biobankSampleCollection);
 		this.biobankSampleAttributes = biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection);
+		this.cachedBiobankSampleAttributes = new HashMap<>();
+		construct();
+	}
+
+	public OntologyBasedMatcher(List<BiobankSampleAttribute> biobankSampleAttributes,
+			BiobankUniverseRepository biobankUniverseRepository, QueryExpansionService queryExpansionService,
+			OntologyService ontologyService)
+	{
+		this.nodePathRegistry = LinkedHashMultimap.create();
+		this.descendantNodePathsRegistry = LinkedHashMultimap.create();
+		this.biobankUniverseRepository = requireNonNull(biobankUniverseRepository);
+		this.queryExpansionService = requireNonNull(queryExpansionService);
+		this.ontologyService = requireNonNull(ontologyService);
+		this.biobankSampleAttributes = requireNonNull(biobankSampleAttributes);
 		this.cachedBiobankSampleAttributes = new HashMap<>();
 		construct();
 	}
@@ -93,8 +105,8 @@ public class OntologyBasedMatcher
 
 		if (expandedQuery != null)
 		{
-			List<String> identifiers = biobankUniverseRepository
-					.getBiobankSampleAttributeIdentifiers(biobankSampleCollection);
+			List<String> identifiers = StreamSupport.stream(biobankSampleAttributes.spliterator(), false)
+					.map(BiobankSampleAttribute::getIdentifier).collect(Collectors.toList());
 
 			List<QueryRule> finalQueryRules = Lists.newArrayList(new QueryRule(IDENTIFIER, IN, identifiers));
 

@@ -10,6 +10,7 @@ import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.matching.AttributeMappingDecision;
+import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.core.model.SemanticType;
@@ -180,4 +181,29 @@ public interface BiobankUniverseRepository
 	public abstract List<String> getBiobankSampleAttributeIdentifiers(BiobankSampleCollection biobankSampleCollection);
 
 	public abstract boolean isBiobankSampleCollectionTagged(BiobankSampleCollection biobankSampleCollection);
+
+	public abstract List<AttributeMappingCandidate> getAttributeMappingCandidates(Query query);
+
+	/**
+	 * Add a list of {@link BiobankCollectionSimilarity}s
+	 * 
+	 * @param biobankCollectionSimilarities
+	 */
+	public abstract void addCollectionSimilarities(List<BiobankCollectionSimilarity> biobankCollectionSimilarities);
+
+	/**
+	 * Remove a list of {@link BiobankCollectionSimilarity}s from the {@link BiobankUniverse}
+	 * 
+	 * @param biobankCollectionSimilarities
+	 */
+	public abstract void removeCollectionSimilaritiesFromUniverse(BiobankUniverse biobankUniverse);
+
+	/**
+	 * Get a lit of {@link BiobankCollectionSimilarity}s from the {@link BiobankUniverse}
+	 * 
+	 * @param biobankUniverse
+	 * @return
+	 */
+	public abstract List<BiobankCollectionSimilarity> getCollectionSimilaritiesFromUniverse(
+			BiobankUniverse biobankUniverse);
 }

@@ -5,40 +5,45 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.of;
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.data.discovery.controller.BiobankUniverseController.URI;
 import static org.springframework.web.bind.annotation.RequestMethod.GET;
 import static org.springframework.web.bind.annotation.RequestMethod.POST;
 
-import java.util.Arrays;
+import java.io.File;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.Part;
+
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.DataService;
+import org.molgenis.data.Repository;
 import org.molgenis.data.discovery.job.BiobankUniverseJobExecution;
 import org.molgenis.data.discovery.job.BiobankUniverseJobExecutionMetaData;
 import org.molgenis.data.discovery.job.BiobankUniverseJobFactory;
 import org.molgenis.data.discovery.job.BiobankUniverseJobImpl;
-import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
-import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
-import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
+import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
-import org.molgenis.data.discovery.service.impl.OntologyBasedMatcher;
+import org.molgenis.data.discovery.validation.BiobankUniverseEvaluationTool;
+import org.molgenis.data.discovery.validation.CalculateSimilaritySimulationImpl;
+import org.molgenis.data.excel.ExcelRepositoryCollection;
 import org.molgenis.data.i18n.LanguageService;
 import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
-import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParam;
-import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
+import org.molgenis.file.FileStore;
 import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.security.core.runas.RunAsSystemProxy;
@@ -56,7 +61,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.google.common.collect.Sets;
+import com.google.common.collect.Multimap;
 
 @Controller
 @RequestMapping(URI)
@@ -67,35 +72,39 @@ public class BiobankUniverseController extends MolgenisPluginController
 	private final BiobankUniverseJobFactory biobankUniverseJobFactory;
 	private final ExecutorService taskExecutor;
 	private final BiobankUniverseService biobankUniverseService;
-	private final QueryExpansionService queryExpansionService;
-	private final BiobankUniverseRepository biobankUniverseRepository;
 	private final OntologyService ontologyService;
 	private final UserAccountService userAccountService;
 	private final MenuReaderService menuReaderService;
+	private final CalculateSimilaritySimulationImpl calculateSimilaritySimulation;
+	private final FileStore fileStore;
 
 	public static final String VIEW_BIOBANK_UNIVERSES = "view-biobank-universes";
 	public static final String VIEW_SINGLE_BIOBANK_UNIVERSE = "view-single-biobank-universe";
+	public static final String VIEW_BIOBANK_UNIVERSE_TEST = "view-biobank-universe-test";
 	public static final String ID = "biobankuniverse";
 	public static final String URI = MolgenisPluginController.PLUGIN_URI_PREFIX + ID;
 
 	@Autowired
 	public BiobankUniverseController(TagGroupGenerator tagGroupGenerator,
 			BiobankUniverseJobFactory biobankUniverseJobFactory, BiobankUniverseService biobankUniverseService,
-			QueryExpansionService queryExpansionService, BiobankUniverseRepository biobankUniverseRepository,
 			OntologyService ontologyService, ExecutorService taskExecutor, UserAccountService userAccountService,
-			DataService dataService, MenuReaderService menuReaderService, LanguageService languageService)
+			DataService dataService, FileStore fileStore, MenuReaderService menuReaderService,
+			QueryExpansionService queryExpansionService, BiobankUniverseRepository biobankUniverseRepository,
+			LanguageService languageService)
 	{
 		super(URI);
 		this.tagGroupGenerator = requireNonNull(tagGroupGenerator);
 		this.biobankUniverseService = requireNonNull(biobankUniverseService);
 		this.ontologyService = requireNonNull(ontologyService);
 		this.biobankUniverseJobFactory = requireNonNull(biobankUniverseJobFactory);
-		this.queryExpansionService = requireNonNull(queryExpansionService);
-		this.biobankUniverseRepository = requireNonNull(biobankUniverseRepository);
 		this.taskExecutor = requireNonNull(taskExecutor);
 		this.dataService = requireNonNull(dataService);
+		this.fileStore = requireNonNull(fileStore);
 		this.userAccountService = requireNonNull(userAccountService);
 		this.menuReaderService = requireNonNull(menuReaderService);
+
+		this.calculateSimilaritySimulation = new CalculateSimilaritySimulationImpl(ontologyService,
+				biobankUniverseService, biobankUniverseRepository, queryExpansionService);
 	}
 
 	@RequestMapping(method = GET)
@@ -126,57 +135,94 @@ public class BiobankUniverseController extends MolgenisPluginController
 		return Collections.emptyList();
 	}
 
-	@RequestMapping("/universe/match")
-	@ResponseBody
-	public List<String> match(@RequestBody Map<String, String> request)
+	@RequestMapping(method = GET, value = "/test")
+	public String test(Model model) throws Exception
 	{
-		String targetCollection = request.get("targetCollection");
-		String queryString = request.get("queryString");
-		String sourceCollection = request.get("sourceCollection");
-		boolean strictMatch = request.containsKey("strictMatch");
+		model.addAttribute("biobankSampleCollections", biobankUniverseService.getAllBiobankSampleCollections());
+		model.addAttribute("biobankUniverses", biobankUniverseService.getBiobankUniverses());
 
-		if (isNotBlank(targetCollection) && isNotBlank(sourceCollection) && isNotBlank(queryString))
+		return VIEW_BIOBANK_UNIVERSE_TEST;
+	}
+
+	@RequestMapping(method = POST, value = "/test/upload", headers = "Content-Type=multipart/form-data")
+	public String upload(@RequestParam(value = "target", required = true) String target,
+			@RequestParam(value = "sources", required = true) String[] sources,
+			@RequestParam(value = "file", required = true) Part file, Model model,
+			HttpServletRequest httpServletRequest) throws Exception
+	{
+		if (Objects.nonNull(target) && Objects.nonNull(sources))
 		{
-			List<TagGroup> generateTagGroups = tagGroupGenerator.generateTagGroups(queryString,
-					ontologyService.getAllOntologiesIds());
+			File relevantMatchFile = fileStore.store(file.getInputStream(),
+					httpServletRequest.getSession().getId() + "_input.xls");
 
-			BiobankSampleCollection targetSampleCollection = biobankUniverseService
-					.getBiobankSampleCollection(targetCollection);
+			ExcelRepositoryCollection excelRepositoryCollection = new ExcelRepositoryCollection(relevantMatchFile);
+			Repository manualMatchRepository = excelRepositoryCollection.getSheet(0);
 
-			BiobankSampleCollection sourceSampleCollection = biobankUniverseService
-					.getBiobankSampleCollection(sourceCollection);
+			Multimap<String, String> collectRelevantMatches = BiobankUniverseEvaluationTool
+					.collectRelevantMatches(manualMatchRepository);
 
-			List<SemanticType> keyConcepts = Arrays.asList(
-					SemanticType.create("1", "Gene or Genome", "test group", true),
-					SemanticType.create("2", "Genetic Function", "test group", true));
+			BiobankSampleCollection targetBiobankSampleCollection = biobankUniverseService
+					.getBiobankSampleCollection(target);
 
-			BiobankUniverse biobankUniverse = BiobankUniverse.create("1", "test",
-					Arrays.asList(targetSampleCollection, sourceSampleCollection), userAccountService.getCurrentUser(),
-					keyConcepts);
+			List<BiobankSampleCollection> sourceBiobankSampleCollections = biobankUniverseService
+					.getBiobankSampleCollections(of(sources).collect(toList()));
 
-			List<IdentifiableTagGroup> collect = generateTagGroups.stream()
-					.map(tagGroup -> IdentifiableTagGroup.create("1",
-							ontologyService.getAtomicOntologyTerms(tagGroup.getOntologyTerm()), emptyList(),
-							tagGroup.getMatchedWords(), tagGroup.getScore()))
-					.collect(Collectors.toList());
-
-			BiobankSampleAttribute target = BiobankSampleAttribute.create("1", "name", "queryString", StringUtils.EMPTY,
-					targetSampleCollection, collect);
-
-			SemanticSearchParam semanticSearchParam = SemanticSearchParam.create(Sets.newHashSet(queryString),
-					generateTagGroups, QueryExpansionParam.create(true, false), strictMatch);
-
-			List<OntologyBasedMatcher> matchers = Arrays.asList(new OntologyBasedMatcher(sourceSampleCollection,
-					biobankUniverseRepository, queryExpansionService, ontologyService));
-
-			List<AttributeMappingCandidate> findCandidateMappings = biobankUniverseService
-					.findCandidateMappingsOntologyBased(biobankUniverse, target, semanticSearchParam, matchers);
-
-			return findCandidateMappings.stream().map(AttributeMappingCandidate::getSource)
-					.map(BiobankSampleAttribute::getLabel).collect(Collectors.toList());
+			calculateSimilaritySimulation.testCollectionSimilarity(targetBiobankSampleCollection,
+					sourceBiobankSampleCollections, collectRelevantMatches);
 		}
 
-		return Collections.emptyList();
+		return test(model);
+	}
+
+	@RequestMapping(method = GET, value = "/test/calculate")
+	public String upload(@RequestParam(value = "biobankUniverseIdentifier", required = true) String identifier,
+			Model model) throws Exception
+	{
+		BiobankUniverse biobankUniverse = biobankUniverseService.getBiobankUniverse(identifier);
+
+		Map<String, List<BiobankCollectionSimilarity>> result = new LinkedHashMap<>();
+
+		if (Objects.nonNull(biobankUniverse))
+		{
+			List<BiobankCollectionSimilarity> collectionSimilarities = biobankUniverseService.getBiobankUniverses()
+					.stream().flatMap(universe -> biobankUniverseService.getCollectionSimilarities(universe).stream())
+					.collect(Collectors.toList());
+
+			List<BiobankSampleCollection> uniqueCollections = Stream
+					.concat(collectionSimilarities.stream().map(BiobankCollectionSimilarity::getTarget),
+							collectionSimilarities.stream().map(BiobankCollectionSimilarity::getSource))
+					.distinct().collect(Collectors.toList());
+
+			double[][] similarities = new double[uniqueCollections.size()][uniqueCollections.size()];
+
+			for (BiobankCollectionSimilarity biobankCollectionSimilarity : collectionSimilarities)
+			{
+				BiobankSampleCollection target = biobankCollectionSimilarity.getTarget();
+				BiobankSampleCollection source = biobankCollectionSimilarity.getSource();
+
+				int rowIndex = uniqueCollections.indexOf(target);
+				int colIndex = uniqueCollections.indexOf(source);
+
+				similarities[rowIndex][colIndex] = biobankCollectionSimilarity.getSimilarity();
+			}
+
+			for (int rowIndex = 0; rowIndex < similarities.length; rowIndex++)
+			{
+				BiobankSampleCollection target = uniqueCollections.get(rowIndex);
+				result.put(target.getName(), new ArrayList<>());
+				for (int colIndex = 0; colIndex < similarities[rowIndex].length; colIndex++)
+				{
+					BiobankSampleCollection source = uniqueCollections.get(colIndex);
+					String fakeIdentifier = target.getName() + source.getName();
+					result.get(target.getName()).add(BiobankCollectionSimilarity.create(fakeIdentifier, target, source,
+							similarities[rowIndex][colIndex], biobankUniverse));
+				}
+			}
+		}
+
+		model.addAttribute("collectionSimilarityMap", result);
+
+		return test(model);
 	}
 
 	@RequestMapping(value = "/addUniverse", method = RequestMethod.POST)

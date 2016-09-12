@@ -148,7 +148,7 @@ public class BiobankUniverseJobProcessor
 								Sets.newHashSet(biobankSampleAttribute.getLabel()), Lists.newArrayList(tagGroups),
 								QueryExpansionParam.create(true, false), true);
 
-						allCandidates.addAll(biobankUniverseService.findCandidateMappingsOntologyBased(biobankUniverse,
+						allCandidates.addAll(biobankUniverseService.findCandidateMappings(biobankUniverse,
 								biobankSampleAttribute, semanticSearchParam, matchers));
 
 						// Update the progress only when the progress proceeds the threshold
@@ -163,6 +163,8 @@ public class BiobankUniverseJobProcessor
 
 				existingMembers.add(biobankSampleCollection);
 			}
+
+			biobankUniverseService.addCollectionSimilarities(biobankUniverse, newMembers);
 
 			progress.progress(totalNumberOfAttributes * 2, "Processed " + totalNumberOfAttributes * 2);
 

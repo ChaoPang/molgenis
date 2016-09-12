@@ -5,11 +5,13 @@ import java.util.stream.Stream;
 
 import org.molgenis.auth.MolgenisUser;
 import org.molgenis.data.Entity;
+import org.molgenis.data.Query;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.matching.AttributeMappingDecision;
+import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.data.discovery.service.impl.OntologyBasedMatcher;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
@@ -129,14 +131,6 @@ public interface BiobankUniverseService
 			BiobankSampleAttribute biobankSampleAttribute);
 
 	/**
-	 * Check if a particular {@link OntologyTerm} is a key concept
-	 * 
-	 * @param ontologyTerm
-	 * @return
-	 */
-	public abstract boolean isOntologyTermKeyConcept(BiobankUniverse biobankUniverse, OntologyTerm ontologyTerm);
-
-	/**
 	 * Add a list of {@link SemanticType} groups to the {@link BiobankUniverse} to add the associated semantic types as
 	 * key concepts
 	 * 
@@ -155,7 +149,46 @@ public interface BiobankUniverseService
 	 * @param ontologyBasedInputData
 	 * @return
 	 */
-	public abstract List<AttributeMappingCandidate> findCandidateMappingsOntologyBased(BiobankUniverse biobankUniverse,
+	public abstract List<AttributeMappingCandidate> findCandidateMappings(BiobankUniverse biobankUniverse,
 			BiobankSampleAttribute target, SemanticSearchParam semanticSearchParam,
 			List<OntologyBasedMatcher> ontologyBasedInputData);
+
+	/**
+	 * Get a list of {@link AttributeMappingCandidate}s based on the given {@link Query}
+	 * 
+	 * @param query
+	 * @return a list of {@link AttributeMappingCandidate}s
+	 */
+	public abstract List<AttributeMappingCandidate> getCandidateMappingsCandidates(Query query);
+
+	/**
+	 * Get a list of {@link BiobankSampleAttribute}s for the given {@link BiobankSampleCollection}
+	 * 
+	 * @param biobankSampleAttribute
+	 * @return a list of {@link BiobankSampleAttribute}s
+	 */
+	public abstract List<BiobankSampleAttribute> getBiobankSampleAttributes(
+			BiobankSampleCollection biobankSampleAttribute);
+
+	/**
+	 * Calculate the semantic relatedness between two {@link BiobankSampleCollection}s based on the {@link OntologyTerm}
+	 * s that are tagged to their corresponding {@link BiobankSampleAttribute}s
+	 * 
+	 * @param target
+	 * @param source
+	 * @return
+	 */
+	public abstract double computeSampleCollectionSimilarity(BiobankSampleCollection target,
+			BiobankSampleCollection source);
+
+	/**
+	 * Compute the {@link BiobankCollectionSimilarity}s between the new members and existing members
+	 * 
+	 * @param biobankUniverse
+	 * @param biobankSampleCollections
+	 */
+	public abstract void addCollectionSimilarities(BiobankUniverse biobankUniverse,
+			List<BiobankSampleCollection> biobankSampleCollections);
+
+	public abstract List<BiobankCollectionSimilarity> getCollectionSimilarities(BiobankUniverse biobankUniverse);
 }
