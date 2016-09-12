@@ -6,6 +6,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.of;
 import static org.molgenis.data.discovery.controller.BiobankUniverseController.URI;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.web.bind.annotation.RequestMethod.GET;
 import static org.springframework.web.bind.annotation.RequestMethod.POST;
 
@@ -34,6 +35,10 @@ import org.molgenis.data.discovery.job.BiobankUniverseJobImpl;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity;
+import org.molgenis.data.discovery.model.network.VisEdge;
+import org.molgenis.data.discovery.model.network.VisNetworkRequest;
+import org.molgenis.data.discovery.model.network.VisNetworkResponse;
+import org.molgenis.data.discovery.model.network.VisNode;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.discovery.validation.BiobankUniverseEvaluationTool;
@@ -61,6 +66,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 
 @Controller
@@ -223,6 +229,54 @@ public class BiobankUniverseController extends MolgenisPluginController
 		model.addAttribute("collectionSimilarityMap", result);
 
 		return test(model);
+	}
+
+	@RequestMapping(method = POST, value = "/test/network", consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
+	@ResponseBody
+	public VisNetworkResponse createNetwork(@RequestBody VisNetworkRequest visNetworkRequest)
+	{
+		List<VisNode> nodes = new ArrayList<>();
+
+		List<VisEdge> edges = new ArrayList<>();
+
+		BiobankUniverse biobankUniverse = biobankUniverseService
+				.getBiobankUniverse(visNetworkRequest.getBiobankUniverseIdentifier());
+
+		if (Objects.nonNull(biobankUniverse))
+		{
+			List<BiobankCollectionSimilarity> collectionSimilarities = biobankUniverseService
+					.getCollectionSimilarities(biobankUniverse);
+
+			List<BiobankSampleCollection> uniqueBiobankCollections = Stream
+					.concat(collectionSimilarities.stream().map(BiobankCollectionSimilarity::getTarget),
+							collectionSimilarities.stream().map(BiobankCollectionSimilarity::getSource))
+					.distinct().collect(Collectors.toList());
+
+			for (BiobankSampleCollection biobankSampleCollection : uniqueBiobankCollections)
+			{
+				int size = biobankUniverseService.countBiobankSampleAttributes(biobankSampleCollection);
+				nodes.add(VisNode.create(biobankSampleCollection.getName(), biobankSampleCollection.getName(), size));
+			}
+
+			Multimap<String, String> existingPairs = LinkedHashMultimap.create();
+			for (BiobankCollectionSimilarity biobankCollectionSimilarity : collectionSimilarities)
+			{
+				String targetName = biobankCollectionSimilarity.getTarget().getName();
+				String sourceName = biobankCollectionSimilarity.getSource().getName();
+
+				if (!existingPairs.containsEntry(targetName, sourceName)
+						&& !existingPairs.containsEntry(sourceName, targetName))
+				{
+					String identifier = biobankCollectionSimilarity.getIdentifier();
+					double distance = Math.round(biobankCollectionSimilarity.getSimilarity() * 100.0) / 100.0;
+					String label = Double.toString(distance);
+					edges.add(VisEdge.create(identifier, label, distance, targetName, sourceName));
+					existingPairs.put(targetName, sourceName);
+				}
+			}
+		}
+
+		return VisNetworkResponse.create(nodes, edges);
 	}
 
 	@RequestMapping(value = "/addUniverse", method = RequestMethod.POST)

@@ -198,6 +198,12 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	}
 
 	@Override
+	public int countBiobankSampleAttributes(BiobankSampleCollection biobankSampleCollection)
+	{
+		return biobankUniverseRepository.countBiobankSampleAttributes(biobankSampleCollection);
+	}
+
+	@Override
 	public boolean isBiobankSampleCollectionTagged(BiobankSampleCollection biobankSampleCollection)
 	{
 		return biobankUniverseRepository.isBiobankSampleCollectionTagged(biobankSampleCollection);
@@ -377,5 +383,4 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 		return IdentifiableTagGroup.create(identifier, ontologyTerms, semanticTypes, matchedWords, score);
 	}
-
 }

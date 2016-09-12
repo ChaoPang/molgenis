@@ -304,6 +304,14 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	}
 
 	@Override
+	public int countBiobankSampleAttributes(BiobankSampleCollection biobankSampleCollection)
+	{
+		int count = (int) dataService.count(BiobankSampleAttributeMetaData.ENTITY_NAME,
+				QueryImpl.EQ(BiobankSampleAttributeMetaData.COLLECTION, biobankSampleCollection.getName()));
+		return count;
+	}
+
+	@Override
 	public List<String> getBiobankSampleAttributeIdentifiers(BiobankSampleCollection biobankSampleCollection)
 	{
 		List<String> biobankSampleAttributeIdentifiers = dataService

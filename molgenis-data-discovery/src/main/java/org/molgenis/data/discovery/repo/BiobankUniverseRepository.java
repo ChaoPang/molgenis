@@ -108,6 +108,14 @@ public interface BiobankUniverseRepository
 			BiobankSampleCollection biobankSampleCollection);
 
 	/**
+	 * Count the number of {@link BiobankSampleAttribute}s associated with the {@link BiobankSampleCollection}
+	 * 
+	 * @param biobankSampleCollection
+	 * @return
+	 */
+	public abstract int countBiobankSampleAttributes(BiobankSampleCollection biobankSampleCollection);
+
+	/**
 	 * Add a list of {@link BiobankSampleAttribute}s to the database
 	 * 
 	 * @param biobankSampleAttributes

@@ -191,4 +191,6 @@ public interface BiobankUniverseService
 			List<BiobankSampleCollection> biobankSampleCollections);
 
 	public abstract List<BiobankCollectionSimilarity> getCollectionSimilarities(BiobankUniverse biobankUniverse);
+
+	public abstract int countBiobankSampleAttributes(BiobankSampleCollection biobankSampleCollection);
 }
