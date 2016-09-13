@@ -114,13 +114,21 @@
 	    
 	    function createNetwork(visNetworkReponse){
 	    	
-	    	visNetworkReponse.nodes.forEach(function(node){return $.extend(node, {'shape':'circle'})});
+	    	var maxNode = Math.max.apply(null, visNetworkReponse.nodes.map(function(node){return node.size;}));
+	    	
+	    	var minNode = Math.min.apply(null, visNetworkReponse.nodes.map(function(node){return node.size;}));
+	    	
+	    	var scalingOption = {'min':50,'max':100};
+	    	
+	    	visNetworkReponse.nodes.forEach(function(node){return $.extend(node, {'shape':'circle','scaling':scalingOption})});
+	    	
+	    	visNetworkReponse.nodes.forEach(function(node){node.value = node.size});
 	    	
 	    	var nodes = new vis.DataSet(visNetworkReponse.nodes);
 		
 			var maxDistance = Math.max.apply(null, visNetworkReponse.edges.map(function(edge){return edge.length;}));
 			
-			visNetworkReponse.edges.forEach(function(edge){edge.length = (maxDistance - edge.length + 5) * 100});
+			visNetworkReponse.edges.forEach(function(edge){edge.length = (maxDistance - edge.length + 5) * 20});
 		
 		    // create an array with edges
 		    var edges = new vis.DataSet(visNetworkReponse.edges);

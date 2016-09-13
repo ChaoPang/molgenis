@@ -139,11 +139,18 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 		for (BiobankSampleCollection target : biobankSampleCollections)
 		{
+			List<BiobankSampleAttribute> targetBiobankSampleAttribtues = getBiobankSampleAttributes(target);
+
 			for (BiobankSampleCollection source : previousMembers)
 			{
-				double sampleCollectionSimilarity = computeSampleCollectionSimilarity(target, source);
+				List<BiobankSampleAttribute> sourceBiobankSampleAttribtues = getBiobankSampleAttributes(source);
+
+				double similarity = computeSampleCollectionSimilarity(targetBiobankSampleAttribtues,
+						sourceBiobankSampleAttribtues);
+				int coverage = (int) Math.sqrt(getOntologyTermCoverage(targetBiobankSampleAttribtues)
+						* getOntologyTermCoverage(sourceBiobankSampleAttribtues));
 				biobankCollectionSimilarities.add(BiobankCollectionSimilarity.create(idGenerator.generateId(), target,
-						source, sampleCollectionSimilarity, biobankUniverse));
+						source, similarity, coverage, biobankUniverse));
 			}
 			previousMembers.add(target);
 		}
@@ -292,13 +299,14 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 	@RunAsSystem
 	@Override
-	public double computeSampleCollectionSimilarity(BiobankSampleCollection target, BiobankSampleCollection source)
+	public double computeSampleCollectionSimilarity(List<BiobankSampleAttribute> targetBiobankSampleAttributes,
+			List<BiobankSampleAttribute> sourceBiobankSampleAttributes)
 	{
-		List<OntologyTerm> targetOntologyTerms = getBiobankSampleAttributes(target).stream()
+		List<OntologyTerm> targetOntologyTerms = targetBiobankSampleAttributes.stream()
 				.flatMap(attribute -> attribute.getTagGroups().stream())
 				.flatMap(tag -> tag.getOntologyTerms().stream().distinct()).collect(Collectors.toList());
 
-		List<OntologyTerm> sourceOntologyTerms = getBiobankSampleAttributes(source).stream()
+		List<OntologyTerm> sourceOntologyTerms = sourceBiobankSampleAttributes.stream()
 				.flatMap(attribute -> attribute.getTagGroups().stream())
 				.flatMap(tag -> tag.getOntologyTerms().stream().distinct()).collect(Collectors.toList());
 
@@ -382,5 +390,11 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 				.collect(toList());
 
 		return IdentifiableTagGroup.create(identifier, ontologyTerms, semanticTypes, matchedWords, score);
+	}
+
+	private int getOntologyTermCoverage(List<BiobankSampleAttribute> biobankSampleAttributes)
+	{
+		return (int) biobankSampleAttributes.stream().flatMap(attribute -> attribute.getTagGroups().stream())
+				.flatMap(tag -> tag.getOntologyTerms().stream()).distinct().count();
 	}
 }

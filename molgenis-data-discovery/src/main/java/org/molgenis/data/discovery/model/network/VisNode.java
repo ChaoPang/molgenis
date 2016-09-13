@@ -12,10 +12,12 @@ public abstract class VisNode
 
 	public abstract String getLabel();
 
-	public abstract int getSize();
+	public abstract int getValue();
 
-	public static VisNode create(String id, String label, int size)
+	public abstract String getShape();
+
+	public static VisNode create(String id, String label, int value, String shape)
 	{
-		return new AutoValue_VisNode(id, label, size);
+		return new AutoValue_VisNode(id, label, value, shape);
 	}
 }

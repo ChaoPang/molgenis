@@ -18,11 +18,14 @@ public abstract class BiobankCollectionSimilarity
 
 	public abstract double getSimilarity();
 
+	public abstract int getCoverage();
+
 	public abstract BiobankUniverse getBiobankUniverse();
 
 	public static BiobankCollectionSimilarity create(String identifier, BiobankSampleCollection target,
-			BiobankSampleCollection source, double similarity, BiobankUniverse biobankUniverse)
+			BiobankSampleCollection source, double similarity, int coverage, BiobankUniverse biobankUniverse)
 	{
-		return new AutoValue_BiobankCollectionSimilarity(identifier, target, source, similarity, biobankUniverse);
+		return new AutoValue_BiobankCollectionSimilarity(identifier, target, source, similarity, coverage,
+				biobankUniverse);
 	}
 }

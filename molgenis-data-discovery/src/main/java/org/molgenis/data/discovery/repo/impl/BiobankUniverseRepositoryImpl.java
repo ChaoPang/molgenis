@@ -277,7 +277,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	}
 
 	@Override
-	public Iterable<BiobankSampleAttribute> getBiobankSampleAttributes(BiobankSampleCollection biobankSampleCollection)
+	public List<BiobankSampleAttribute> getBiobankSampleAttributes(BiobankSampleCollection biobankSampleCollection)
 	{
 		Fetch fetchOntologyTerm = new Fetch();
 		OntologyTermMetaData.INSTANCE.getAtomicAttributes().forEach(field -> fetchOntologyTerm.field(field.getName()));
@@ -566,16 +566,17 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 
 		BiobankSampleCollection target = entityToBiobankSampleCollection(
 				entity.getEntity(BiobankCollectionSimilarityMetaData.TARGET));
-
 		BiobankSampleCollection source = entityToBiobankSampleCollection(
 				entity.getEntity(BiobankCollectionSimilarityMetaData.SOURCE));
 
 		Double similarity = entity.getDouble(BiobankCollectionSimilarityMetaData.SIMILARITY);
 
+		Integer coverage = entity.getInt(BiobankCollectionSimilarityMetaData.COVERAGE);
+
 		BiobankUniverse biobankUniverse = entityToBiobankUniverse(
 				entity.getEntity(BiobankCollectionSimilarityMetaData.UNIVERSE));
 
-		return BiobankCollectionSimilarity.create(identifier, target, source, similarity, biobankUniverse);
+		return BiobankCollectionSimilarity.create(identifier, target, source, similarity, coverage, biobankUniverse);
 	}
 
 	private Entity biobankCollectionSimilarityToEntity(BiobankCollectionSimilarity biobankCollectionSimilarity)
@@ -584,6 +585,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		BiobankSampleCollection target = biobankCollectionSimilarity.getTarget();
 		BiobankSampleCollection source = biobankCollectionSimilarity.getSource();
 		double similarity = biobankCollectionSimilarity.getSimilarity();
+		int coverage = biobankCollectionSimilarity.getCoverage();
 		BiobankUniverse biobankUniverse = biobankCollectionSimilarity.getBiobankUniverse();
 
 		DefaultEntity entity = new DefaultEntity(BiobankCollectionSimilarityMetaData.INSTANCE, dataService);
@@ -591,6 +593,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		entity.set(BiobankCollectionSimilarityMetaData.TARGET, target.getName());
 		entity.set(BiobankCollectionSimilarityMetaData.SOURCE, source.getName());
 		entity.set(BiobankCollectionSimilarityMetaData.SIMILARITY, similarity);
+		entity.set(BiobankCollectionSimilarityMetaData.COVERAGE, coverage);
 		entity.set(BiobankCollectionSimilarityMetaData.UNIVERSE, biobankUniverse.getIdentifier());
 
 		return entity;

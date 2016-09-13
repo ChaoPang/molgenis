@@ -104,7 +104,7 @@ public interface BiobankUniverseRepository
 	 * @param biobankSampleCollection
 	 * @return a {@link List} of {@link BiobankSampleAttribute}s
 	 */
-	public abstract Iterable<BiobankSampleAttribute> getBiobankSampleAttributes(
+	public abstract List<BiobankSampleAttribute> getBiobankSampleAttributes(
 			BiobankSampleCollection biobankSampleCollection);
 
 	/**

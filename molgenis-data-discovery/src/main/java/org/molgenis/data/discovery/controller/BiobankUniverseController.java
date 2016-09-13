@@ -6,6 +6,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.of;
 import static org.molgenis.data.discovery.controller.BiobankUniverseController.URI;
+import static org.molgenis.data.discovery.model.network.NetworkConfiguration.NODE_SHAPE;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.web.bind.annotation.RequestMethod.GET;
 import static org.springframework.web.bind.annotation.RequestMethod.POST;
@@ -200,6 +201,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 					.distinct().collect(Collectors.toList());
 
 			double[][] similarities = new double[uniqueCollections.size()][uniqueCollections.size()];
+			int[][] ontologyTermGroupSizes = new int[uniqueCollections.size()][uniqueCollections.size()];
 
 			for (BiobankCollectionSimilarity biobankCollectionSimilarity : collectionSimilarities)
 			{
@@ -210,6 +212,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 				int colIndex = uniqueCollections.indexOf(source);
 
 				similarities[rowIndex][colIndex] = biobankCollectionSimilarity.getSimilarity();
+				ontologyTermGroupSizes[rowIndex][colIndex] = biobankCollectionSimilarity.getCoverage();
 			}
 
 			for (int rowIndex = 0; rowIndex < similarities.length; rowIndex++)
@@ -220,8 +223,10 @@ public class BiobankUniverseController extends MolgenisPluginController
 				{
 					BiobankSampleCollection source = uniqueCollections.get(colIndex);
 					String fakeIdentifier = target.getName() + source.getName();
+					double similarity = similarities[rowIndex][colIndex];
+					int size = ontologyTermGroupSizes[rowIndex][colIndex];
 					result.get(target.getName()).add(BiobankCollectionSimilarity.create(fakeIdentifier, target, source,
-							similarities[rowIndex][colIndex], biobankUniverse));
+							similarity, size, biobankUniverse));
 				}
 			}
 		}
@@ -255,7 +260,8 @@ public class BiobankUniverseController extends MolgenisPluginController
 			for (BiobankSampleCollection biobankSampleCollection : uniqueBiobankCollections)
 			{
 				int size = biobankUniverseService.countBiobankSampleAttributes(biobankSampleCollection);
-				nodes.add(VisNode.create(biobankSampleCollection.getName(), biobankSampleCollection.getName(), size));
+				nodes.add(VisNode.create(biobankSampleCollection.getName(), biobankSampleCollection.getName(), size,
+						NODE_SHAPE));
 			}
 
 			Multimap<String, String> existingPairs = LinkedHashMultimap.create();

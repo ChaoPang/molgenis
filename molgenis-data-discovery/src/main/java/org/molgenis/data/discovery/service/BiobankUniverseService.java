@@ -171,15 +171,15 @@ public interface BiobankUniverseService
 			BiobankSampleCollection biobankSampleAttribute);
 
 	/**
-	 * Calculate the semantic relatedness between two {@link BiobankSampleCollection}s based on the {@link OntologyTerm}
-	 * s that are tagged to their corresponding {@link BiobankSampleAttribute}s
+	 * Calculate the semantic relatedness between two lists of {@link BiobankSampleAttribute}s based on the tagged
+	 * {@link OntologyTerm}s
 	 * 
 	 * @param target
 	 * @param source
 	 * @return
 	 */
-	public abstract double computeSampleCollectionSimilarity(BiobankSampleCollection target,
-			BiobankSampleCollection source);
+	public abstract double computeSampleCollectionSimilarity(List<BiobankSampleAttribute> targetBiobankSampleAttributes,
+			List<BiobankSampleAttribute> sourceBiobankSampleAttributes);
 
 	/**
 	 * Compute the {@link BiobankCollectionSimilarity}s between the new members and existing members
