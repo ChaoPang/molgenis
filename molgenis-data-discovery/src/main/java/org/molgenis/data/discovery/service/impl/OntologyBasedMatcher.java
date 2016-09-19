@@ -227,14 +227,6 @@ public class OntologyBasedMatcher
 		return nodePath.split(ESCAPED_NODEPATH_SEPARATOR).length;
 	}
 
-	String getParent(String nodePath, int traversalLevel)
-	{
-		String[] split = nodePath.split(ESCAPED_NODEPATH_SEPARATOR);
-		int size = split.length > traversalLevel ? split.length - traversalLevel : 1;
-		String parent = Stream.of(Arrays.copyOf(split, size)).collect(joining(NODEPATH_SEPARATOR));
-		return parent;
-	}
-
 	Iterable<String> getAllParents(String nodePath)
 	{
 		return new Iterable<String>()

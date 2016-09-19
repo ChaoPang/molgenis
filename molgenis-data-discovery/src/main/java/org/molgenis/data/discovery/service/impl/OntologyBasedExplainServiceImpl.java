@@ -7,7 +7,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.molgenis.data.discovery.service.impl.OntologyBasedMatcher.EXPANSION_LEVEL;
 import static org.molgenis.data.discovery.service.impl.OntologyBasedMatcher.STOP_LEVEL;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.findMatchedWords;
-import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.splitIntoTerms;
+import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.splitIntoUniqueTerms;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 
@@ -48,20 +48,18 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 
 	private final IdGenerator idGenerator;
 	private final OntologyService ontologyService;
-	private final Similarity similarity;
 
 	@Autowired
 	public OntologyBasedExplainServiceImpl(IdGenerator idGenerator, OntologyService ontologyService)
 	{
 		this.idGenerator = requireNonNull(idGenerator);
 		this.ontologyService = requireNonNull(ontologyService);
-		this.similarity = new Similarity(ontologyService);
 	}
 
 	@Override
 	public List<AttributeMappingCandidate> explain(BiobankUniverse biobankUniverse,
 			SemanticSearchParam semanticSearchParam, BiobankSampleAttribute targetAttribute,
-			List<BiobankSampleAttribute> sourceAttributes)
+			List<BiobankSampleAttribute> sourceAttributes, Similarity similarity)
 	{
 		Map<String, Boolean> matchedWordsExplained = new HashMap<>();
 
@@ -144,7 +142,7 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 		if (ontologyTerms.isEmpty())
 		{
 			ontologyTerms = ontologyService.findExcatOntologyTerms(ontologyService.getAllOntologiesIds(),
-					splitIntoTerms(explanation.getMatchedWords()), 10);
+					splitIntoUniqueTerms(explanation.getMatchedWords()), 10);
 		}
 
 		List<SemanticType> conceptFilter = biobankUniverse.getKeyConcepts();
@@ -182,7 +180,7 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 
 		}).collect(toList());
 
-		String matchedWords = splitIntoTerms(explanation.getMatchedWords()).stream().map(String::toLowerCase)
+		String matchedWords = splitIntoUniqueTerms(explanation.getMatchedWords()).stream().map(String::toLowerCase)
 				.filter(word -> !STOPWORDSLIST.contains(word)).collect(joining(" "));
 
 		// TODO: for testing purpose

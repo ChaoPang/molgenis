@@ -2,7 +2,6 @@ package org.molgenis.data.discovery.model.network;
 
 import javax.validation.constraints.NotNull;
 
-import org.molgenis.data.discovery.model.network.NetworkConfiguration.NetworkOption;
 import org.molgenis.gson.AutoGson;
 
 import com.google.auto.value.AutoValue;
@@ -15,10 +14,10 @@ public abstract class VisNetworkRequest
 	public abstract String getBiobankUniverseIdentifier();
 
 	@NotNull
-	public abstract NetworkOption getNetworkOption();
+	public abstract String getSimilarityOption();
 
-	public static VisNetworkRequest create(String biobankUniverseIdentifier, NetworkOption networkOption)
+	public static VisNetworkRequest create(String biobankUniverseIdentifier, String similarityOption)
 	{
-		return new AutoValue_VisNetworkRequest(biobankUniverseIdentifier, networkOption);
+		return new AutoValue_VisNetworkRequest(biobankUniverseIdentifier, similarityOption);
 	}
 }

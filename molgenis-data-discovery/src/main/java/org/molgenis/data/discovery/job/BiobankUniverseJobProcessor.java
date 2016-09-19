@@ -112,7 +112,7 @@ public class BiobankUniverseJobProcessor
 			}
 
 			// Generate matches for all the biobankSampleAttributes in the new members
-			for (BiobankSampleCollection biobankSampleCollection : newMembers)
+			for (BiobankSampleCollection target : newMembers)
 			{
 				if (existingMembers.size() > 0)
 				{
@@ -123,8 +123,7 @@ public class BiobankUniverseJobProcessor
 									queryExpansionService, ontologyService))
 							.collect(toList());
 
-					biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection)
-							.forEach(biobankSampleAttribute -> {
+					biobankUniverseRepository.getBiobankSampleAttributes(target).forEach(biobankSampleAttribute -> {
 
 						List<SemanticType> keyConceptFilter = biobankUniverse.getKeyConcepts();
 
@@ -148,7 +147,7 @@ public class BiobankUniverseJobProcessor
 								Sets.newHashSet(biobankSampleAttribute.getLabel()), Lists.newArrayList(tagGroups),
 								QueryExpansionParam.create(true, false), true);
 
-						allCandidates.addAll(biobankUniverseService.findCandidateMappings(biobankUniverse,
+						allCandidates.addAll(biobankUniverseService.generateAttributeCandidateMappings(biobankUniverse,
 								biobankSampleAttribute, semanticSearchParam, matchers));
 
 						// Update the progress only when the progress proceeds the threshold
@@ -156,15 +155,18 @@ public class BiobankUniverseJobProcessor
 						{
 							progress.progress(counter.get(), "Processed " + counter);
 						}
+
 					});
 
 					biobankUniverseRepository.addAttributeMappingCandidates(allCandidates);
+
+					biobankUniverseService.addAverageAttributeSimilarities(allCandidates, biobankUniverse);
+
+					biobankUniverseService.addCollectionSemanticSimilarities(target, existingMembers, biobankUniverse);
 				}
 
-				existingMembers.add(biobankSampleCollection);
+				existingMembers.add(target);
 			}
-
-			biobankUniverseService.addCollectionSimilarities(biobankUniverse, newMembers);
 
 			progress.progress(totalNumberOfAttributes * 2, "Processed " + totalNumberOfAttributes * 2);
 

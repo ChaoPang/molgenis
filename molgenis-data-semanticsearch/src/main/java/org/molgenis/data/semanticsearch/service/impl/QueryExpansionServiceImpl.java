@@ -364,7 +364,7 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 
 	private String boostLexicalQuery(String lexicalQuery)
 	{
-		Map<String, Float> collect = SemanticSearchServiceUtils.splitIntoTerms(lexicalQuery).stream()
+		Map<String, Float> collect = SemanticSearchServiceUtils.splitIntoUniqueTerms(lexicalQuery).stream()
 				.collect(Collectors.toMap(t -> t, t -> termFrequencyService.getTermFrequency(t)));
 
 		double max = collect.values().stream().mapToDouble(value -> (double) value).max().orElse(1.0d);
@@ -372,7 +372,7 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 		Map<String, Float> weightedBoostValue = collect.entrySet().stream()
 				.collect(Collectors.toMap(Entry::getKey, entry -> new Float(entry.getValue() / max)));
 
-		List<String> boostedWords = SemanticSearchServiceUtils.splitIntoTerms(lexicalQuery).stream()
+		List<String> boostedWords = SemanticSearchServiceUtils.splitIntoUniqueTerms(lexicalQuery).stream()
 				.map(term -> term + CARET_CHARACTER + weightedBoostValue.get(term)).collect(Collectors.toList());
 
 		return termJoiner.join(boostedWords);

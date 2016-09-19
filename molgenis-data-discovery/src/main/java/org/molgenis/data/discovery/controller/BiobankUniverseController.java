@@ -6,6 +6,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.of;
 import static org.molgenis.data.discovery.controller.BiobankUniverseController.URI;
+import static org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity.SimilarityOption.SEMANTIC;
 import static org.molgenis.data.discovery.model.network.NetworkConfiguration.NODE_SHAPE;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.web.bind.annotation.RequestMethod.GET;
@@ -36,6 +37,7 @@ import org.molgenis.data.discovery.job.BiobankUniverseJobImpl;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity;
+import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity.SimilarityOption;
 import org.molgenis.data.discovery.model.network.VisEdge;
 import org.molgenis.data.discovery.model.network.VisNetworkRequest;
 import org.molgenis.data.discovery.model.network.VisNetworkResponse;
@@ -147,6 +149,8 @@ public class BiobankUniverseController extends MolgenisPluginController
 	{
 		model.addAttribute("biobankSampleCollections", biobankUniverseService.getAllBiobankSampleCollections());
 		model.addAttribute("biobankUniverses", biobankUniverseService.getBiobankUniverses());
+		model.addAttribute("similarityOptions",
+				Stream.of(SimilarityOption.values()).map(Objects::toString).collect(Collectors.toList()));
 
 		return VIEW_BIOBANK_UNIVERSE_TEST;
 	}
@@ -183,55 +187,62 @@ public class BiobankUniverseController extends MolgenisPluginController
 
 	@RequestMapping(method = GET, value = "/test/calculate")
 	public String upload(@RequestParam(value = "biobankUniverseIdentifier", required = true) String identifier,
-			Model model) throws Exception
+			@RequestParam(value = "similarityOption", required = true) String similarityOption, Model model)
+					throws Exception
 	{
 		BiobankUniverse biobankUniverse = biobankUniverseService.getBiobankUniverse(identifier);
 
-		Map<String, List<BiobankCollectionSimilarity>> result = new LinkedHashMap<>();
+		Map<String, List<BiobankCollectionSimilarity>> attributeSimilarityMap = new LinkedHashMap<>();
+
+		Map<String, List<BiobankCollectionSimilarity>> collectionSimilarityMap = new LinkedHashMap<>();
 
 		if (Objects.nonNull(biobankUniverse))
 		{
-			List<BiobankCollectionSimilarity> collectionSimilarities = biobankUniverseService.getBiobankUniverses()
-					.stream().flatMap(universe -> biobankUniverseService.getCollectionSimilarities(universe).stream())
-					.collect(Collectors.toList());
+			List<BiobankCollectionSimilarity> collectionSimilarities = biobankUniverseService
+					.getCollectionSimilarities(biobankUniverse).stream()
+					.filter(collectionSimilarity -> collectionSimilarity.getSimilarityOption().toString()
+							.equalsIgnoreCase(similarityOption))
+					.collect(toList());
 
 			List<BiobankSampleCollection> uniqueCollections = Stream
 					.concat(collectionSimilarities.stream().map(BiobankCollectionSimilarity::getTarget),
 							collectionSimilarities.stream().map(BiobankCollectionSimilarity::getSource))
-					.distinct().collect(Collectors.toList());
+					.distinct().collect(toList());
 
 			double[][] similarities = new double[uniqueCollections.size()][uniqueCollections.size()];
 			int[][] ontologyTermGroupSizes = new int[uniqueCollections.size()][uniqueCollections.size()];
 
-			for (BiobankCollectionSimilarity biobankCollectionSimilarity : collectionSimilarities)
+			for (BiobankCollectionSimilarity collectionSimilarity : collectionSimilarities)
 			{
-				BiobankSampleCollection target = biobankCollectionSimilarity.getTarget();
-				BiobankSampleCollection source = biobankCollectionSimilarity.getSource();
+				BiobankSampleCollection target = collectionSimilarity.getTarget();
+				BiobankSampleCollection source = collectionSimilarity.getSource();
 
 				int rowIndex = uniqueCollections.indexOf(target);
 				int colIndex = uniqueCollections.indexOf(source);
 
-				similarities[rowIndex][colIndex] = biobankCollectionSimilarity.getSimilarity();
-				ontologyTermGroupSizes[rowIndex][colIndex] = biobankCollectionSimilarity.getCoverage();
+				similarities[rowIndex][colIndex] = collectionSimilarity.getSimilarity();
+				ontologyTermGroupSizes[rowIndex][colIndex] = collectionSimilarity.getCoverage();
 			}
 
 			for (int rowIndex = 0; rowIndex < similarities.length; rowIndex++)
 			{
 				BiobankSampleCollection target = uniqueCollections.get(rowIndex);
-				result.put(target.getName(), new ArrayList<>());
+				collectionSimilarityMap.put(target.getName(), new ArrayList<>());
 				for (int colIndex = 0; colIndex < similarities[rowIndex].length; colIndex++)
 				{
 					BiobankSampleCollection source = uniqueCollections.get(colIndex);
 					String fakeIdentifier = target.getName() + source.getName();
 					double similarity = similarities[rowIndex][colIndex];
 					int size = ontologyTermGroupSizes[rowIndex][colIndex];
-					result.get(target.getName()).add(BiobankCollectionSimilarity.create(fakeIdentifier, target, source,
-							similarity, size, biobankUniverse));
+					collectionSimilarityMap.get(target.getName()).add(BiobankCollectionSimilarity.create(fakeIdentifier,
+							target, source, similarity, size, biobankUniverse, SEMANTIC));
 				}
 			}
 		}
 
-		model.addAttribute("collectionSimilarityMap", result);
+		model.addAttribute("semanticSimilarityMap", collectionSimilarityMap);
+
+		model.addAttribute("attributeSimilarityMap", attributeSimilarityMap);
 
 		return test(model);
 	}
@@ -250,7 +261,10 @@ public class BiobankUniverseController extends MolgenisPluginController
 		if (Objects.nonNull(biobankUniverse))
 		{
 			List<BiobankCollectionSimilarity> collectionSimilarities = biobankUniverseService
-					.getCollectionSimilarities(biobankUniverse);
+					.getCollectionSimilarities(biobankUniverse).stream()
+					.filter(collectionSimilarity -> collectionSimilarity.getSimilarityOption().toString()
+							.equalsIgnoreCase(visNetworkRequest.getSimilarityOption()))
+					.collect(toList());
 
 			List<BiobankSampleCollection> uniqueBiobankCollections = Stream
 					.concat(collectionSimilarities.stream().map(BiobankCollectionSimilarity::getTarget),

@@ -242,7 +242,7 @@ public class CalculateSimilaritySimulationImpl implements CalculateSimilaritySim
 					QueryExpansionParam.create(true, false), true);
 
 			List<AttributeMappingCandidate> findCandidateMappingsOntologyBased = biobankUniverseService
-					.findCandidateMappings(biobankUniverse, targetAttribute, semanticSearchParam,
+					.generateAttributeCandidateMappings(biobankUniverse, targetAttribute, semanticSearchParam,
 							Lists.newArrayList(matcher));
 
 			double sum = findCandidateMappingsOntologyBased.stream().sorted()

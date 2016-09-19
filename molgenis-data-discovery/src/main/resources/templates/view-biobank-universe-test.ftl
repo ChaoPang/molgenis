@@ -54,23 +54,31 @@
 					</#list>
 				</select>
 			</div>
+			<div class="form-group">
+				<label>Similarity options</label>
+				<select id="similarityOption" name="similarityOption" class="form-control"	>
+					<#list similarityOptions as similarityOption>
+						<option value="${similarityOption?html}">${similarityOption?html}</option>
+					</#list>
+				</select>
+			</div>
 			<div class="btn-group" role="group">
 				<button id="calculate-button" type="submit" class="btn btn-primary">calculate</button>
 				<button id="network-button" type="button" class="btn btn-info">network</button>
 			</div><br/><br/>
-			<#if collectionSimilarityMap??>
+			<#if semanticSimilarityMap??>
 				<table class="table table-striped table-condensed">
 				<tr>
 					<th></th>
-					<#list collectionSimilarityMap?keys?reverse as collection>
+					<#list semanticSimilarityMap?keys as collection>
 						<th>${collection}</th>
 					</#list>
 				</tr>
-				<#list collectionSimilarityMap?keys as collection>
+				<#list semanticSimilarityMap?keys as collection>
 					<tr>
 						<td>${collection}</td>
-						<#assign collectionSimilarities = collectionSimilarityMap[collection]>
-						<#list collectionSimilarities?reverse as collectionSimilarity>
+						<#assign collectionSimilarities = semanticSimilarityMap[collection]>
+						<#list collectionSimilarities as collectionSimilarity>
 							<td>
 							<#if collectionSimilarity.similarity != 0.0>${collectionSimilarity.similarity}</#if>
 							</td>
@@ -94,10 +102,11 @@
 	    $('#network-button').click(function(event){
 	    	event.preventDefault();
 	    	var biobankUniverseIdentifier = $('#biobankUniverseIdentifier').val();
+	    	var similarityOption = $('#similarityOption').val();
 	    	if(biobankUniverseIdentifier){
 		    	var visNetworkRequest = {
 		    		'biobankUniverseIdentifier' : biobankUniverseIdentifier,
-		    		'networkOption' : 'Semantic'
+		    		'similarityOption' : similarityOption
 		    	};
 		    	$.ajax({
 					type : 'POST',

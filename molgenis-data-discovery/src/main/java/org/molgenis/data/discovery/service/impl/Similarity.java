@@ -4,7 +4,7 @@ import static java.util.Objects.nonNull;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.findMatchedWords;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.splitIntoTerms;
-import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
+import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.splitIntoUniqueTerms;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -21,6 +21,7 @@ import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.data.discovery.model.matching.MatchedAttributeTagGroup;
+import org.molgenis.data.discovery.scoring.ScoringModel;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -35,11 +36,13 @@ import com.google.common.collect.Sets;
 public class Similarity
 {
 	private final OntologyService ontologyService;
+	private final ScoringModel scoringModel;
 	private final Joiner termJoiner = Joiner.on(' ');
 
-	public Similarity(OntologyService ontologyService)
+	public Similarity(OntologyService ontologyService, ScoringModel scoringModel)
 	{
 		this.ontologyService = Objects.requireNonNull(ontologyService);
+		this.scoringModel = Objects.requireNonNull(scoringModel);
 	}
 
 	public Hit<String> score(BiobankSampleAttribute targetAttribute, BiobankSampleAttribute sourceAttribute,
@@ -157,15 +160,15 @@ public class Similarity
 			TagGroup targetTagGroup = matchedTagGroup.getTarget();
 			TagGroup sourceTagGroup = matchedTagGroup.getSource();
 
-			Set<String> targetMatchedWords = splitIntoTerms(targetTagGroup.getMatchedWords());
-			Set<String> sourceMatchedWords = splitIntoTerms(sourceTagGroup.getMatchedWords());
+			Set<String> targetMatchedWords = splitIntoUniqueTerms(targetTagGroup.getMatchedWords());
+			Set<String> sourceMatchedWords = splitIntoUniqueTerms(sourceTagGroup.getMatchedWords());
 			queryString.addAll(targetMatchedWords);
 			queryString.addAll(sourceMatchedWords);
 			// The source ontologyTerm is more specific therefore we replace it with a more general target
 			// ontologyTerm
 			if (ontologyService.isDescendant(sourceTagGroup.getOntologyTerm(), targetTagGroup.getOntologyTerm()))
 			{
-				Set<String> sourceLabelWords = splitIntoTerms(sourceLabel);
+				Set<String> sourceLabelWords = splitIntoUniqueTerms(sourceLabel);
 				sourceLabelWords.removeAll(sourceMatchedWords);
 				sourceLabel = termJoiner.join(Sets.union(sourceLabelWords, targetMatchedWords));
 
@@ -174,7 +177,7 @@ public class Similarity
 			}
 			else
 			{
-				Set<String> targetLabelWords = splitIntoTerms(targetLabel);
+				Set<String> targetLabelWords = splitIntoUniqueTerms(targetLabel);
 				targetLabelWords.removeAll(targetMatchedWords);
 				targetLabel = termJoiner.join(Sets.union(targetLabelWords, sourceMatchedWords));
 
@@ -183,7 +186,7 @@ public class Similarity
 			}
 		}
 
-		float adjustedScore = (float) stringMatching(targetLabel, sourceLabel, !strictMatch) / 100;
+		float adjustedScore = scoringModel.score(targetLabel, sourceLabel, strictMatch);
 
 		for (Hit<String> matchedWord : matchedWords)
 		{

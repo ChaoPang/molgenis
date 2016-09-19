@@ -8,6 +8,7 @@ import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.STOPWORDSLIST;
 
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -25,9 +26,9 @@ public class SemanticSearchServiceUtils
 	public static Set<String> findMatchedWords(String string1, String string2)
 	{
 		Set<String> intersectedWords = new LinkedHashSet<>();
-		Set<String> stemmedWordsFromString2 = splitIntoTerms(string2).stream().map(Stemmer::stem)
+		Set<String> stemmedWordsFromString2 = splitIntoUniqueTerms(string2).stream().map(Stemmer::stem)
 				.collect(Collectors.toSet());
-		for (String wordFromString1 : splitIntoTerms(string1))
+		for (String wordFromString1 : splitIntoUniqueTerms(string1))
 		{
 			String stemmedSourceWord = Stemmer.stem(wordFromString1);
 			if (stemmedWordsFromString2.contains(stemmedSourceWord))
@@ -84,10 +85,16 @@ public class SemanticSearchServiceUtils
 		return allTerms;
 	}
 
-	public static Set<String> splitIntoTerms(String description)
+	public static Set<String> splitIntoUniqueTerms(String description)
 	{
 		return newLinkedHashSet(stream(description.split(ILLEGAL_CHARS_REGEX)).map(StringUtils::lowerCase)
 				.filter(StringUtils::isNotBlank).collect(toList()));
+	}
+
+	public static List<String> splitIntoTerms(String description)
+	{
+		return stream(description.split(ILLEGAL_CHARS_REGEX)).map(StringUtils::lowerCase)
+				.filter(StringUtils::isNotBlank).collect(toList());
 	}
 
 	public static Set<String> splitRemoveStopWords(String description)

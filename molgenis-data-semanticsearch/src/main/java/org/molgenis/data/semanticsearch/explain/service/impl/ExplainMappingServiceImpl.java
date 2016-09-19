@@ -210,7 +210,7 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 	{
 		Set<String> additionalMatchedWords = new LinkedHashSet<>();
 		Set<String> stemmedStringOneWords = splitAndStem(stringTwo);
-		for (String sourceWord : SemanticSearchServiceUtils.splitIntoTerms(stringOne))
+		for (String sourceWord : SemanticSearchServiceUtils.splitIntoUniqueTerms(stringOne))
 		{
 			String stemmedSourceWord = Stemmer.stem(sourceWord);
 			if (!stemmedStringOneWords.contains(stemmedSourceWord))
@@ -232,7 +232,7 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 	{
 		Set<String> intersectedWords = new LinkedHashSet<>();
 		Set<String> stemmedWordsFromString2 = splitAndStem(string2);
-		for (String wordFromString1 : SemanticSearchServiceUtils.splitIntoTerms(string1))
+		for (String wordFromString1 : SemanticSearchServiceUtils.splitIntoUniqueTerms(string1))
 		{
 			String stemmedSourceWord = Stemmer.stem(wordFromString1);
 			if (stemmedWordsFromString2.contains(stemmedSourceWord))

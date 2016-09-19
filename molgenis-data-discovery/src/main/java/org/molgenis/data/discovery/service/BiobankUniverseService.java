@@ -1,6 +1,7 @@
 package org.molgenis.data.discovery.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import org.molgenis.auth.MolgenisUser;
@@ -140,6 +141,16 @@ public interface BiobankUniverseService
 	public abstract void addKeyConcepts(BiobankUniverse universe, List<String> semanticTypeGroups);
 
 	/**
+	 * Get all {@link AttributeMappingCandidate}s for the given target {@link BiobankSampleCollection}
+	 * 
+	 * @param biobankUniverse
+	 * @param target
+	 * @return
+	 */
+	Map<BiobankSampleCollection, List<AttributeMappingCandidate>> getAttributeCandidateMappings(
+			BiobankUniverse biobankUniverse, BiobankSampleCollection target);
+
+	/**
 	 * Generate a list of {@link AttributeMappingCandidate}s for all {@link BiobankSampleCollection}s based on the given
 	 * parameter {@link SemanticSearchParam}
 	 * 
@@ -149,7 +160,7 @@ public interface BiobankUniverseService
 	 * @param ontologyBasedInputData
 	 * @return
 	 */
-	public abstract List<AttributeMappingCandidate> findCandidateMappings(BiobankUniverse biobankUniverse,
+	public abstract List<AttributeMappingCandidate> generateAttributeCandidateMappings(BiobankUniverse biobankUniverse,
 			BiobankSampleAttribute target, SemanticSearchParam semanticSearchParam,
 			List<OntologyBasedMatcher> ontologyBasedInputData);
 
@@ -171,6 +182,15 @@ public interface BiobankUniverseService
 			BiobankSampleCollection biobankSampleAttribute);
 
 	/**
+	 * Compute the average score of the {@link AttributeMappingCandidate}s
+	 * 
+	 * @param attributeMappingCandidates
+	 * @param biobankUniverse
+	 */
+	public abstract void addAverageAttributeSimilarities(List<AttributeMappingCandidate> attributeMappingCandidates,
+			BiobankUniverse biobankUniverse);
+
+	/**
 	 * Calculate the semantic relatedness between two lists of {@link BiobankSampleAttribute}s based on the tagged
 	 * {@link OntologyTerm}s
 	 * 
@@ -178,7 +198,7 @@ public interface BiobankUniverseService
 	 * @param source
 	 * @return
 	 */
-	public abstract double computeSampleCollectionSimilarity(List<BiobankSampleAttribute> targetBiobankSampleAttributes,
+	public abstract double computeAttributesSemanticSimilarity(List<BiobankSampleAttribute> targetBiobankSampleAttributes,
 			List<BiobankSampleAttribute> sourceBiobankSampleAttributes);
 
 	/**
@@ -187,8 +207,8 @@ public interface BiobankUniverseService
 	 * @param biobankUniverse
 	 * @param biobankSampleCollections
 	 */
-	public abstract void addCollectionSimilarities(BiobankUniverse biobankUniverse,
-			List<BiobankSampleCollection> biobankSampleCollections);
+	public abstract void addCollectionSemanticSimilarities(BiobankSampleCollection target,
+			List<BiobankSampleCollection> biobankSampleCollections, BiobankUniverse biobankUniverse);
 
 	public abstract List<BiobankCollectionSimilarity> getCollectionSimilarities(BiobankUniverse biobankUniverse);
 
