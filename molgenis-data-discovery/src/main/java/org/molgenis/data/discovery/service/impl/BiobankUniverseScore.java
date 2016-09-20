@@ -1,6 +1,7 @@
 package org.molgenis.data.discovery.service.impl;
 
 import static java.util.Objects.nonNull;
+import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.findMatchedWords;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.splitIntoTerms;
@@ -21,7 +22,7 @@ import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.data.discovery.model.matching.MatchedAttributeTagGroup;
-import org.molgenis.data.discovery.scoring.ScoringModel;
+import org.molgenis.data.discovery.scoring.Similarity;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -33,16 +34,16 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
-public class Similarity
+public class BiobankUniverseScore
 {
 	private final OntologyService ontologyService;
-	private final ScoringModel scoringModel;
+	private final Similarity similarity;
 	private final Joiner termJoiner = Joiner.on(' ');
 
-	public Similarity(OntologyService ontologyService, ScoringModel scoringModel)
+	public BiobankUniverseScore(OntologyService ontologyService, Similarity similarity)
 	{
-		this.ontologyService = Objects.requireNonNull(ontologyService);
-		this.scoringModel = Objects.requireNonNull(scoringModel);
+		this.ontologyService = requireNonNull(ontologyService);
+		this.similarity = requireNonNull(similarity);
 	}
 
 	public Hit<String> score(BiobankSampleAttribute targetAttribute, BiobankSampleAttribute sourceAttribute,
@@ -186,7 +187,7 @@ public class Similarity
 			}
 		}
 
-		float adjustedScore = scoringModel.score(targetLabel, sourceLabel, strictMatch);
+		float adjustedScore = similarity.score(targetLabel, sourceLabel, strictMatch);
 
 		for (Hit<String> matchedWord : matchedWords)
 		{

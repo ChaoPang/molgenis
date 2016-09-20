@@ -7,6 +7,7 @@ import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.repo.impl.BiobankUniverseRepositoryImpl;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.discovery.service.OntologyBasedExplainService;
+import org.molgenis.data.discovery.service.impl.AttributeTermFrequencyServiceImpl;
 import org.molgenis.data.discovery.service.impl.BiobankUniverseServiceImpl;
 import org.molgenis.data.discovery.service.impl.OntologyBasedExplainServiceImpl;
 import org.molgenis.data.semanticsearch.config.SemanticSearchConfig;
@@ -64,7 +65,8 @@ public class DataDiscoveryConfig
 	public BiobankUniverseService biobankUniverseService()
 	{
 		return new BiobankUniverseServiceImpl(idGenerator, biobankUniverseRepository(), ontologyService,
-				tagGroupGenerator, explainMappingService, ontologyBasedExplainService());
+				tagGroupGenerator, explainMappingService, ontologyBasedExplainService(),
+				new AttributeTermFrequencyServiceImpl(dataService));
 	}
 
 	@Bean

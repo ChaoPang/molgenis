@@ -4,6 +4,7 @@ import static com.google.common.collect.ImmutableMap.of;
 import static java.lang.Integer.MAX_VALUE;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.apache.commons.lang3.StringUtils.join;
@@ -59,8 +60,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
-
-import static java.util.Objects.requireNonNull;
 
 public class SortaServiceImpl implements SortaService
 {

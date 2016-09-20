@@ -32,7 +32,7 @@ import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity;
 import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity.SimilarityOption;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
-import org.molgenis.data.discovery.scoring.VectorSpaceScoringModel;
+import org.molgenis.data.discovery.scoring.VectorSpaceModelSimilarity;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.discovery.service.OntologyBasedExplainService;
 import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
@@ -43,6 +43,7 @@ import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.OntologyTermRelated;
 import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.service.OntologyService;
+import org.molgenis.ontology.ic.TermFrequencyService;
 import org.molgenis.security.core.runas.RunAsSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,7 +68,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	private final OntologyService ontologyService;
 	private final TagGroupGenerator tagGroupGenerator;
 	private final OntologyBasedExplainService ontologyBasedExplainService;
-	private final Similarity similarity;
+	private final BiobankUniverseScore similarity;
 
 	private LoadingCache<OntologyTermRelated, Double> cachedOntologyTermSemanticRelateness = CacheBuilder.newBuilder()
 			.maximumSize(2000).expireAfterWrite(1, TimeUnit.HOURS).build(new CacheLoader<OntologyTermRelated, Double>()
@@ -89,14 +90,16 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	@Autowired
 	public BiobankUniverseServiceImpl(IdGenerator idGenerator, BiobankUniverseRepository biobankUniverseRepository,
 			OntologyService ontologyService, TagGroupGenerator tagGroupGenerator,
-			ExplainMappingService explainMappingService, OntologyBasedExplainService ontologyBasedExplainService)
+			ExplainMappingService explainMappingService, OntologyBasedExplainService ontologyBasedExplainService,
+			TermFrequencyService termFrequencyService)
 	{
 		this.idGenerator = requireNonNull(idGenerator);
 		this.biobankUniverseRepository = biobankUniverseRepository;
 		this.ontologyService = requireNonNull(ontologyService);
 		this.tagGroupGenerator = requireNonNull(tagGroupGenerator);
 		this.ontologyBasedExplainService = requireNonNull(ontologyBasedExplainService);
-		this.similarity = new Similarity(ontologyService, new VectorSpaceScoringModel(biobankUniverseRepository));
+		this.similarity = new BiobankUniverseScore(ontologyService,
+				new VectorSpaceModelSimilarity(termFrequencyService));
 	}
 
 	@RunAsSystem

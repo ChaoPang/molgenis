@@ -59,7 +59,7 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 	@Override
 	public List<AttributeMappingCandidate> explain(BiobankUniverse biobankUniverse,
 			SemanticSearchParam semanticSearchParam, BiobankSampleAttribute targetAttribute,
-			List<BiobankSampleAttribute> sourceAttributes, Similarity similarity)
+			List<BiobankSampleAttribute> sourceAttributes, BiobankUniverseScore similarity)
 	{
 		Map<String, Boolean> matchedWordsExplained = new HashMap<>();
 
