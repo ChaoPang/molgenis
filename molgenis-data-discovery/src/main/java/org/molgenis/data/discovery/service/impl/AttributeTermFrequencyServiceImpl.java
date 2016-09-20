@@ -1,11 +1,11 @@
 package org.molgenis.data.discovery.service.impl;
 
+import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.molgenis.data.DataService;
 import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData;
@@ -13,36 +13,52 @@ import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.ic.TermFrequencyService;
 import org.molgenis.ontology.utils.Stemmer;
 
+import com.google.common.base.Supplier;
+
 public class AttributeTermFrequencyServiceImpl implements TermFrequencyService
 {
 	private final DataService dataService;
-	private final Map<String, Integer> termFrequencyMap;
-	private final AtomicInteger totalDocument = new AtomicInteger(0);
+
+	private Supplier<Integer> memoizedTotalAttributes = memoizeWithExpiration(new Supplier<Integer>()
+	{
+		public Integer get()
+		{
+			return (int) dataService.count(BiobankSampleAttributeMetaData.ENTITY_NAME,
+					QueryImpl.query().pageSize(Integer.MAX_VALUE));
+		}
+	}, (long) 30, MINUTES);
+
+	private Supplier<Map<String, Integer>> memoizeTermFrequency = memoizeWithExpiration(
+			new Supplier<Map<String, Integer>>()
+			{
+				public Map<String, Integer> get()
+				{
+					return createTermFrequency();
+				}
+			}, (long) 30, MINUTES);
 
 	public AttributeTermFrequencyServiceImpl(DataService dataService)
 	{
 		this.dataService = requireNonNull(dataService);
-		this.termFrequencyMap = Collections.synchronizedMap(new HashMap<>());
 	}
 
 	public float getTermFrequency(String term)
 	{
-		if (termFrequencyMap.isEmpty()) updateTermFrequency();
-
-		String stemmedTerm = Stemmer.stem(term);
-		return termFrequencyMap.containsKey(stemmedTerm)
-				? (float) Math.log10(totalDocument.get() / termFrequencyMap.get(stemmedTerm)) : 1;
+		return (float) Math.log10(memoizedTotalAttributes.get() / getTermOccurrence(term));
 	}
 
 	public Integer getTermOccurrence(String term)
 	{
-		if (termFrequencyMap.isEmpty()) updateTermFrequency();
-
 		String stemmedTerm = Stemmer.stem(term);
-		return termFrequencyMap.containsKey(stemmedTerm) ? termFrequencyMap.get(stemmedTerm) : 1;
+		return memoizeTermFrequency.get().containsKey(stemmedTerm) ? memoizeTermFrequency.get().get(stemmedTerm) : 1;
 	}
 
 	public void updateTermFrequency()
+	{
+
+	}
+
+	private Map<String, Integer> createTermFrequency()
 	{
 		Map<String, Integer> termFrequency = new HashMap<>();
 
@@ -60,11 +76,6 @@ public class AttributeTermFrequencyServiceImpl implements TermFrequencyService
 			}
 		});
 
-		int count = (int) dataService.count(BiobankSampleAttributeMetaData.ENTITY_NAME,
-				QueryImpl.query().pageSize(Integer.MAX_VALUE));
-
-		termFrequencyMap.putAll(termFrequency);
-
-		totalDocument.set(count);
+		return termFrequency;
 	}
 }

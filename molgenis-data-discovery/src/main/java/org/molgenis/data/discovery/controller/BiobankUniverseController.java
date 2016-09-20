@@ -145,7 +145,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 	}
 
 	@RequestMapping(method = GET, value = "/test")
-	public String test(Model model) throws Exception
+	public String test(Model model)
 	{
 		model.addAttribute("biobankSampleCollections", biobankUniverseService.getAllBiobankSampleCollections());
 		model.addAttribute("biobankUniverses", biobankUniverseService.getBiobankUniverses());
@@ -323,7 +323,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 		model.addAttribute("biobankSampleCollections", getBiobankSampleCollecitons());
 		model.addAttribute("semanticTypeGroups", getSemanticTypes());
 
-		return "redirect:" + getBiobankUniverseMenuUrl();
+		return init(model);
 	}
 
 	@RequestMapping(value = "/removeBiobankuniverse", method = RequestMethod.POST)
@@ -333,7 +333,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 		model.addAttribute("biobankUniverses", getUserBiobankUniverses());
 		model.addAttribute("biobankSampleCollections", getBiobankSampleCollecitons());
 		model.addAttribute("semanticTypeGroups", getSemanticTypes());
-		return "redirect:" + getBiobankUniverseMenuUrl();
+		return init(model);
 	}
 
 	@RequestMapping(value = "/addUniverseMembers", method = POST)
@@ -350,7 +350,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 			submit(biobankUniverse, biobankSampleCollections);
 		}
 
-		return "redirect:" + getBiobankUniverseMenuUrl();
+		return init(model);
 	}
 
 	@RequestMapping(value = "/addKeyConcepts", method = POST)
@@ -366,7 +366,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 		model.addAttribute("biobankSampleCollections", getBiobankSampleCollecitons());
 		model.addAttribute("semanticTypeGroups", getSemanticTypes());
 
-		return "redirect:" + getBiobankUniverseMenuUrl();
+		return init(model);
 	}
 
 	private void submit(BiobankUniverse biobankUniverse, List<BiobankSampleCollection> biobankSampleCollections)
