@@ -288,9 +288,10 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		fetch.field(BiobankSampleAttributeMetaData.COLLECTION);
 		fetch.field(BiobankSampleAttributeMetaData.TAG_GROUPS, fetchTagGroupFields);
 
+		// Check if the first 100 biobankSampleAttributes have been tagged
 		boolean anyMatch = dataService
 				.findAll(BiobankSampleAttributeMetaData.ENTITY_NAME,
-						EQ(BiobankSampleAttributeMetaData.COLLECTION, biobankSampleCollection.getName()).pageSize(50)
+						EQ(BiobankSampleAttributeMetaData.COLLECTION, biobankSampleCollection.getName()).pageSize(100)
 								.fetch(fetch))
 				.anyMatch(entity -> Iterables.size((Iterable<?>) entity.get(TAG_GROUPS)) != 0);
 

@@ -41,9 +41,9 @@
 					}), $('#progress-bar-'+ biobankUniverseId)[0]);
 					
 					if(index == size - 1 && reload){
-						setTimeout(
-							updateTableProgressBars($table)
-						, 5000);
+						setTimeout(function(){
+							updateTableProgressBars($table);
+						}, 5000);
 					}
 				});
 			}

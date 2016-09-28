@@ -80,91 +80,12 @@ public class BiobankUniverseJobProcessor
 			progress.setProgressMax(totalNumberOfAttributes * 2);
 
 			// Tag all the biobankSampleAttributes in the new members
-			for (BiobankSampleCollection biobankSampleCollection : newMembers)
-			{
-				if (!biobankUniverseService.isBiobankSampleCollectionTagged(biobankSampleCollection))
-				{
-					List<BiobankSampleAttribute> biobankSampleAttributesToUpdate = new ArrayList<>();
-
-					biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection)
-							.forEach(biobankSampleAttribute -> {
-
-						List<IdentifiableTagGroup> identifiableTagGroups = biobankUniverseService
-								.findTagGroupsForAttributes(biobankSampleAttribute);
-
-						biobankSampleAttributesToUpdate
-								.add(BiobankSampleAttribute.create(biobankSampleAttribute, identifiableTagGroups));
-
-						// Update the progress only when the progress proceeds the threshold
-						if (counter.incrementAndGet() % PROGRESS_UPDATE_BATCH_SIZE == 0)
-						{
-							progress.progress(counter.get(), "Processed " + counter);
-						}
-					});
-
-					biobankUniverseRepository.addTagGroupsForAttributes(biobankSampleAttributesToUpdate);
-				}
-				else
-				{
-					counter.set(counter.get() + (int) biobankUniverseRepository
-							.getBiobankSampleAttributeIdentifiers(biobankSampleCollection).size());
-				}
-			}
+			tagBiobankSampleAttributes();
 
 			// Generate matches for all the biobankSampleAttributes in the new members
-			for (BiobankSampleCollection target : newMembers)
-			{
-				if (existingMembers.size() > 0)
-				{
-					List<AttributeMappingCandidate> allCandidates = new ArrayList<>();
+			generateMatches(existingMembers);
 
-					List<OntologyBasedMatcher> matchers = existingMembers.stream()
-							.map(collection -> new OntologyBasedMatcher(collection, biobankUniverseRepository,
-									queryExpansionService, ontologyService))
-							.collect(toList());
-
-					for (BiobankSampleAttribute biobankSampleAttribute : biobankUniverseRepository
-							.getBiobankSampleAttributes(target))
-					{
-						List<SemanticType> keyConceptFilter = biobankUniverse.getKeyConcepts();
-
-						Set<TagGroup> tagGroups = new HashSet<>();
-						for (IdentifiableTagGroup tagGroup : biobankSampleAttribute.getTagGroups())
-						{
-							List<OntologyTerm> filteredOntologyTerms = tagGroup.getOntologyTerms().stream()
-									.filter(ot -> ot.getSemanticTypes().stream()
-											.allMatch(st -> !keyConceptFilter.contains(st)))
-									.collect(Collectors.toList());
-							if (!filteredOntologyTerms.isEmpty())
-							{
-								tagGroups.add(TagGroup.create(
-										and(filteredOntologyTerms.stream().toArray(OntologyTerm[]::new)),
-										tagGroup.getMatchedWords(), tagGroup.getScore()));
-							}
-						}
-
-						// SemanticSearch finding all the relevant attributes from existing entities
-						SemanticSearchParam semanticSearchParam = SemanticSearchParam.create(
-								Sets.newHashSet(biobankSampleAttribute.getLabel()), Lists.newArrayList(tagGroups),
-								QueryExpansionParam.create(true, false), true);
-
-						allCandidates.addAll(biobankUniverseService.generateAttributeCandidateMappings(biobankUniverse,
-								biobankSampleAttribute, semanticSearchParam, matchers));
-
-						// Update the progress only when the progress proceeds the threshold
-						if (counter.incrementAndGet() % PROGRESS_UPDATE_BATCH_SIZE == 0)
-						{
-							progress.progress(counter.get(), "Processed " + counter);
-						}
-
-					}
-
-					biobankUniverseRepository.addAttributeMappingCandidates(allCandidates);
-				}
-
-				existingMembers.add(target);
-			}
-
+			// Update the vector representations of biobankSampleCollections
 			biobankUniverseService.updateBiobankUniverseMemberVectors(biobankUniverse);
 
 			progress.progress(totalNumberOfAttributes * 2, "Processed " + totalNumberOfAttributes * 2);
@@ -172,5 +93,93 @@ public class BiobankUniverseJobProcessor
 			progress.setResultUrl(menuReaderService.getMenu().findMenuItemPath(BiobankUniverseController.ID)
 					+ "/universe/" + biobankUniverse.getIdentifier());
 		});
+	}
+
+	private void generateMatches(List<BiobankSampleCollection> existingMembers)
+	{
+		for (BiobankSampleCollection target : newMembers)
+		{
+			if (!existingMembers.isEmpty())
+			{
+				List<AttributeMappingCandidate> allCandidates = new ArrayList<>();
+
+				List<OntologyBasedMatcher> matchers = existingMembers.stream()
+						.map(collection -> new OntologyBasedMatcher(collection, biobankUniverseRepository,
+								queryExpansionService, ontologyService))
+						.collect(toList());
+
+				for (BiobankSampleAttribute biobankSampleAttribute : biobankUniverseRepository
+						.getBiobankSampleAttributes(target))
+				{
+					List<SemanticType> keyConceptFilter = biobankUniverse.getKeyConcepts();
+
+					Set<TagGroup> tagGroups = new HashSet<>();
+					for (IdentifiableTagGroup tagGroup : biobankSampleAttribute.getTagGroups())
+					{
+						List<OntologyTerm> filteredOntologyTerms = tagGroup.getOntologyTerms().stream().filter(
+								ot -> ot.getSemanticTypes().stream().allMatch(st -> !keyConceptFilter.contains(st)))
+								.collect(Collectors.toList());
+						if (!filteredOntologyTerms.isEmpty())
+						{
+							tagGroups.add(
+									TagGroup.create(and(filteredOntologyTerms.stream().toArray(OntologyTerm[]::new)),
+											tagGroup.getMatchedWords(), tagGroup.getScore()));
+						}
+					}
+
+					// SemanticSearch finding all the relevant attributes from existing entities
+					SemanticSearchParam semanticSearchParam = SemanticSearchParam.create(
+							Sets.newHashSet(biobankSampleAttribute.getLabel()), Lists.newArrayList(tagGroups),
+							QueryExpansionParam.create(true, false), true);
+
+					allCandidates.addAll(biobankUniverseService.generateAttributeCandidateMappings(biobankUniverse,
+							biobankSampleAttribute, semanticSearchParam, matchers));
+
+					// Update the progress only when the progress proceeds the threshold
+					if (counter.incrementAndGet() % PROGRESS_UPDATE_BATCH_SIZE == 0)
+					{
+						progress.progress(counter.get(), "Processed " + counter);
+					}
+				}
+
+				biobankUniverseRepository.addAttributeMappingCandidates(allCandidates);
+			}
+
+			existingMembers.add(target);
+		}
+	}
+
+	private void tagBiobankSampleAttributes()
+	{
+		for (BiobankSampleCollection biobankSampleCollection : newMembers)
+		{
+			if (!biobankUniverseService.isBiobankSampleCollectionTagged(biobankSampleCollection))
+			{
+				List<BiobankSampleAttribute> biobankSampleAttributesToUpdate = new ArrayList<>();
+
+				biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection)
+						.forEach(biobankSampleAttribute -> {
+
+							List<IdentifiableTagGroup> identifiableTagGroups = biobankUniverseService
+									.findTagGroupsForAttributes(biobankSampleAttribute);
+
+							biobankSampleAttributesToUpdate
+									.add(BiobankSampleAttribute.create(biobankSampleAttribute, identifiableTagGroups));
+
+							// Update the progress only when the progress proceeds the threshold
+							if (counter.incrementAndGet() % PROGRESS_UPDATE_BATCH_SIZE == 0)
+							{
+								progress.progress(counter.get(), "Processed " + counter);
+							}
+						});
+
+				biobankUniverseRepository.addTagGroupsForAttributes(biobankSampleAttributesToUpdate);
+			}
+			else
+			{
+				counter.set(counter.get() + (int) biobankUniverseRepository
+						.getBiobankSampleAttributeIdentifiers(biobankSampleCollection).size());
+			}
+		}
 	}
 }
