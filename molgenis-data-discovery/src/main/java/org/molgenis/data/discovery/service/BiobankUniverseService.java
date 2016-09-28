@@ -10,9 +10,10 @@ import org.molgenis.data.Query;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
+import org.molgenis.data.discovery.model.biobank.BiobankUniverseMemberVector;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.matching.AttributeMappingDecision;
-import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity;
+import org.molgenis.data.discovery.model.matching.BiobankSampleCollectionSimilarity;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.data.discovery.service.impl.OntologyBasedMatcher;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
@@ -180,18 +181,20 @@ public interface BiobankUniverseService
 	public abstract List<BiobankSampleAttribute> getBiobankSampleAttributes(
 			BiobankSampleCollection biobankSampleAttribute);
 
-	/**
-	 * Compute the {@link BiobankCollectionSimilarity}s between the new members and existing members
-	 * 
-	 * @param biobankUniverse
-	 * @param biobankSampleCollections
-	 */
-	public abstract void addCollectionSemanticSimilarities(BiobankSampleCollection target,
-			List<BiobankSampleCollection> biobankSampleCollections, BiobankUniverse biobankUniverse);
-
-	public abstract List<BiobankCollectionSimilarity> getCollectionSimilarities(BiobankUniverse biobankUniverse);
-
 	public abstract int countBiobankSampleAttributes(BiobankSampleCollection biobankSampleCollection);
 
-	void updateCollectionSemanticSimilarities(BiobankUniverse biobankUniverse);
+	/**
+	 * Update the {@link BiobankUniverseMemberVector}s
+	 * 
+	 * @param biobankUniverse
+	 */
+	public abstract void updateBiobankUniverseMemberVectors(BiobankUniverse biobankUniverse);
+
+	/**
+	 * Compute the pairwise cosine similarities between {@link BiobankSampleCollection}s in the {@link BiobankUniverse}
+	 * 
+	 * @param biobankUniverse
+	 * @return
+	 */
+	public abstract List<BiobankSampleCollectionSimilarity> getCollectionSimilarities(BiobankUniverse biobankUniverse);
 }

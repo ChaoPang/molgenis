@@ -1,5 +1,7 @@
 package org.molgenis.data.discovery.validation;
 
+import static java.util.Collections.emptyList;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -213,8 +215,8 @@ public class CalculateSimilaritySimulationImpl implements CalculateSimilaritySim
 	{
 		OntologyBasedMatcher matcher = new OntologyBasedMatcher(randomSourceAttributes, biobankUniverseRepository,
 				queryExpansionService, ontologyService);
-		BiobankUniverse biobankUniverse = BiobankUniverse.create("1", "test", Collections.emptyList(),
-				new MolgenisUser(), Collections.emptyList());
+		BiobankUniverse biobankUniverse = BiobankUniverse.create("1", "test", emptyList(), new MolgenisUser(),
+				emptyList(), emptyList());
 
 		double similarity = 0;
 

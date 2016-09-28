@@ -15,36 +15,35 @@
 						'field':'universe', 
 						'operator':'EQUALS', 
 						'value': biobankUniverseId
-					},{
-						'operator':'AND'
-					},{
-						'field':'status', 
-						'operator':'EQUALS', 
-						'value': 'RUNNING'
 					}]
 				}
 				restApiV2.get('BiobankUniverseJobExecution', options).done(function(data){
 					var totalMax = 0;
 					var totalProgress = 0;
 					if(data.items.length > 0){
+						reload = false;
 						for(var i = 0; i < data.items.length; i++){
 							totalMax += data.items[i].progressMax;
 							totalProgress += data.items[i].progressInt;
+							reload = reload || (data.items[i].status != "SUCCESS");
 						}
-						reload = true;
-					}else{
+					}
+					
+					if(!reload){
 						totalMax = 1;
 						totalProgress = 1;
 					}
 					React.render(molgenis.ui.ProgressBar({
 						'progressPct': totalProgress / totalMax * 100,
 						'progressMessage': '',
-						'status': data.items.length > 0 ? 'primary':'info',
-						'active': data.items.length > 0
+						'status': reload ? 'primary':'info',
+						'active': reload
 					}), $('#progress-bar-'+ biobankUniverseId)[0]);
 					
 					if(index == size - 1 && reload){
-						setTimeout(updateTableProgressBars($table), 5000);
+						setTimeout(function() {
+							updateTableProgressBars($table);
+						}, 5000);
 					}
 				});
 			}

@@ -54,14 +54,6 @@
 					</#list>
 				</select>
 			</div>
-			<div class="form-group">
-				<label>Similarity options</label>
-				<select id="similarityOption" name="similarityOption" class="form-control"	>
-					<#list similarityOptions as similarityOption>
-						<option value="${similarityOption?html}">${similarityOption?html}</option>
-					</#list>
-				</select>
-			</div>
 			<div class="btn-group" role="group">
 				<button id="calculate-button" type="submit" class="btn btn-primary">calculate</button>
 				<button id="network-button" type="button" class="btn btn-info">network</button>
@@ -102,16 +94,11 @@
 	    $('#network-button').click(function(event){
 	    	event.preventDefault();
 	    	var biobankUniverseIdentifier = $('#biobankUniverseIdentifier').val();
-	    	var similarityOption = $('#similarityOption').val();
 	    	if(biobankUniverseIdentifier){
-		    	var visNetworkRequest = {
-		    		'biobankUniverseIdentifier' : biobankUniverseIdentifier,
-		    		'similarityOption' : similarityOption
-		    	};
 		    	$.ajax({
 					type : 'POST',
 					url : molgenis.getContextUrl() + '/test/network',
-					data : JSON.stringify(visNetworkRequest),
+					data : biobankUniverseIdentifier,
 					contentType : 'application/json',
 					success : function(visNetworkReponse) {
 						console.log(visNetworkReponse);

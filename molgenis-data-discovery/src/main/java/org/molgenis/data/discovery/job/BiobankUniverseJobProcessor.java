@@ -69,8 +69,8 @@ public class BiobankUniverseJobProcessor
 	{
 		RunAsSystemProxy.runAsSystem(() -> {
 
-			List<BiobankSampleCollection> existingMembers = Lists.newArrayList(biobankUniverse.getMembers());
-			existingMembers.removeAll(newMembers);
+			List<BiobankSampleCollection> existingMembers = biobankUniverse.getMembers().stream()
+					.filter(member -> !newMembers.contains(member)).collect(Collectors.toList());
 
 			int totalNumberOfAttributes = newMembers.stream()
 					.map(member -> biobankUniverseRepository.getBiobankSampleAttributeIdentifiers(member).size())
@@ -165,7 +165,7 @@ public class BiobankUniverseJobProcessor
 				existingMembers.add(target);
 			}
 
-			biobankUniverseService.updateCollectionSemanticSimilarities(biobankUniverse);
+			biobankUniverseService.updateBiobankUniverseMemberVectors(biobankUniverse);
 
 			progress.progress(totalNumberOfAttributes * 2, "Processed " + totalNumberOfAttributes * 2);
 

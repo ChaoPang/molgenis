@@ -5,10 +5,8 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
-import static org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity.SimilarityOption.SEMANTIC;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,13 +22,12 @@ import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
+import org.molgenis.data.discovery.model.biobank.BiobankUniverseMemberVector;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
-import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity;
+import org.molgenis.data.discovery.model.matching.BiobankSampleCollectionSimilarity;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.scoring.attributes.VectorSpaceModelAttributeSimilarity;
-import org.molgenis.data.discovery.scoring.collections.CollectionSimilarity;
-import org.molgenis.data.discovery.scoring.collections.CollectionSimilarityResult;
 import org.molgenis.data.discovery.scoring.collections.VectorSpaceModelCollectionSimilarity;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.discovery.service.OntologyBasedExplainService;
@@ -61,7 +58,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	private final TagGroupGenerator tagGroupGenerator;
 	private final OntologyBasedExplainService ontologyBasedExplainService;
 	private final BiobankUniverseScore biobankUniverseScore;
-	private final CollectionSimilarity collectionSimilarity;
+	private final VectorSpaceModelCollectionSimilarity vectorSpaceModelCollectionSimilarity;
 
 	@Autowired
 	public BiobankUniverseServiceImpl(IdGenerator idGenerator, BiobankUniverseRepository biobankUniverseRepository,
@@ -76,7 +73,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		this.ontologyBasedExplainService = requireNonNull(ontologyBasedExplainService);
 		this.biobankUniverseScore = new BiobankUniverseScore(ontologyService,
 				new VectorSpaceModelAttributeSimilarity(termFrequencyService));
-		this.collectionSimilarity = new VectorSpaceModelCollectionSimilarity(biobankUniverseRepository,
+		this.vectorSpaceModelCollectionSimilarity = new VectorSpaceModelCollectionSimilarity(biobankUniverseRepository,
 				ontologyService);
 	}
 
@@ -87,7 +84,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		List<SemanticType> semanticTypes = ontologyService.getSemanticTypesByNames(semanticTypeNames);
 
 		BiobankUniverse biobankUniverse = BiobankUniverse.create(idGenerator.generateId(), universeName, emptyList(),
-				owner, semanticTypes);
+				owner, semanticTypes, emptyList());
 
 		biobankUniverseRepository.addBiobankUniverse(biobankUniverse);
 
@@ -114,64 +111,6 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 			List<BiobankSampleCollection> biobankSampleCollections)
 	{
 		biobankUniverseRepository.addUniverseMembers(biobankUniverse, biobankSampleCollections);
-	}
-
-	@RunAsSystem
-	@Override
-	public void addCollectionSemanticSimilarities(BiobankSampleCollection target,
-			List<BiobankSampleCollection> biobankSampleCollections, BiobankUniverse biobankUniverse)
-	{
-		// Add biobankCollectionSimilarities to the biobankUniverse
-		List<BiobankCollectionSimilarity> biobankCollectionSimilarities = new ArrayList<>();
-
-		for (BiobankSampleCollection source : biobankSampleCollections)
-		{
-			if (!target.getName().equals(source.getName()))
-			{
-				List<CollectionSimilarityResult> collectionSimilarityResults = collectionSimilarity
-						.score(Arrays.asList(target, source), biobankUniverse);
-
-				double similarity = collectionSimilarityResults.get(0).getSimilarity();
-				int coverage = collectionSimilarityResults.get(0).getCoverage();
-
-				biobankCollectionSimilarities.add(BiobankCollectionSimilarity.create(idGenerator.generateId(), target,
-						source, similarity, coverage, biobankUniverse, SEMANTIC));
-			}
-		}
-
-		biobankUniverseRepository.addCollectionSimilarities(biobankCollectionSimilarities);
-	}
-
-	@RunAsSystem
-	@Override
-	public void updateCollectionSemanticSimilarities(BiobankUniverse biobankUniverse)
-	{
-		// Remove the existing semantic similarities because the semantic space has changed
-		biobankUniverseRepository.removeCollectionSimilaritiesFromUniverse(biobankUniverse);
-
-		List<BiobankCollectionSimilarity> biobankCollectionSimilarities = new ArrayList<>();
-
-		List<CollectionSimilarityResult> collectionSimilarityResults = collectionSimilarity
-				.score(biobankUniverse.getMembers(), biobankUniverse);
-
-		for (CollectionSimilarityResult collectionSimilarityResult : collectionSimilarityResults)
-		{
-			BiobankSampleCollection target = collectionSimilarityResult.getTarget();
-			BiobankSampleCollection source = collectionSimilarityResult.getSource();
-			double similarity = collectionSimilarityResult.getSimilarity();
-			int coverage = collectionSimilarityResult.getCoverage();
-
-			biobankCollectionSimilarities.add(BiobankCollectionSimilarity.create(idGenerator.generateId(), target,
-					source, similarity, coverage, biobankUniverse, SEMANTIC));
-		}
-
-		biobankUniverseRepository.addCollectionSimilarities(biobankCollectionSimilarities);
-	}
-
-	@Override
-	public List<BiobankCollectionSimilarity> getCollectionSimilarities(BiobankUniverse biobankUniverse)
-	{
-		return biobankUniverseRepository.getCollectionSimilaritiesFromUniverse(biobankUniverse);
 	}
 
 	@RunAsSystem
@@ -334,79 +273,15 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		biobankUniverseRepository.addKeyConcepts(universe, semanticTypes);
 	}
 
-	// @RunAsSystem
-	// @Override
-	// public double computeAttributesSemanticSimilarity(List<BiobankSampleAttribute> targetBiobankSampleAttributes,
-	// List<BiobankSampleAttribute> sourceBiobankSampleAttributes)
-	// {
-	// List<OntologyTerm> targetOntologyTerms = targetBiobankSampleAttributes.stream()
-	// .flatMap(attribute -> attribute.getTagGroups().stream())
-	// .flatMap(tag -> tag.getOntologyTerms().stream().distinct()).collect(Collectors.toList());
-	//
-	// List<OntologyTerm> sourceOntologyTerms = sourceBiobankSampleAttributes.stream()
-	// .flatMap(attribute -> attribute.getTagGroups().stream())
-	// .flatMap(tag -> tag.getOntologyTerms().stream().distinct()).collect(Collectors.toList());
-	//
-	// if (!targetOntologyTerms.isEmpty() && !sourceOntologyTerms.isEmpty())
-	// {
-	// Map<OntologyTerm, Integer> targetOntologyTermFrequency = getOntologyTermFrequency(targetOntologyTerms);
-	//
-	// Map<OntologyTerm, Integer> sourceOntologyTermFrequency = getOntologyTermFrequency(sourceOntologyTerms);
-	//
-	// double similarity = 0;
-	//
-	// double base = Math.sqrt(targetOntologyTerms.size() * sourceOntologyTerms.size());
-	//
-	// for (Entry<OntologyTerm, Integer> targetEntry : targetOntologyTermFrequency.entrySet())
-	// {
-	// OntologyTerm targetOntologyTerm = targetEntry.getKey();
-	//
-	// Integer targetFrequency = targetEntry.getValue();
-	//
-	// for (Entry<OntologyTerm, Integer> sourceEntry : sourceOntologyTermFrequency.entrySet())
-	// {
-	// OntologyTerm sourceOntologyTerm = sourceEntry.getKey();
-	//
-	// Integer sourceFrequency = sourceEntry.getValue();
-	//
-	// OntologyTermRelated ontologyTermRelated = OntologyTermRelated.create(targetOntologyTerm,
-	// sourceOntologyTerm, OntologyBasedMatcher.STOP_LEVEL);
-	//
-	// Double relatedNess = 0.0d;
-	// try
-	// {
-	// relatedNess = cachedOntologyTermSemanticRelateness.get(ontologyTermRelated);
-	// }
-	// catch (ExecutionException e)
-	// {
-	// LOG.error(e.getMessage());
-	// }
-	//
-	// similarity += relatedNess * targetFrequency * sourceFrequency;
-	// }
-	// }
-	//
-	// return similarity / base;
-	// }
-	//
-	// return 0.0d;
-	// }
-	//
-	// private Map<OntologyTerm, Integer> getOntologyTermFrequency(List<OntologyTerm> ontologyTerms)
-	// {
-	// Map<OntologyTerm, Integer> ontologyTermFrequency = new HashMap<>();
-	//
-	// for (OntologyTerm ot : ontologyTerms)
-	// {
-	// if (!ontologyTermFrequency.containsKey(ot))
-	// {
-	// ontologyTermFrequency.put(ot, 0);
-	// }
-	//
-	// ontologyTermFrequency.put(ot, ontologyTermFrequency.get(ot) + 1);
-	// }
-	// return ontologyTermFrequency;
-	// }
+	@RunAsSystem
+	@Override
+	public void updateBiobankUniverseMemberVectors(BiobankUniverse biobankUniverse)
+	{
+		List<BiobankUniverseMemberVector> biobankUniverseMemberVectors = vectorSpaceModelCollectionSimilarity
+				.createBiobankUniverseMemberVectors(biobankUniverse);
+
+		biobankUniverseRepository.updateBiobankUniverseMemberVectors(biobankUniverse, biobankUniverseMemberVectors);
+	}
 
 	private BiobankSampleAttribute importedAttributEntityToBiobankSampleAttribute(BiobankSampleCollection collection,
 			Entity entity)
@@ -433,10 +308,24 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 		return IdentifiableTagGroup.create(identifier, ontologyTerms, semanticTypes, matchedWords, score);
 	}
-	//
-	// private int getOntologyTermCoverage(List<BiobankSampleAttribute> biobankSampleAttributes)
-	// {
-	// return (int) biobankSampleAttributes.stream().flatMap(attribute -> attribute.getTagGroups().stream())
-	// .flatMap(tag -> tag.getOntologyTerms().stream()).distinct().count();
-	// }
+
+	@Override
+	public List<BiobankSampleCollectionSimilarity> getCollectionSimilarities(BiobankUniverse biobankUniverse)
+	{
+		BiobankUniverseMemberVector[] array = biobankUniverse.getVectors().stream()
+				.toArray(BiobankUniverseMemberVector[]::new);
+
+		List<BiobankSampleCollectionSimilarity> collectionSimilarities = new ArrayList<>();
+		for (int i = 0; i < array.length; i++)
+		{
+			BiobankUniverseMemberVector target = array[i];
+			for (int j = i + 1; j < array.length; j++)
+			{
+				BiobankUniverseMemberVector source = array[j];
+				collectionSimilarities.add(vectorSpaceModelCollectionSimilarity.cosineValue(target, source));
+			}
+		}
+
+		return collectionSimilarities;
+	}
 }

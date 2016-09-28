@@ -148,11 +148,8 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 								previousJoinedTerm);
 						Set<String> currentMatchedWords = removeIllegalCharactersAndStopWords(
 								tagGroup.getMatchedWords());
+
 						// The next TagGroup words should not be present in the previous involved TagGroups
-						// if (!previousJoinedMatchedWords.containsAll(currentMatchedWords)
-						// || ontologyTermGroups.values().stream().map(TagGroup::getOntologyTerm)
-						// .allMatch(ot -> !ontologyService.isDescendant(ot, tagGroup.getOntologyTerm())))
-						// {
 						String joinedTerm = termJoiner
 								.join(Sets.union(previousJoinedMatchedWords, currentMatchedWords));
 						float joinedScore = round(distanceFrom(joinedTerm, queryWords));
@@ -162,7 +159,6 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 						{
 							ontologyTermGroups.put(tagGroup.getMatchedWords(), tagGroup);
 						}
-						// }
 					}
 				}
 

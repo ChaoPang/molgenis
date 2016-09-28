@@ -1,6 +1,7 @@
 package org.molgenis.data.discovery.meta.biobank;
 
 import static org.molgenis.MolgenisFieldTypes.MREF;
+import static org.molgenis.MolgenisFieldTypes.TEXT;
 import static org.molgenis.MolgenisFieldTypes.XREF;
 import static org.molgenis.data.EntityMetaData.AttributeRole.ROLE_ID;
 import static org.molgenis.data.EntityMetaData.AttributeRole.ROLE_LABEL;
@@ -19,6 +20,7 @@ public class BiobankUniverseMetaData extends DefaultEntityMetaData
 	public static final String MEMBERS = "members";
 	public static final String OWNER = "owner";
 	public static final String KEY_CONCEPTS = "keyConcepts";
+	public static final String VECTORS = "vectors";
 	public static final BiobankUniverseMetaData INSTANCE = new BiobankUniverseMetaData();
 
 	public BiobankUniverseMetaData()
@@ -29,5 +31,6 @@ public class BiobankUniverseMetaData extends DefaultEntityMetaData
 		addAttribute(MEMBERS).setDataType(MREF).setRefEntity(BiobankSampleCollectionMetaData.INSTANCE);
 		addAttribute(OWNER).setDataType(XREF).setRefEntity(new MolgenisUserMetaData());
 		addAttribute(KEY_CONCEPTS).setDataType(MREF).setRefEntity(SemanticTypeMetaData.INSTANCE);
+		addAttribute(VECTORS).setDataType(TEXT);
 	}
 }

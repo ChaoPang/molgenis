@@ -22,9 +22,11 @@ public abstract class BiobankUniverse
 
 	public abstract List<SemanticType> getKeyConcepts();
 
+	public abstract List<BiobankUniverseMemberVector> getVectors();
+
 	public static BiobankUniverse create(String identifier, String name, List<BiobankSampleCollection> members,
-			MolgenisUser owner, List<SemanticType> keyConcepts)
+			MolgenisUser owner, List<SemanticType> keyConcepts, List<BiobankUniverseMemberVector> vectors)
 	{
-		return new AutoValue_BiobankUniverse(identifier, name, members, owner, keyConcepts);
+		return new AutoValue_BiobankUniverse(identifier, name, members, owner, keyConcepts, vectors);
 	}
 }

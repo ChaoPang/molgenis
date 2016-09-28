@@ -9,12 +9,20 @@ import java.util.Map;
 
 import org.molgenis.data.DataService;
 import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData;
+import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.ic.TermFrequencyService;
 import org.molgenis.ontology.utils.Stemmer;
 
 import com.google.common.base.Supplier;
 
+/**
+ * This service retrieves the inverse document frequency for the terms that are available derived from all
+ * {@link BiobankSampleAttribute}s
+ * 
+ * @author chaopang
+ *
+ */
 public class AttributeTermFrequencyServiceImpl implements TermFrequencyService
 {
 	private final DataService dataService;

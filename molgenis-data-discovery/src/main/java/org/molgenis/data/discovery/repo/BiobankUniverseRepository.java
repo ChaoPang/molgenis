@@ -3,18 +3,25 @@ package org.molgenis.data.discovery.repo;
 import java.util.List;
 import java.util.stream.Stream;
 
+import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.Query;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
+import org.molgenis.data.discovery.model.biobank.BiobankUniverseMemberVector;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.matching.AttributeMappingDecision;
-import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.core.model.SemanticType;
 
+/**
+ * This repository communicates with the {@link DataService} to manipulate data related to {@link BiobankUniverse}
+ * 
+ * @author chaopang
+ *
+ */
 public interface BiobankUniverseRepository
 {
 	public abstract void addKeyConcepts(BiobankUniverse biobankUniverse, List<SemanticType> semanticTypes);
@@ -195,25 +202,11 @@ public interface BiobankUniverseRepository
 	public abstract List<AttributeMappingCandidate> getAttributeMappingCandidates(Query query);
 
 	/**
-	 * Add a list of {@link BiobankCollectionSimilarity}s
-	 * 
-	 * @param biobankCollectionSimilarities
-	 */
-	public abstract void addCollectionSimilarities(List<BiobankCollectionSimilarity> biobankCollectionSimilarities);
-
-	/**
-	 * Remove a list of {@link BiobankCollectionSimilarity}s from the {@link BiobankUniverse}
-	 * 
-	 * @param biobankCollectionSimilarities
-	 */
-	public abstract void removeCollectionSimilaritiesFromUniverse(BiobankUniverse biobankUniverse);
-
-	/**
-	 * Get a lit of {@link BiobankCollectionSimilarity}s from the {@link BiobankUniverse}
+	 * Update {@link BiobankUniverse} with the new list of {@link BiobankUniverseMemberVector}s
 	 * 
 	 * @param biobankUniverse
-	 * @return
+	 * @param biobankUniverseMemberVectors
 	 */
-	public abstract List<BiobankCollectionSimilarity> getCollectionSimilaritiesFromUniverse(
-			BiobankUniverse biobankUniverse);
+	public abstract void updateBiobankUniverseMemberVectors(BiobankUniverse biobankUniverse,
+			List<BiobankUniverseMemberVector> biobankUniverseMemberVectors);
 }
