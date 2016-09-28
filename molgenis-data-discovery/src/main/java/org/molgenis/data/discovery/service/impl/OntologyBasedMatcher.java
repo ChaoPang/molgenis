@@ -43,12 +43,11 @@ public class OntologyBasedMatcher
 {
 	public static final int STOP_LEVEL = 4;
 	public static final int EXPANSION_LEVEL = 5;
+	public static final int MAX_NUMBER_LEXICAL_MATCHES = 20;
 
 	private static final Logger LOG = LoggerFactory.getLogger(OntologyBasedMatcher.class);
 	private static final String ESCAPED_NODEPATH_SEPARATOR = "\\.";
 	private static final String NODEPATH_SEPARATOR = ".";
-
-	private static final int MAX_NUMBER_LEXICAL_MATCHES = 20;
 
 	private final BiobankUniverseRepository biobankUniverseRepository;
 	private final QueryExpansionService queryExpansionService;
@@ -88,8 +87,29 @@ public class OntologyBasedMatcher
 		LOG.trace("Started lexical match...");
 
 		// Lexical match
+		matchedSourceAttribtues.addAll(lexicalSearchBiobankSampleAttributes(semanticSearchParam));
+
+		// Semantic match
+		List<BiobankSampleAttribute> semanticMatches = semanticSearchParam.getTagGroups().stream()
+				.flatMap(tag -> ontologyService.getAtomicOntologyTerms(tag.getOntologyTerm()).stream()).distinct()
+				.flatMap(ontologyTerm -> semanticSearchBiobankSampleAttributes(ontologyTerm).stream())
+				.collect(toList());
+
+		LOG.trace("Finished semantic match...");
+
+		matchedSourceAttribtues.addAll(semanticMatches);
+
+		return Lists.newArrayList(matchedSourceAttribtues);
+	}
+
+	List<BiobankSampleAttribute> lexicalSearchBiobankSampleAttributes(SemanticSearchParam semanticSearchParam)
+	{
+		List<BiobankSampleAttribute> matches = new ArrayList<>();
+
 		Set<String> lexicalQueries = semanticSearchParam.getLexicalQueries();
+
 		List<TagGroup> tagGroups = semanticSearchParam.getTagGroups();
+
 		QueryExpansionParam queryExpansionParameter = QueryExpansionParam.create(false, false);
 
 		QueryRule expandedQuery = queryExpansionService.expand(lexicalQueries, tagGroups, queryExpansionParameter);
@@ -113,25 +133,13 @@ public class OntologyBasedMatcher
 			LOG.trace("Finished lexical match...");
 			LOG.trace("Started semantic match...");
 
-			matchedSourceAttribtues.addAll(lexicalMatches);
+			matches.addAll(lexicalMatches);
 		}
 
-		// Semantic match
-		List<BiobankSampleAttribute> semanticMatches = semanticSearchParam.getTagGroups().stream()
-				.flatMap(tag -> ontologyService.getAtomicOntologyTerms(tag.getOntologyTerm()).stream()).distinct()
-				.flatMap(ontologyTerm -> semanticSearchBiobankSampleAttributes(ontologyTerm, semanticSearchParam)
-						.stream())
-				.collect(toList());
-
-		LOG.trace("Finished semantic match...");
-
-		matchedSourceAttribtues.addAll(semanticMatches);
-
-		return Lists.newArrayList(matchedSourceAttribtues);
+		return matches;
 	}
 
-	private List<BiobankSampleAttribute> semanticSearchBiobankSampleAttributes(OntologyTerm ontologyTerm,
-			SemanticSearchParam semanticSearchParam)
+	List<BiobankSampleAttribute> semanticSearchBiobankSampleAttributes(OntologyTerm ontologyTerm)
 	{
 		List<BiobankSampleAttribute> candidates = new ArrayList<>();
 
