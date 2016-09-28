@@ -22,7 +22,7 @@ import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.data.discovery.model.matching.MatchedAttributeTagGroup;
-import org.molgenis.data.discovery.scoring.Similarity;
+import org.molgenis.data.discovery.scoring.attributes.AttributeSimilarity;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.core.model.OntologyTerm;
@@ -37,10 +37,10 @@ import com.google.common.collect.Sets;
 public class BiobankUniverseScore
 {
 	private final OntologyService ontologyService;
-	private final Similarity similarity;
+	private final AttributeSimilarity similarity;
 	private final Joiner termJoiner = Joiner.on(' ');
 
-	public BiobankUniverseScore(OntologyService ontologyService, Similarity similarity)
+	public BiobankUniverseScore(OntologyService ontologyService, AttributeSimilarity similarity)
 	{
 		this.ontologyService = requireNonNull(ontologyService);
 		this.similarity = requireNonNull(similarity);
@@ -71,8 +71,8 @@ public class BiobankUniverseScore
 		return findFirst.isPresent() ? findFirst.get() : Hit.create(StringUtils.EMPTY, 0.0f);
 	}
 
-	private Hit<String> calculateScoreForTagPair(BiobankSampleAttribute targetAttribute,
-			BiobankSampleAttribute sourceAttribute, IdentifiableTagGroup targetGroup, IdentifiableTagGroup sourceGroup,
+	Hit<String> calculateScoreForTagPair(BiobankSampleAttribute targetAttribute, BiobankSampleAttribute sourceAttribute,
+			IdentifiableTagGroup targetGroup, IdentifiableTagGroup sourceGroup,
 			Multimap<OntologyTerm, OntologyTerm> relatedOntologyTerms, boolean strictMatch)
 	{
 		List<MatchedAttributeTagGroup> allRelatedOntologyTerms = new ArrayList<>();

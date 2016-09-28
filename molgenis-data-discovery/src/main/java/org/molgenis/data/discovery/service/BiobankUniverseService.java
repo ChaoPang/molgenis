@@ -17,7 +17,6 @@ import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.data.discovery.service.impl.OntologyBasedMatcher;
 import org.molgenis.data.semanticsearch.explain.bean.AttributeMatchExplanation;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
-import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.SemanticType;
 
 public interface BiobankUniverseService
@@ -182,26 +181,6 @@ public interface BiobankUniverseService
 			BiobankSampleCollection biobankSampleAttribute);
 
 	/**
-	 * Compute the average score of the {@link AttributeMappingCandidate}s
-	 * 
-	 * @param attributeMappingCandidates
-	 * @param biobankUniverse
-	 */
-	public abstract void addAverageAttributeSimilarities(List<AttributeMappingCandidate> attributeMappingCandidates,
-			BiobankUniverse biobankUniverse);
-
-	/**
-	 * Calculate the semantic relatedness between two lists of {@link BiobankSampleAttribute}s based on the tagged
-	 * {@link OntologyTerm}s
-	 * 
-	 * @param target
-	 * @param source
-	 * @return
-	 */
-	public abstract double computeAttributesSemanticSimilarity(List<BiobankSampleAttribute> targetBiobankSampleAttributes,
-			List<BiobankSampleAttribute> sourceBiobankSampleAttributes);
-
-	/**
 	 * Compute the {@link BiobankCollectionSimilarity}s between the new members and existing members
 	 * 
 	 * @param biobankUniverse
@@ -213,4 +192,6 @@ public interface BiobankUniverseService
 	public abstract List<BiobankCollectionSimilarity> getCollectionSimilarities(BiobankUniverse biobankUniverse);
 
 	public abstract int countBiobankSampleAttributes(BiobankSampleCollection biobankSampleCollection);
+
+	void updateCollectionSemanticSimilarities(BiobankUniverse biobankUniverse);
 }

@@ -29,6 +29,7 @@ import org.molgenis.data.discovery.model.matching.MatchingExplanation;
 import org.molgenis.data.discovery.service.OntologyBasedExplainService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
+import org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.service.OntologyService;
@@ -41,6 +42,12 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 
+/**
+ * This is the new explain API that explains the candidate matches produced by {@link OntologyBasedMatcher}
+ * 
+ * @author chaopang
+ *
+ */
 public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainService
 {
 	private final static Logger LOG = LoggerFactory.getLogger(OntologyBasedExplainServiceImpl.class);
@@ -180,8 +187,8 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 
 		}).collect(toList());
 
-		String matchedWords = splitIntoUniqueTerms(explanation.getMatchedWords()).stream().map(String::toLowerCase)
-				.filter(word -> !STOPWORDSLIST.contains(word)).collect(joining(" "));
+		String matchedWords = SemanticSearchServiceUtils.splitIntoUniqueTerms(explanation.getMatchedWords()).stream()
+				.map(String::toLowerCase).filter(word -> !STOPWORDSLIST.contains(word)).collect(joining(" "));
 
 		// TODO: for testing purpose
 		return !collect.isEmpty() && matchedWords.length() >= 3;

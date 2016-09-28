@@ -123,8 +123,9 @@ public class BiobankUniverseJobProcessor
 									queryExpansionService, ontologyService))
 							.collect(toList());
 
-					biobankUniverseRepository.getBiobankSampleAttributes(target).forEach(biobankSampleAttribute -> {
-
+					for (BiobankSampleAttribute biobankSampleAttribute : biobankUniverseRepository
+							.getBiobankSampleAttributes(target))
+					{
 						List<SemanticType> keyConceptFilter = biobankUniverse.getKeyConcepts();
 
 						Set<TagGroup> tagGroups = new HashSet<>();
@@ -138,7 +139,7 @@ public class BiobankUniverseJobProcessor
 							{
 								tagGroups.add(TagGroup.create(
 										and(filteredOntologyTerms.stream().toArray(OntologyTerm[]::new)),
-										tagGroup.getMatchedWords(), (float) tagGroup.getScore()));
+										tagGroup.getMatchedWords(), tagGroup.getScore()));
 							}
 						}
 
@@ -156,17 +157,15 @@ public class BiobankUniverseJobProcessor
 							progress.progress(counter.get(), "Processed " + counter);
 						}
 
-					});
+					}
 
 					biobankUniverseRepository.addAttributeMappingCandidates(allCandidates);
-
-					biobankUniverseService.addAverageAttributeSimilarities(allCandidates, biobankUniverse);
-
-					biobankUniverseService.addCollectionSemanticSimilarities(target, existingMembers, biobankUniverse);
 				}
 
 				existingMembers.add(target);
 			}
+
+			biobankUniverseService.updateCollectionSemanticSimilarities(biobankUniverse);
 
 			progress.progress(totalNumberOfAttributes * 2, "Processed " + totalNumberOfAttributes * 2);
 

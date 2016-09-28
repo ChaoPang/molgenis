@@ -137,7 +137,7 @@
 		
 			var maxDistance = Math.max.apply(null, visNetworkReponse.edges.map(function(edge){return edge.length;}));
 			
-			visNetworkReponse.edges.forEach(function(edge){edge.length = (maxDistance - edge.length + 5) * 20});
+			visNetworkReponse.edges.forEach(function(edge){edge.length = (maxDistance - edge.length + 0.05) * 2000});
 		
 		    // create an array with edges
 		    var edges = new vis.DataSet(visNetworkReponse.edges);

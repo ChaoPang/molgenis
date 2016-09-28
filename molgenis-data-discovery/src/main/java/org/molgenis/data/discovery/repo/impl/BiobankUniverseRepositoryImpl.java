@@ -1,11 +1,9 @@
 package org.molgenis.data.discovery.repo.impl;
 
 import static com.google.common.collect.Lists.newArrayList;
-import static java.lang.Math.log10;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 import static java.util.stream.StreamSupport.stream;
 import static org.molgenis.data.QueryRule.Operator.AND;
 import static org.molgenis.data.QueryRule.Operator.EQUALS;
@@ -20,10 +18,7 @@ import static org.molgenis.data.support.QueryImpl.IN;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -64,7 +59,6 @@ import org.molgenis.ontology.core.meta.SemanticTypeMetaData;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.repository.OntologyTermRepository;
-import org.molgenis.ontology.utils.Stemmer;
 import org.molgenis.security.user.MolgenisUserService;
 import org.molgenis.security.user.UserAccountService;
 
@@ -573,30 +567,6 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		dataService.delete(AttributeMappingCandidateMetaData.ENTITY_NAME, attributeMappingCandidateEntities.stream());
 		dataService.delete(MatchingExplanationMetaData.ENTITY_NAME, mappingExplanationStream);
 		dataService.delete(AttributeMappingDecisionMetaData.ENTITY_NAME, attributeMappingDecisionStream);
-	}
-
-	@Override
-	public Map<String, Float> getAttributeTermIDF()
-	{
-		Map<String, Integer> termFrequency = new HashMap<>();
-
-		dataService.findAll(BiobankSampleAttributeMetaData.ENTITY_NAME).forEach(entity -> {
-			String label = entity.getString(BiobankSampleAttributeMetaData.LABEL);
-			for (String word : Stemmer.splitAndStem(label))
-			{
-				if (!termFrequency.containsKey(word))
-				{
-					termFrequency.put(word, 0);
-				}
-				termFrequency.put(word, termFrequency.get(word) + 1);
-			}
-		});
-
-		long count = dataService.count(BiobankSampleAttributeMetaData.ENTITY_NAME,
-				QueryImpl.query().pageSize(Integer.MAX_VALUE));
-
-		return termFrequency.entrySet().stream()
-				.collect(toMap(Entry::getKey, entry -> (float) log10(count / entry.getValue())));
 	}
 
 	private BiobankCollectionSimilarity entityToBiobankCollectionSimilarity(Entity entity)

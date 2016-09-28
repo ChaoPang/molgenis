@@ -63,14 +63,8 @@ public class OntologyBasedMatcher
 			BiobankUniverseRepository biobankUniverseRepository, QueryExpansionService queryExpansionService,
 			OntologyService ontologyService)
 	{
-		this.nodePathRegistry = LinkedHashMultimap.create();
-		this.descendantNodePathsRegistry = LinkedHashMultimap.create();
-		this.biobankUniverseRepository = requireNonNull(biobankUniverseRepository);
-		this.queryExpansionService = requireNonNull(queryExpansionService);
-		this.ontologyService = requireNonNull(ontologyService);
-		this.biobankSampleAttributes = biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection);
-		this.cachedBiobankSampleAttributes = new HashMap<>();
-		construct();
+		this(biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection), biobankUniverseRepository,
+				queryExpansionService, ontologyService);
 	}
 
 	public OntologyBasedMatcher(List<BiobankSampleAttribute> biobankSampleAttributes,
@@ -84,17 +78,14 @@ public class OntologyBasedMatcher
 		this.ontologyService = requireNonNull(ontologyService);
 		this.biobankSampleAttributes = requireNonNull(biobankSampleAttributes);
 		this.cachedBiobankSampleAttributes = new HashMap<>();
-		construct();
+		constructTree();
 	}
 
 	public List<BiobankSampleAttribute> match(SemanticSearchParam semanticSearchParam)
 	{
 		Set<BiobankSampleAttribute> matchedSourceAttribtues = new LinkedHashSet<>();
 
-		if (LOG.isTraceEnabled())
-		{
-			LOG.trace("Started lexical match...");
-		}
+		LOG.trace("Started lexical match...");
 
 		// Lexical match
 		Set<String> lexicalQueries = semanticSearchParam.getLexicalQueries();
@@ -119,11 +110,8 @@ public class OntologyBasedMatcher
 					.queryBiobankSampleAttribute(new QueryImpl(finalQueryRules).pageSize(MAX_NUMBER_LEXICAL_MATCHES))
 					.collect(Collectors.toList());
 
-			if (LOG.isTraceEnabled())
-			{
-				LOG.trace("Finished lexical match...");
-				LOG.trace("Started semantic match...");
-			}
+			LOG.trace("Finished lexical match...");
+			LOG.trace("Started semantic match...");
 
 			matchedSourceAttribtues.addAll(lexicalMatches);
 		}
@@ -131,20 +119,18 @@ public class OntologyBasedMatcher
 		// Semantic match
 		List<BiobankSampleAttribute> semanticMatches = semanticSearchParam.getTagGroups().stream()
 				.flatMap(tag -> ontologyService.getAtomicOntologyTerms(tag.getOntologyTerm()).stream()).distinct()
-				.flatMap(ontologyTerm -> findBiobankSampleAttributes(ontologyTerm, semanticSearchParam).stream())
+				.flatMap(ontologyTerm -> semanticSearchBiobankSampleAttributes(ontologyTerm, semanticSearchParam)
+						.stream())
 				.collect(toList());
 
-		if (LOG.isTraceEnabled())
-		{
-			LOG.trace("Finished semantic match...");
-		}
+		LOG.trace("Finished semantic match...");
 
 		matchedSourceAttribtues.addAll(semanticMatches);
 
 		return Lists.newArrayList(matchedSourceAttribtues);
 	}
 
-	private List<BiobankSampleAttribute> findBiobankSampleAttributes(OntologyTerm ontologyTerm,
+	private List<BiobankSampleAttribute> semanticSearchBiobankSampleAttributes(OntologyTerm ontologyTerm,
 			SemanticSearchParam semanticSearchParam)
 	{
 		List<BiobankSampleAttribute> candidates = new ArrayList<>();
@@ -179,15 +165,11 @@ public class OntologyBasedMatcher
 		}
 
 		return candidates;
-
 	}
 
-	private void construct()
+	private void constructTree()
 	{
-		if (LOG.isTraceEnabled())
-		{
-			LOG.trace("Starting to construct the tree...");
-		}
+		LOG.trace("Starting to construct the tree...");
 
 		for (BiobankSampleAttribute biobankSampleAttribute : biobankSampleAttributes)
 		{
@@ -216,10 +198,7 @@ public class OntologyBasedMatcher
 					});
 		}
 
-		if (LOG.isTraceEnabled())
-		{
-			LOG.trace("Finished constructing the tree...");
-		}
+		LOG.trace("Finished constructing the tree...");
 	}
 
 	int getNodePathLevel(String nodePath)

@@ -2,6 +2,7 @@ package org.molgenis.data.discovery.validation;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -10,6 +11,8 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.DoubleStream;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import org.molgenis.auth.MolgenisUser;
@@ -22,6 +25,7 @@ import org.molgenis.data.discovery.model.matching.MatchingExplanation;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.discovery.service.impl.OntologyBasedMatcher;
+import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.bean.QueryExpansionParam;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
@@ -84,54 +88,33 @@ public class CalculateSimilaritySimulationImpl implements CalculateSimilaritySim
 
 		Map<String, Boolean> cachedRelationships = new HashMap<>();
 
-		// System.out.println("OntologyTerm experiments");
-		// CsvRepository csvRepository = new CsvRepository(
-		// "/Users/chaopang/Desktop/BiobankUniverse_HOP_evaluation/queryExpansion_ontologyExplainApi/test_new_algorithm/ontologyTerm_ids.csv");
-		//
-		// List<String> collect = StreamSupport.stream(csvRepository.spliterator(), false)
-		// .map(entity -> entity.getString("id")).collect(Collectors.toList());
-		//
-		// for (int i = 0; i < 100; i++)
-		// {
-		// List<OntologyTerm> ontologyTerms1 = ontologyService.getRandomontologyTerms(getRandaomIds(collect, 1000));
-		//
-		// List<OntologyTerm> ontologyTerms2 = ontologyService.getRandomontologyTerms(getRandaomIds(collect, 1000));
-		//
-		// int tagSize = (int) Math.sqrt(
-		// Math.sqrt(ontologyTerms1.stream().distinct().count() * ontologyTerms2.stream().distinct().count()));
-		//
-		// double similarity = calculateSimilarityBasedonTags(ontologyTerms1, ontologyTerms2, cachedRelatedness);
-		//
-		// System.out.format("Experiment: %d;%d;%.4f%n", i + 1, tagSize, similarity);
-		// }
-
 		System.out.println("Experiment 1: random matches only");
 
-		for (int i = 0; i < 300; i++)
-		{
-			int targetTotal = (int) Math.floor(Math.random() * targetAttributes.size());
-
-			int sourceTotal = (int) Math.floor(Math.random() * sourceAttributes.size());
-
-			int population = (int) Math.sqrt(targetTotal * sourceTotal);
-
-			List<BiobankSampleAttribute> randomTargetAttributes = randomizeSlicedAttributes(targetAttributes,
-					targetTotal);
-
-			List<BiobankSampleAttribute> randomSourceAttributes = randomizeSlicedAttributes(sourceAttributes,
-					sourceTotal);
-
-			int numberOfMatches = getNumberOfMatches(randomTargetAttributes, randomSourceAttributes, relevantMatches);
-
-			int tagSize = (int) Math.sqrt(Math.sqrt(
-					getNumberOfUniqueTags(randomTargetAttributes) * getNumberOfUniqueTags(randomSourceAttributes)));
-
-			double similarity = population == 0 ? 0 : calculateSimilarityBasedonTags(randomTargetAttributes,
-					randomSourceAttributes, cachedRelatedness, cachedRelationships);
-
-			System.out.format("Experiment: %d;%d;%d;%d;%.4f%n", i + 1, population, tagSize, numberOfMatches,
-					similarity);
-		}
+		// for (int i = 0; i < 500; i++)
+		// {
+		// int targetTotal = (int) Math.floor(Math.random() * targetAttributes.size());
+		//
+		// int sourceTotal = (int) Math.floor(Math.random() * sourceAttributes.size());
+		//
+		// int population = (int) Math.sqrt(targetTotal * sourceTotal);
+		//
+		// List<BiobankSampleAttribute> randomTargetAttributes = randomizeSlicedAttributes(targetAttributes,
+		// targetTotal);
+		//
+		// List<BiobankSampleAttribute> randomSourceAttributes = randomizeSlicedAttributes(sourceAttributes,
+		// sourceTotal);
+		//
+		// int numberOfMatches = getNumberOfMatches(randomTargetAttributes, randomSourceAttributes, relevantMatches);
+		//
+		// int tagSize = (int) Math.sqrt(Math.sqrt(
+		// getNumberOfUniqueTags(randomTargetAttributes) * getNumberOfUniqueTags(randomSourceAttributes)));
+		//
+		// double similarity = population == 0 ? 0 : calculateSimilarityBasedonTags(randomTargetAttributes,
+		// randomSourceAttributes, cachedRelatedness, cachedRelationships);
+		//
+		// System.out.format("Experiment: %d;%d;%d;%d;%.4f%n", i + 1, population, tagSize, numberOfMatches,
+		// similarity);
+		// }
 
 		for (int i = 0; i < 200; i++)
 		{
@@ -164,65 +147,65 @@ public class CalculateSimilaritySimulationImpl implements CalculateSimilaritySim
 
 			System.out.format("Experiment: %d;%d;%d;%d;%.4f%n", i + 1, population, tagSize, 0, similarity);
 		}
-
-		System.out.println("\nExperiment 2: true matches only");
-
-		for (int i = 0; i < 1000; i++)
-		{
-			int size = i < 500 ? 0 : ((int) Math.floor(Math.random() * relevantMatches.size()) + 1);
-
-			Multimap<String, String> randomizeSlicedMatches = randomizeSlicedMatches(relevantMatches, size);
-
-			List<BiobankSampleAttribute> randomTargetAttributes = targetAttributes.stream()
-					.filter(targetAttribute -> randomizeSlicedMatches.containsKey(targetAttribute.getName()))
-					.collect(Collectors.toList());
-
-			List<BiobankSampleAttribute> randomSourceAttributes = sourceAttributes.stream()
-					.filter(sourceAttribute -> randomizeSlicedMatches.containsValue(sourceAttribute.getName()))
-					.collect(Collectors.toList());
-
-			int targetTotal = (int) Math.floor(Math.random() * targetAttributes.size());
-
-			List<BiobankSampleAttribute> randomTargetAttributes2 = randomizeSlicedAttributes(targetAttributes,
-					targetTotal);
-
-			Set<String> collect = randomTargetAttributes2.stream().map(BiobankSampleAttribute::getName)
-					.filter(relevantMatches::containsKey)
-					.flatMap(targetAttributeName -> relevantMatches.get(targetAttributeName).stream())
-					.collect(Collectors.toSet());
-
-			collect.addAll(
-					randomSourceAttributes.stream().map(BiobankSampleAttribute::getName).collect(Collectors.toSet()));
-
-			List<BiobankSampleAttribute> validSourceAttributes = sourceAttributes.stream()
-					.filter(sourceAttribute -> !collect.contains(sourceAttribute.getName()))
-					.collect(Collectors.toList());
-
-			int sourceTotal = (int) Math.floor(Math.random() * validSourceAttributes.size());
-
-			List<BiobankSampleAttribute> randomSourceAttributes2 = randomizeSlicedAttributes(validSourceAttributes,
-					sourceTotal);
-
-			randomTargetAttributes.addAll(randomTargetAttributes2);
-
-			randomSourceAttributes.addAll(randomSourceAttributes2);
-
-			randomTargetAttributes = randomTargetAttributes.stream().distinct().collect(Collectors.toList());
-
-			randomSourceAttributes = randomSourceAttributes.stream().distinct().collect(Collectors.toList());
-
-			int numberOfMatches = getNumberOfMatches(randomTargetAttributes, randomSourceAttributes, relevantMatches);
-
-			int population = (int) Math.sqrt(randomTargetAttributes.size() * randomSourceAttributes.size());
-
-			double similarity = population == 0 ? 0 : calculateSimilarityBasedonTags(randomTargetAttributes,
-					randomSourceAttributes, cachedRelatedness, cachedRelationships);
-
-			int tagSize = (int) Math.sqrt(Math.sqrt(
-					getNumberOfUniqueTags(randomTargetAttributes) * getNumberOfUniqueTags(randomSourceAttributes)));
-
-			System.out.format("Experiment: %d;%d;%d;%d;%.4f%n", i, population, tagSize, numberOfMatches, similarity);
-		}
+		//
+		// System.out.println("\nExperiment 2: true matches only");
+		//
+		// for (int i = 0; i < 600; i++)
+		// {
+		// int size = i < 300 ? 0 : ((int) Math.floor(Math.random() * relevantMatches.size()) + 1);
+		//
+		// Multimap<String, String> randomizeSlicedMatches = randomizeSlicedMatches(relevantMatches, size);
+		//
+		// List<BiobankSampleAttribute> randomTargetAttributes = targetAttributes.stream()
+		// .filter(targetAttribute -> randomizeSlicedMatches.containsKey(targetAttribute.getName()))
+		// .collect(Collectors.toList());
+		//
+		// List<BiobankSampleAttribute> randomSourceAttributes = sourceAttributes.stream()
+		// .filter(sourceAttribute -> randomizeSlicedMatches.containsValue(sourceAttribute.getName()))
+		// .collect(Collectors.toList());
+		//
+		// int targetTotal = (int) Math.floor(Math.random() * targetAttributes.size());
+		//
+		// List<BiobankSampleAttribute> randomTargetAttributes2 = randomizeSlicedAttributes(targetAttributes,
+		// targetTotal);
+		//
+		// Set<String> collect = randomTargetAttributes2.stream().map(BiobankSampleAttribute::getName)
+		// .filter(relevantMatches::containsKey)
+		// .flatMap(targetAttributeName -> relevantMatches.get(targetAttributeName).stream())
+		// .collect(Collectors.toSet());
+		//
+		// collect.addAll(
+		// randomSourceAttributes.stream().map(BiobankSampleAttribute::getName).collect(Collectors.toSet()));
+		//
+		// List<BiobankSampleAttribute> validSourceAttributes = sourceAttributes.stream()
+		// .filter(sourceAttribute -> !collect.contains(sourceAttribute.getName()))
+		// .collect(Collectors.toList());
+		//
+		// int sourceTotal = (int) Math.floor(Math.random() * validSourceAttributes.size());
+		//
+		// List<BiobankSampleAttribute> randomSourceAttributes2 = randomizeSlicedAttributes(validSourceAttributes,
+		// sourceTotal);
+		//
+		// randomTargetAttributes.addAll(randomTargetAttributes2);
+		//
+		// randomSourceAttributes.addAll(randomSourceAttributes2);
+		//
+		// randomTargetAttributes = randomTargetAttributes.stream().distinct().collect(Collectors.toList());
+		//
+		// randomSourceAttributes = randomSourceAttributes.stream().distinct().collect(Collectors.toList());
+		//
+		// int numberOfMatches = getNumberOfMatches(randomTargetAttributes, randomSourceAttributes, relevantMatches);
+		//
+		// int population = (int) Math.sqrt(randomTargetAttributes.size() * randomSourceAttributes.size());
+		//
+		// double similarity = population == 0 ? 0 : calculateSimilarityBasedonTags(randomTargetAttributes,
+		// randomSourceAttributes, cachedRelatedness, cachedRelationships);
+		//
+		// int tagSize = (int) Math.sqrt(Math.sqrt(
+		// getNumberOfUniqueTags(randomTargetAttributes) * getNumberOfUniqueTags(randomSourceAttributes)));
+		//
+		// System.out.format("Experiment: %d;%d;%d;%d;%.4f%n", i, population, tagSize, numberOfMatches, similarity);
+		// }
 	}
 
 	double calculateSimilarityBasedonMatches(List<BiobankSampleAttribute> randomTargetAttributes,
@@ -332,7 +315,6 @@ public class CalculateSimilaritySimulationImpl implements CalculateSimilaritySim
 		}
 
 		return uniqueOntologyTerms;
-
 	}
 
 	double calculateSimilarityBasedonTags(List<OntologyTerm> targetOntologyTerms,
@@ -387,6 +369,73 @@ public class CalculateSimilaritySimulationImpl implements CalculateSimilaritySim
 		return similarity / base;
 	}
 
+	private float cosineValue(double[] vectorOne, double[] vectorTwo)
+	{
+		double docProduct = 0.0;
+
+		if (vectorOne.length != vectorTwo.length) return 0;
+
+		for (int i = 0; i < vectorOne.length; i++)
+		{
+			docProduct += vectorOne[i] * vectorTwo[i];
+		}
+
+		return (float) (docProduct / (euclideanNorms(vectorOne) * euclideanNorms(vectorTwo)));
+	}
+
+	private double euclideanNorms(double[] vector)
+	{
+		double sum = DoubleStream.of(vector).map(f -> Math.pow(f, 2.0)).sum();
+		return Math.sqrt(sum);
+	}
+
+	private double[] createVector(Map<OntologyTerm, Integer> targetOntologyTermFrequency,
+			List<OntologyTerm> uniqueOntologyTermList, Map<String, Double> cachedRelatedness,
+			Map<String, Boolean> cachedRelationships)
+	{
+		double[] vector = new double[uniqueOntologyTermList.size()];
+
+		for (OntologyTerm target : targetOntologyTermFrequency.keySet())
+		{
+			String targetIri = target.getIRI();
+
+			List<Hit<OntologyTerm>> hits = new ArrayList<>();
+
+			for (OntologyTerm source : uniqueOntologyTermList)
+			{
+				String sourceIri = source.getIRI();
+				String identifier = targetIri + sourceIri;
+
+				if (!cachedRelatedness.containsKey(identifier))
+				{
+					if (ontologyService.related(target, source, OntologyBasedMatcher.STOP_LEVEL))
+					{
+						Double ontologyTermSemanticRelatedness = ontologyService
+								.getOntologyTermSemanticRelatedness(target, source);
+
+						cachedRelatedness.put(identifier, ontologyTermSemanticRelatedness);
+					}
+					else
+					{
+						cachedRelatedness.put(identifier, 0.0);
+					}
+				}
+
+				hits.add(Hit.create(source, cachedRelatedness.get(identifier).floatValue()));
+			}
+
+			if (!hits.isEmpty())
+			{
+				Collections.sort(hits, Comparator.reverseOrder());
+				OntologyTerm source = hits.get(0).getResult();
+				int index = uniqueOntologyTermList.indexOf(source);
+				vector[index] = hits.get(0).getScore();
+			}
+		}
+
+		return vector;
+	}
+
 	double calculateSimilarityBasedonTags(List<BiobankSampleAttribute> randomTargetAttributes,
 			List<BiobankSampleAttribute> randomSourceAttributes, Map<String, Double> cachedRelatedness,
 			Map<String, Boolean> cachedRelationships)
@@ -403,50 +452,79 @@ public class CalculateSimilaritySimulationImpl implements CalculateSimilaritySim
 
 		Map<OntologyTerm, Integer> sourceOntologyTermFrequency = getOntologyTermFrequency(sourceOntologyTerms);
 
-		double similarity = 0;
+		List<OntologyTerm> uniqueOntologyTermList = Stream
+				.concat(targetOntologyTerms.stream().distinct(), sourceOntologyTerms.stream().distinct()).distinct()
+				.collect(Collectors.toList());
 
-		double base = Math.sqrt(targetOntologyTerms.size() * sourceOntologyTerms.size());
+		double[] targetVector = createVector(targetOntologyTermFrequency, uniqueOntologyTermList, cachedRelatedness,
+				cachedRelationships);
 
-		for (Entry<OntologyTerm, Integer> targetEntry : targetOntologyTermFrequency.entrySet())
-		{
-			OntologyTerm targetOntologyTerm = targetEntry.getKey();
+		double[] sourceVector = createVector(sourceOntologyTermFrequency, uniqueOntologyTermList, cachedRelatedness,
+				cachedRelationships);
 
-			Integer targetFrequency = targetEntry.getValue();
-
-			for (Entry<OntologyTerm, Integer> sourceEntry : sourceOntologyTermFrequency.entrySet())
-			{
-				OntologyTerm sourceOntologyTerm = sourceEntry.getKey();
-
-				Integer sourceFrequency = sourceEntry.getValue();
-
-				String identifier = targetOntologyTerm.getIRI() + sourceOntologyTerm.getIRI();
-
-				if (cachedRelatedness.containsKey(identifier))
-				{
-					similarity += cachedRelatedness.get(identifier) * targetFrequency * sourceFrequency;
-				}
-				else
-				{
-					if (ontologyService.related(targetOntologyTerm, sourceOntologyTerm,
-							OntologyBasedMatcher.STOP_LEVEL))
-					{
-						Double ontologyTermSemanticRelatedness = ontologyService
-								.getOntologyTermSemanticRelatedness(targetOntologyTerm, sourceOntologyTerm);
-
-						similarity += ontologyTermSemanticRelatedness * targetFrequency * sourceFrequency;
-
-						cachedRelatedness.put(identifier, ontologyTermSemanticRelatedness);
-					}
-					else
-					{
-						cachedRelatedness.put(identifier, 0.0);
-					}
-				}
-			}
-		}
-
-		return similarity / base;
+		return cosineValue(targetVector, sourceVector);
 	}
+
+	// double calculateSimilarityBasedonTags(List<BiobankSampleAttribute> randomTargetAttributes,
+	// List<BiobankSampleAttribute> randomSourceAttributes, Map<String, Double> cachedRelatedness,
+	// Map<String, Boolean> cachedRelationships)
+	// {
+	// List<OntologyTerm> targetOntologyTerms = randomTargetAttributes.stream()
+	// .flatMap(attribute -> attribute.getTagGroups().stream())
+	// .flatMap(tag -> tag.getOntologyTerms().stream().distinct()).collect(Collectors.toList());
+	//
+	// List<OntologyTerm> sourceOntologyTerms = randomSourceAttributes.stream()
+	// .flatMap(attribute -> attribute.getTagGroups().stream())
+	// .flatMap(tag -> tag.getOntologyTerms().stream().distinct()).collect(Collectors.toList());
+	//
+	// Map<OntologyTerm, Integer> targetOntologyTermFrequency = getOntologyTermFrequency(targetOntologyTerms);
+	//
+	// Map<OntologyTerm, Integer> sourceOntologyTermFrequency = getOntologyTermFrequency(sourceOntologyTerms);
+	//
+	// double similarity = 0;
+	//
+	// double base = Math.sqrt(targetOntologyTerms.size() * sourceOntologyTerms.size());
+	//
+	// for (Entry<OntologyTerm, Integer> targetEntry : targetOntologyTermFrequency.entrySet())
+	// {
+	// OntologyTerm targetOntologyTerm = targetEntry.getKey();
+	//
+	// Integer targetFrequency = targetEntry.getValue();
+	//
+	// for (Entry<OntologyTerm, Integer> sourceEntry : sourceOntologyTermFrequency.entrySet())
+	// {
+	// OntologyTerm sourceOntologyTerm = sourceEntry.getKey();
+	//
+	// Integer sourceFrequency = sourceEntry.getValue();
+	//
+	// String identifier = targetOntologyTerm.getIRI() + sourceOntologyTerm.getIRI();
+	//
+	// if (cachedRelatedness.containsKey(identifier))
+	// {
+	// similarity += cachedRelatedness.get(identifier) * targetFrequency * sourceFrequency;
+	// }
+	// else
+	// {
+	// if (ontologyService.related(targetOntologyTerm, sourceOntologyTerm,
+	// OntologyBasedMatcher.STOP_LEVEL))
+	// {
+	// Double ontologyTermSemanticRelatedness = ontologyService
+	// .getOntologyTermSemanticRelatedness(targetOntologyTerm, sourceOntologyTerm);
+	//
+	// similarity += ontologyTermSemanticRelatedness * targetFrequency * sourceFrequency;
+	//
+	// cachedRelatedness.put(identifier, ontologyTermSemanticRelatedness);
+	// }
+	// else
+	// {
+	// cachedRelatedness.put(identifier, 0.0);
+	// }
+	// }
+	// }
+	// }
+	//
+	// return similarity / base;
+	// }
 
 	int getNumberOfMatches(List<BiobankSampleAttribute> randomTargetAttributes,
 			List<BiobankSampleAttribute> randomSourceAttributes, Multimap<String, String> relevantMatches)

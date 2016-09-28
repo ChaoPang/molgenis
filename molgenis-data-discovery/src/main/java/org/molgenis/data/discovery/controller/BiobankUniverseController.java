@@ -58,7 +58,6 @@ import org.molgenis.security.core.runas.RunAsSystemProxy;
 import org.molgenis.security.core.utils.SecurityUtils;
 import org.molgenis.security.user.UserAccountService;
 import org.molgenis.ui.MolgenisPluginController;
-import org.molgenis.ui.menu.MenuReaderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -83,7 +82,6 @@ public class BiobankUniverseController extends MolgenisPluginController
 	private final BiobankUniverseService biobankUniverseService;
 	private final OntologyService ontologyService;
 	private final UserAccountService userAccountService;
-	private final MenuReaderService menuReaderService;
 	private final CalculateSimilaritySimulationImpl calculateSimilaritySimulation;
 	private final FileStore fileStore;
 
@@ -97,9 +95,8 @@ public class BiobankUniverseController extends MolgenisPluginController
 	public BiobankUniverseController(TagGroupGenerator tagGroupGenerator,
 			BiobankUniverseJobFactory biobankUniverseJobFactory, BiobankUniverseService biobankUniverseService,
 			OntologyService ontologyService, ExecutorService taskExecutor, UserAccountService userAccountService,
-			DataService dataService, FileStore fileStore, MenuReaderService menuReaderService,
-			QueryExpansionService queryExpansionService, BiobankUniverseRepository biobankUniverseRepository,
-			LanguageService languageService)
+			DataService dataService, FileStore fileStore, QueryExpansionService queryExpansionService,
+			BiobankUniverseRepository biobankUniverseRepository, LanguageService languageService)
 	{
 		super(URI);
 		this.tagGroupGenerator = requireNonNull(tagGroupGenerator);
@@ -110,7 +107,6 @@ public class BiobankUniverseController extends MolgenisPluginController
 		this.dataService = requireNonNull(dataService);
 		this.fileStore = requireNonNull(fileStore);
 		this.userAccountService = requireNonNull(userAccountService);
-		this.menuReaderService = requireNonNull(menuReaderService);
 
 		this.calculateSimilaritySimulation = new CalculateSimilaritySimulationImpl(ontologyService,
 				biobankUniverseService, biobankUniverseRepository, queryExpansionService);
@@ -191,6 +187,8 @@ public class BiobankUniverseController extends MolgenisPluginController
 					throws Exception
 	{
 		BiobankUniverse biobankUniverse = biobankUniverseService.getBiobankUniverse(identifier);
+
+		biobankUniverseService.updateCollectionSemanticSimilarities(biobankUniverse);
 
 		Map<String, List<BiobankCollectionSimilarity>> attributeSimilarityMap = new LinkedHashMap<>();
 
@@ -407,10 +405,5 @@ public class BiobankUniverseController extends MolgenisPluginController
 	private List<BiobankSampleCollection> getBiobankSampleCollecitons()
 	{
 		return biobankUniverseService.getAllBiobankSampleCollections();
-	}
-
-	private String getBiobankUniverseMenuUrl()
-	{
-		return menuReaderService.getMenu().findMenuItemPath(ID);
 	}
 }

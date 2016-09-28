@@ -1,7 +1,6 @@
 package org.molgenis.data.discovery.repo;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
 
 import org.molgenis.data.Entity;
@@ -217,11 +216,4 @@ public interface BiobankUniverseRepository
 	 */
 	public abstract List<BiobankCollectionSimilarity> getCollectionSimilaritiesFromUniverse(
 			BiobankUniverse biobankUniverse);
-
-	/**
-	 * Compute the attribute word inverse document frequencies from {@link BiobankSampleAttribute}s
-	 * 
-	 * @return
-	 */
-	public abstract Map<String, Float> getAttributeTermIDF();
 }

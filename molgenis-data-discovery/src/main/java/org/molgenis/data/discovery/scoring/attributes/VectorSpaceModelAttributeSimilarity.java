@@ -1,7 +1,6 @@
-package org.molgenis.data.discovery.scoring;
+package org.molgenis.data.discovery.scoring.attributes;
 
 import static java.util.stream.Collectors.toList;
-import static org.molgenis.data.discovery.scoring.Similarity.SimilarityFunctionName.VSM;
 
 import java.util.List;
 import java.util.stream.DoubleStream;
@@ -9,11 +8,17 @@ import java.util.stream.Stream;
 
 import org.molgenis.ontology.ic.TermFrequencyService;
 
-public class VectorSpaceModelSimilarity extends Similarity
+/**
+ * TODO + FIXME
+ * 
+ * @author chaopang
+ *
+ */
+public class VectorSpaceModelAttributeSimilarity extends AttributeSimilarity
 {
-	public VectorSpaceModelSimilarity(TermFrequencyService termFrequencyService)
+	public VectorSpaceModelAttributeSimilarity(TermFrequencyService termFrequencyService)
 	{
-		super(VSM, termFrequencyService);
+		super(SimilarityFunctionName.VSM, termFrequencyService);
 	}
 
 	@Override

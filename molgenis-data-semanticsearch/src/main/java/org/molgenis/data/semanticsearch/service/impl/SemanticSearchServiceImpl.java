@@ -64,6 +64,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		this.parameterFactory = requireNonNull(semanticSearchParameterFactory);
 	}
 
+	// TODO toss me out
 	@Override
 	public List<AttributeMetaData> findAttributesLazy(SemanticSearchParam semanticSearchParam,
 			EntityMetaData sourceEntityMetaData)
@@ -75,6 +76,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 				.map(attr -> explainedAttrToAttributeMetaData(attr, sourceEntityMetaData)).collect(toList());
 	}
 
+	// TODO toss me out
 	@Override
 	public List<ExplainedAttributeMetaData> findAttributesLazyWithExplanations(SemanticSearchParam semanticSearchParam,
 			EntityMetaData sourceEntityMetaData)
@@ -106,6 +108,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		return convertMatchedAttributesToExplainAttributes(semanticSearchParam, matchedSourceAttributes);
 	}
 
+	// TODO toss me out
 	@Override
 	public List<ExplainedAttributeMetaData> findAttributesWithExplanation(SemanticSearchParam semanticSearchParam,
 			EntityMetaData sourceEntityMetaData)

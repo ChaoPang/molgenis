@@ -15,6 +15,7 @@ public class BiobankUniverseJobExecutionMetaData extends DefaultEntityMetaData
 	public final static String ENTITY_NAME = "BiobankUniverseJobExecution";
 	public final static String UNIVERSE = "universe";
 	public final static String MEMBERS = "members";
+
 	public final static BiobankUniverseJobExecutionMetaData INSTANCE = new BiobankUniverseJobExecutionMetaData();
 
 	public BiobankUniverseJobExecutionMetaData()

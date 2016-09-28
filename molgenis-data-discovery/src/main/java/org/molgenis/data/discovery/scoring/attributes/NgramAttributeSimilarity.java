@@ -1,6 +1,5 @@
-package org.molgenis.data.discovery.scoring;
+package org.molgenis.data.discovery.scoring.attributes;
 
-import static org.molgenis.data.discovery.scoring.Similarity.SimilarityFunctionName.NGRAM;
 import static org.molgenis.ontology.utils.NGramDistanceAlgorithm.stringMatching;
 
 import java.util.HashMap;
@@ -12,11 +11,11 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.ontology.ic.TermFrequencyService;
 
-public class NgramSimilarity extends Similarity
+public class NgramAttributeSimilarity extends AttributeSimilarity
 {
-	public NgramSimilarity(TermFrequencyService termFrequencyService)
+	public NgramAttributeSimilarity(TermFrequencyService termFrequencyService)
 	{
-		super(NGRAM, termFrequencyService);
+		super(SimilarityFunctionName.NGRAM, termFrequencyService);
 	}
 
 	@Override

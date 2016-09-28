@@ -8,14 +8,11 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity.SimilarityOption.SEMANTIC;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -29,10 +26,12 @@ import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
 import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity;
-import org.molgenis.data.discovery.model.matching.BiobankCollectionSimilarity.SimilarityOption;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
-import org.molgenis.data.discovery.scoring.VectorSpaceModelSimilarity;
+import org.molgenis.data.discovery.scoring.attributes.VectorSpaceModelAttributeSimilarity;
+import org.molgenis.data.discovery.scoring.collections.CollectionSimilarity;
+import org.molgenis.data.discovery.scoring.collections.CollectionSimilarityResult;
+import org.molgenis.data.discovery.scoring.collections.VectorSpaceModelCollectionSimilarity;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.discovery.service.OntologyBasedExplainService;
 import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
@@ -40,7 +39,6 @@ import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.ontology.core.model.OntologyTerm;
-import org.molgenis.ontology.core.model.OntologyTermRelated;
 import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.ic.TermFrequencyService;
@@ -50,13 +48,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Table;
-import com.google.common.collect.Table.Cell;
 
 public class BiobankUniverseServiceImpl implements BiobankUniverseService
 {
@@ -68,24 +60,8 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	private final OntologyService ontologyService;
 	private final TagGroupGenerator tagGroupGenerator;
 	private final OntologyBasedExplainService ontologyBasedExplainService;
-	private final BiobankUniverseScore similarity;
-
-	private LoadingCache<OntologyTermRelated, Double> cachedOntologyTermSemanticRelateness = CacheBuilder.newBuilder()
-			.maximumSize(2000).expireAfterWrite(1, TimeUnit.HOURS).build(new CacheLoader<OntologyTermRelated, Double>()
-			{
-				public Double load(OntologyTermRelated ontologyTermRelated)
-				{
-					if (ontologyService.related(ontologyTermRelated.getTarget(), ontologyTermRelated.getSource(),
-							ontologyTermRelated.getStopLevel()))
-					{
-						Double ontologyTermSemanticRelatedness = ontologyService.getOntologyTermSemanticRelatedness(
-								ontologyTermRelated.getTarget(), ontologyTermRelated.getSource());
-
-						return ontologyTermSemanticRelatedness;
-					}
-					return 0.0d;
-				}
-			});
+	private final BiobankUniverseScore biobankUniverseScore;
+	private final CollectionSimilarity collectionSimilarity;
 
 	@Autowired
 	public BiobankUniverseServiceImpl(IdGenerator idGenerator, BiobankUniverseRepository biobankUniverseRepository,
@@ -98,8 +74,10 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		this.ontologyService = requireNonNull(ontologyService);
 		this.tagGroupGenerator = requireNonNull(tagGroupGenerator);
 		this.ontologyBasedExplainService = requireNonNull(ontologyBasedExplainService);
-		this.similarity = new BiobankUniverseScore(ontologyService,
-				new VectorSpaceModelSimilarity(termFrequencyService));
+		this.biobankUniverseScore = new BiobankUniverseScore(ontologyService,
+				new VectorSpaceModelAttributeSimilarity(termFrequencyService));
+		this.collectionSimilarity = new VectorSpaceModelCollectionSimilarity(biobankUniverseRepository,
+				ontologyService);
 	}
 
 	@RunAsSystem
@@ -140,34 +118,25 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 	@RunAsSystem
 	@Override
-	public void addAverageAttributeSimilarities(List<AttributeMappingCandidate> attributeMappingCandidates,
-			BiobankUniverse biobankUniverse)
+	public void addCollectionSemanticSimilarities(BiobankSampleCollection target,
+			List<BiobankSampleCollection> biobankSampleCollections, BiobankUniverse biobankUniverse)
 	{
-		Table<BiobankSampleCollection, BiobankSampleCollection, List<Double>> attributeMappingCandidateTable = HashBasedTable
-				.create();
-		for (AttributeMappingCandidate attributeMappingCandidate : attributeMappingCandidates)
-		{
-			BiobankSampleCollection rowKey = attributeMappingCandidate.getTarget().getCollection();
-			BiobankSampleCollection columnKey = attributeMappingCandidate.getSource().getCollection();
-			if (!attributeMappingCandidateTable.contains(rowKey, columnKey))
-			{
-				attributeMappingCandidateTable.put(rowKey, columnKey, new ArrayList<>());
-			}
-			attributeMappingCandidateTable.get(rowKey, columnKey)
-					.add(attributeMappingCandidate.getExplanation().getNgramScore());
-		}
-
+		// Add biobankCollectionSimilarities to the biobankUniverse
 		List<BiobankCollectionSimilarity> biobankCollectionSimilarities = new ArrayList<>();
 
-		for (Cell<BiobankSampleCollection, BiobankSampleCollection, List<Double>> cell : attributeMappingCandidateTable
-				.cellSet())
+		for (BiobankSampleCollection source : biobankSampleCollections)
 		{
-			BiobankSampleCollection target = cell.getRowKey();
-			BiobankSampleCollection source = cell.getColumnKey();
-			int coverage = cell.getValue().size();
-			double similarity = cell.getValue().stream().mapToDouble(Double::valueOf).average().orElse(0.0);
-			biobankCollectionSimilarities.add(BiobankCollectionSimilarity.create(idGenerator.generateId(), target,
-					source, similarity, coverage, biobankUniverse, SimilarityOption.AVERAGE));
+			if (!target.getName().equals(source.getName()))
+			{
+				List<CollectionSimilarityResult> collectionSimilarityResults = collectionSimilarity
+						.score(Arrays.asList(target, source), biobankUniverse);
+
+				double similarity = collectionSimilarityResults.get(0).getSimilarity();
+				int coverage = collectionSimilarityResults.get(0).getCoverage();
+
+				biobankCollectionSimilarities.add(BiobankCollectionSimilarity.create(idGenerator.generateId(), target,
+						source, similarity, coverage, biobankUniverse, SEMANTIC));
+			}
 		}
 
 		biobankUniverseRepository.addCollectionSimilarities(biobankCollectionSimilarities);
@@ -175,27 +144,25 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 	@RunAsSystem
 	@Override
-	public void addCollectionSemanticSimilarities(BiobankSampleCollection target,
-			List<BiobankSampleCollection> biobankSampleCollections, BiobankUniverse biobankUniverse)
+	public void updateCollectionSemanticSimilarities(BiobankUniverse biobankUniverse)
 	{
-		// Add biobankCollectionSimilarities to the biobankUniverse
+		// Remove the existing semantic similarities because the semantic space has changed
+		biobankUniverseRepository.removeCollectionSimilaritiesFromUniverse(biobankUniverse);
+
 		List<BiobankCollectionSimilarity> biobankCollectionSimilarities = new ArrayList<>();
 
-		List<BiobankSampleAttribute> targetBiobankSampleAttribtues = getBiobankSampleAttributes(target);
+		List<CollectionSimilarityResult> collectionSimilarityResults = collectionSimilarity
+				.score(biobankUniverse.getMembers(), biobankUniverse);
 
-		for (BiobankSampleCollection source : biobankSampleCollections)
+		for (CollectionSimilarityResult collectionSimilarityResult : collectionSimilarityResults)
 		{
-			if (!target.getName().equals(source.getName()))
-			{
-				List<BiobankSampleAttribute> sourceBiobankSampleAttribtues = getBiobankSampleAttributes(source);
+			BiobankSampleCollection target = collectionSimilarityResult.getTarget();
+			BiobankSampleCollection source = collectionSimilarityResult.getSource();
+			double similarity = collectionSimilarityResult.getSimilarity();
+			int coverage = collectionSimilarityResult.getCoverage();
 
-				double similarity = computeAttributesSemanticSimilarity(targetBiobankSampleAttribtues,
-						sourceBiobankSampleAttribtues);
-				int coverage = (int) Math.sqrt(getOntologyTermCoverage(targetBiobankSampleAttribtues)
-						* getOntologyTermCoverage(sourceBiobankSampleAttribtues));
-				biobankCollectionSimilarities.add(BiobankCollectionSimilarity.create(idGenerator.generateId(), target,
-						source, similarity, coverage, biobankUniverse, SEMANTIC));
-			}
+			biobankCollectionSimilarities.add(BiobankCollectionSimilarity.create(idGenerator.generateId(), target,
+					source, similarity, coverage, biobankUniverse, SEMANTIC));
 		}
 
 		biobankUniverseRepository.addCollectionSimilarities(biobankCollectionSimilarities);
@@ -321,7 +288,8 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 			List<BiobankSampleAttribute> sourceAttributes = ontologyBasedMatcher.match(semanticSearchParam);
 
 			List<AttributeMappingCandidate> collect = ontologyBasedExplainService
-					.explain(biobankUniverse, semanticSearchParam, target, newArrayList(sourceAttributes), similarity)
+					.explain(biobankUniverse, semanticSearchParam, target, newArrayList(sourceAttributes),
+							biobankUniverseScore)
 					.stream().filter(candidate -> candidate.getExplanation().getNgramScore() > 0)
 					.filter(candidate -> !candidate.getExplanation().getMatchedWords().isEmpty()).sorted()
 					.limit(MAX_NUMBER_MATCHES).collect(toList());
@@ -366,79 +334,79 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		biobankUniverseRepository.addKeyConcepts(universe, semanticTypes);
 	}
 
-	@RunAsSystem
-	@Override
-	public double computeAttributesSemanticSimilarity(List<BiobankSampleAttribute> targetBiobankSampleAttributes,
-			List<BiobankSampleAttribute> sourceBiobankSampleAttributes)
-	{
-		List<OntologyTerm> targetOntologyTerms = targetBiobankSampleAttributes.stream()
-				.flatMap(attribute -> attribute.getTagGroups().stream())
-				.flatMap(tag -> tag.getOntologyTerms().stream().distinct()).collect(Collectors.toList());
-
-		List<OntologyTerm> sourceOntologyTerms = sourceBiobankSampleAttributes.stream()
-				.flatMap(attribute -> attribute.getTagGroups().stream())
-				.flatMap(tag -> tag.getOntologyTerms().stream().distinct()).collect(Collectors.toList());
-
-		if (!targetOntologyTerms.isEmpty() && !sourceOntologyTerms.isEmpty())
-		{
-			Map<OntologyTerm, Integer> targetOntologyTermFrequency = getOntologyTermFrequency(targetOntologyTerms);
-
-			Map<OntologyTerm, Integer> sourceOntologyTermFrequency = getOntologyTermFrequency(sourceOntologyTerms);
-
-			double similarity = 0;
-
-			double base = Math.sqrt(targetOntologyTerms.size() * sourceOntologyTerms.size());
-
-			for (Entry<OntologyTerm, Integer> targetEntry : targetOntologyTermFrequency.entrySet())
-			{
-				OntologyTerm targetOntologyTerm = targetEntry.getKey();
-
-				Integer targetFrequency = targetEntry.getValue();
-
-				for (Entry<OntologyTerm, Integer> sourceEntry : sourceOntologyTermFrequency.entrySet())
-				{
-					OntologyTerm sourceOntologyTerm = sourceEntry.getKey();
-
-					Integer sourceFrequency = sourceEntry.getValue();
-
-					OntologyTermRelated ontologyTermRelated = OntologyTermRelated.create(targetOntologyTerm,
-							sourceOntologyTerm, OntologyBasedMatcher.STOP_LEVEL);
-
-					Double relatedNess = 0.0d;
-					try
-					{
-						relatedNess = cachedOntologyTermSemanticRelateness.get(ontologyTermRelated);
-					}
-					catch (ExecutionException e)
-					{
-						LOG.error(e.getMessage());
-					}
-
-					similarity += relatedNess * targetFrequency * sourceFrequency;
-				}
-			}
-
-			return similarity / base;
-		}
-
-		return 0.0d;
-	}
-
-	private Map<OntologyTerm, Integer> getOntologyTermFrequency(List<OntologyTerm> ontologyTerms)
-	{
-		Map<OntologyTerm, Integer> ontologyTermFrequency = new HashMap<>();
-
-		for (OntologyTerm ot : ontologyTerms)
-		{
-			if (!ontologyTermFrequency.containsKey(ot))
-			{
-				ontologyTermFrequency.put(ot, 0);
-			}
-
-			ontologyTermFrequency.put(ot, ontologyTermFrequency.get(ot) + 1);
-		}
-		return ontologyTermFrequency;
-	}
+	// @RunAsSystem
+	// @Override
+	// public double computeAttributesSemanticSimilarity(List<BiobankSampleAttribute> targetBiobankSampleAttributes,
+	// List<BiobankSampleAttribute> sourceBiobankSampleAttributes)
+	// {
+	// List<OntologyTerm> targetOntologyTerms = targetBiobankSampleAttributes.stream()
+	// .flatMap(attribute -> attribute.getTagGroups().stream())
+	// .flatMap(tag -> tag.getOntologyTerms().stream().distinct()).collect(Collectors.toList());
+	//
+	// List<OntologyTerm> sourceOntologyTerms = sourceBiobankSampleAttributes.stream()
+	// .flatMap(attribute -> attribute.getTagGroups().stream())
+	// .flatMap(tag -> tag.getOntologyTerms().stream().distinct()).collect(Collectors.toList());
+	//
+	// if (!targetOntologyTerms.isEmpty() && !sourceOntologyTerms.isEmpty())
+	// {
+	// Map<OntologyTerm, Integer> targetOntologyTermFrequency = getOntologyTermFrequency(targetOntologyTerms);
+	//
+	// Map<OntologyTerm, Integer> sourceOntologyTermFrequency = getOntologyTermFrequency(sourceOntologyTerms);
+	//
+	// double similarity = 0;
+	//
+	// double base = Math.sqrt(targetOntologyTerms.size() * sourceOntologyTerms.size());
+	//
+	// for (Entry<OntologyTerm, Integer> targetEntry : targetOntologyTermFrequency.entrySet())
+	// {
+	// OntologyTerm targetOntologyTerm = targetEntry.getKey();
+	//
+	// Integer targetFrequency = targetEntry.getValue();
+	//
+	// for (Entry<OntologyTerm, Integer> sourceEntry : sourceOntologyTermFrequency.entrySet())
+	// {
+	// OntologyTerm sourceOntologyTerm = sourceEntry.getKey();
+	//
+	// Integer sourceFrequency = sourceEntry.getValue();
+	//
+	// OntologyTermRelated ontologyTermRelated = OntologyTermRelated.create(targetOntologyTerm,
+	// sourceOntologyTerm, OntologyBasedMatcher.STOP_LEVEL);
+	//
+	// Double relatedNess = 0.0d;
+	// try
+	// {
+	// relatedNess = cachedOntologyTermSemanticRelateness.get(ontologyTermRelated);
+	// }
+	// catch (ExecutionException e)
+	// {
+	// LOG.error(e.getMessage());
+	// }
+	//
+	// similarity += relatedNess * targetFrequency * sourceFrequency;
+	// }
+	// }
+	//
+	// return similarity / base;
+	// }
+	//
+	// return 0.0d;
+	// }
+	//
+	// private Map<OntologyTerm, Integer> getOntologyTermFrequency(List<OntologyTerm> ontologyTerms)
+	// {
+	// Map<OntologyTerm, Integer> ontologyTermFrequency = new HashMap<>();
+	//
+	// for (OntologyTerm ot : ontologyTerms)
+	// {
+	// if (!ontologyTermFrequency.containsKey(ot))
+	// {
+	// ontologyTermFrequency.put(ot, 0);
+	// }
+	//
+	// ontologyTermFrequency.put(ot, ontologyTermFrequency.get(ot) + 1);
+	// }
+	// return ontologyTermFrequency;
+	// }
 
 	private BiobankSampleAttribute importedAttributEntityToBiobankSampleAttribute(BiobankSampleCollection collection,
 			Entity entity)
@@ -465,11 +433,10 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 
 		return IdentifiableTagGroup.create(identifier, ontologyTerms, semanticTypes, matchedWords, score);
 	}
-
-	private int getOntologyTermCoverage(List<BiobankSampleAttribute> biobankSampleAttributes)
-	{
-		return (int) biobankSampleAttributes.stream().flatMap(attribute -> attribute.getTagGroups().stream())
-				.flatMap(tag -> tag.getOntologyTerms().stream()).distinct().count();
-	}
-
+	//
+	// private int getOntologyTermCoverage(List<BiobankSampleAttribute> biobankSampleAttributes)
+	// {
+	// return (int) biobankSampleAttributes.stream().flatMap(attribute -> attribute.getTagGroups().stream())
+	// .flatMap(tag -> tag.getOntologyTerms().stream()).distinct().count();
+	// }
 }

@@ -1,4 +1,4 @@
-package org.molgenis.data.discovery.scoring;
+package org.molgenis.data.discovery.scoring.attributes;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -8,7 +8,7 @@ import org.molgenis.ontology.ic.TermFrequencyService;
 import org.molgenis.ontology.utils.NGramDistanceAlgorithm;
 import org.molgenis.ontology.utils.Stemmer;
 
-public abstract class Similarity
+public abstract class AttributeSimilarity
 {
 	public enum SimilarityFunctionName
 	{
@@ -26,7 +26,7 @@ public abstract class Similarity
 
 	private final SimilarityFunctionName similarityFunctionName;
 
-	public Similarity(SimilarityFunctionName similarityFunctionName, TermFrequencyService termFrequencyService)
+	public AttributeSimilarity(SimilarityFunctionName similarityFunctionName, TermFrequencyService termFrequencyService)
 	{
 		this.similarityFunctionName = similarityFunctionName;
 		this.termFrequencyService = termFrequencyService;
