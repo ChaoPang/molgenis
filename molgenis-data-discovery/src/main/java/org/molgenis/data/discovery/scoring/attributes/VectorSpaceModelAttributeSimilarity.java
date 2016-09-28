@@ -28,7 +28,7 @@ public class VectorSpaceModelAttributeSimilarity extends AttributeSimilarity
 	@Override
 	public float score(String document1, String document2, boolean strictMatch)
 	{
-		boolean removeStopWords = true;
+		boolean removeStopWords = !strictMatch;
 
 		List<String> terms1 = createTermTokens(document1, removeStopWords);
 
