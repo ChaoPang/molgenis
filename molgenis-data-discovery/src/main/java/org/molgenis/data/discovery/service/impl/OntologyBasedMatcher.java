@@ -31,7 +31,6 @@ import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.OntologyTerm;
-import org.molgenis.ontology.core.service.OntologyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,7 +50,6 @@ public class OntologyBasedMatcher
 
 	private final BiobankUniverseRepository biobankUniverseRepository;
 	private final QueryExpansionService queryExpansionService;
-	private final OntologyService ontologyService;
 
 	private final Iterable<BiobankSampleAttribute> biobankSampleAttributes;
 	private final Multimap<String, BiobankSampleAttribute> nodePathRegistry;
@@ -59,22 +57,19 @@ public class OntologyBasedMatcher
 	private final Map<OntologyTerm, List<BiobankSampleAttribute>> cachedBiobankSampleAttributes;
 
 	public OntologyBasedMatcher(BiobankSampleCollection biobankSampleCollection,
-			BiobankUniverseRepository biobankUniverseRepository, QueryExpansionService queryExpansionService,
-			OntologyService ontologyService)
+			BiobankUniverseRepository biobankUniverseRepository, QueryExpansionService queryExpansionService)
 	{
 		this(biobankUniverseRepository.getBiobankSampleAttributes(biobankSampleCollection), biobankUniverseRepository,
-				queryExpansionService, ontologyService);
+				queryExpansionService);
 	}
 
 	public OntologyBasedMatcher(List<BiobankSampleAttribute> biobankSampleAttributes,
-			BiobankUniverseRepository biobankUniverseRepository, QueryExpansionService queryExpansionService,
-			OntologyService ontologyService)
+			BiobankUniverseRepository biobankUniverseRepository, QueryExpansionService queryExpansionService)
 	{
 		this.nodePathRegistry = LinkedHashMultimap.create();
 		this.descendantNodePathsRegistry = LinkedHashMultimap.create();
 		this.biobankUniverseRepository = requireNonNull(biobankUniverseRepository);
 		this.queryExpansionService = requireNonNull(queryExpansionService);
-		this.ontologyService = requireNonNull(ontologyService);
 		this.biobankSampleAttributes = requireNonNull(biobankSampleAttributes);
 		this.cachedBiobankSampleAttributes = new HashMap<>();
 		constructTree();
@@ -91,7 +86,7 @@ public class OntologyBasedMatcher
 
 		// Semantic match
 		List<BiobankSampleAttribute> semanticMatches = semanticSearchParam.getTagGroups().stream()
-				.flatMap(tag -> ontologyService.getAtomicOntologyTerms(tag.getOntologyTerm()).stream()).distinct()
+				.flatMap(tagGroup -> tagGroup.getOntologyTerms().stream()).distinct()
 				.flatMap(ontologyTerm -> semanticSearchBiobankSampleAttributes(ontologyTerm).stream())
 				.collect(toList());
 

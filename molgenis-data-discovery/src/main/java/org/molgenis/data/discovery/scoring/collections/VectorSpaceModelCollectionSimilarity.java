@@ -40,11 +40,11 @@ import com.google.common.cache.LoadingCache;
  */
 public class VectorSpaceModelCollectionSimilarity
 {
-	protected BiobankUniverseRepository biobankUniverseRepository;
-	protected OntologyService ontologyService;
+	private BiobankUniverseRepository biobankUniverseRepository;
+	private OntologyService ontologyService;
 	private static final Logger LOG = LoggerFactory.getLogger(VectorSpaceModelCollectionSimilarity.class);
 
-	private final static int DISTANCE = 5;
+	final static int DISTANCE = 5;
 
 	private LoadingCache<OntologyTermRelated, Double> cachedOntologyTermSemanticRelateness = CacheBuilder.newBuilder()
 			.maximumSize(2000).expireAfterWrite(1, TimeUnit.HOURS).build(new CacheLoader<OntologyTermRelated, Double>()

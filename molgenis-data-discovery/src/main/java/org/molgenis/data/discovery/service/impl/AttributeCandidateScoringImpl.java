@@ -34,16 +34,23 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
-public class BiobankUniverseScore
+/**
+ * This scoring class computes a similarity score between the target {@link BiobankSampleAttribute} and the source
+ * {@link BiobankSampleAttribute}.
+ * 
+ * @author chaopang
+ *
+ */
+public class AttributeCandidateScoringImpl
 {
 	private final OntologyService ontologyService;
-	private final AttributeSimilarity similarity;
+	private final AttributeSimilarity attributeSimilarity;
 	private final Joiner termJoiner = Joiner.on(' ');
 
-	public BiobankUniverseScore(OntologyService ontologyService, AttributeSimilarity similarity)
+	public AttributeCandidateScoringImpl(OntologyService ontologyService, AttributeSimilarity attributeSimilarity)
 	{
 		this.ontologyService = requireNonNull(ontologyService);
-		this.similarity = requireNonNull(similarity);
+		this.attributeSimilarity = requireNonNull(attributeSimilarity);
 	}
 
 	public Hit<String> score(BiobankSampleAttribute targetAttribute, BiobankSampleAttribute sourceAttribute,
@@ -85,6 +92,7 @@ public class BiobankUniverseScore
 				{
 					TagGroup targetOntologyTermTag = createOntologyTermTag(targetOntologyTerm, targetAttribute);
 					TagGroup sourceOntologyTermTag = createOntologyTermTag(sourceOntologyTerm, sourceAttribute);
+
 					Double relatedness = ontologyService.getOntologyTermSemanticRelatedness(targetOntologyTerm,
 							sourceOntologyTerm);
 
@@ -106,8 +114,8 @@ public class BiobankUniverseScore
 			List<OntologyTerm> occupiedSourceOntologyTerms = new ArrayList<>();
 			for (MatchedAttributeTagGroup matchedTagGroup : allRelatedOntologyTerms)
 			{
-				OntologyTerm targetOntologyTerm = matchedTagGroup.getTarget().getOntologyTerm();
-				OntologyTerm sourceOntologyTerm = matchedTagGroup.getSource().getOntologyTerm();
+				OntologyTerm targetOntologyTerm = matchedTagGroup.getTarget().getCombinedOntologyTerm();
+				OntologyTerm sourceOntologyTerm = matchedTagGroup.getSource().getCombinedOntologyTerm();
 				if (!occupiedTargetOntologyTerms.contains(targetOntologyTerm)
 						&& !occupiedSourceOntologyTerms.contains(sourceOntologyTerm))
 				{
@@ -144,7 +152,7 @@ public class BiobankUniverseScore
 		return null;
 	}
 
-	private Hit<String> calculate(String targetLabel, String sourceLabel,
+	Hit<String> calculate(String targetLabel, String sourceLabel,
 			List<MatchedAttributeTagGroup> filteredRelatedOntologyTerms, boolean strictMatch)
 	{
 		// Remove the duplicated words from the attribute labels
@@ -167,7 +175,8 @@ public class BiobankUniverseScore
 			queryString.addAll(sourceMatchedWords);
 			// The source ontologyTerm is more specific therefore we replace it with a more general target
 			// ontologyTerm
-			if (ontologyService.isDescendant(sourceTagGroup.getOntologyTerm(), targetTagGroup.getOntologyTerm()))
+			if (ontologyService.isDescendant(sourceTagGroup.getCombinedOntologyTerm(),
+					targetTagGroup.getCombinedOntologyTerm()))
 			{
 				Set<String> sourceLabelWords = splitIntoUniqueTerms(sourceLabel);
 				sourceLabelWords.removeAll(sourceMatchedWords);
@@ -187,7 +196,7 @@ public class BiobankUniverseScore
 			}
 		}
 
-		float adjustedScore = similarity.score(targetLabel, sourceLabel, strictMatch);
+		float adjustedScore = attributeSimilarity.score(targetLabel, sourceLabel, strictMatch);
 
 		for (Hit<String> matchedWord : matchedWords)
 		{

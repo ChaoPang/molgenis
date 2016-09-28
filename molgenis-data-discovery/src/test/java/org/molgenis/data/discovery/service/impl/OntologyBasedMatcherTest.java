@@ -11,7 +11,6 @@ import static org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMet
 import static org.molgenis.data.meta.AttributeMetaDataMetaData.DESCRIPTION;
 import static org.molgenis.data.meta.AttributeMetaDataMetaData.LABEL;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -31,7 +30,6 @@ import org.molgenis.data.semanticsearch.service.bean.TagGroup;
 import org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.model.OntologyTerm;
-import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.utils.NGramDistanceAlgorithm;
 import org.molgenis.ontology.utils.Stemmer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,10 +49,9 @@ public class OntologyBasedMatcherTest extends AbstractTestNGSpringContextTests
 {
 	@Autowired
 	BiobankUniverseRepository biobankUniverseRepository;
+
 	@Autowired
 	QueryExpansionService queryExpansionService;
-	@Autowired
-	OntologyService ontologyService;
 
 	BiobankSampleCollection biobankSampleCollection;
 
@@ -119,7 +116,7 @@ public class OntologyBasedMatcherTest extends AbstractTestNGSpringContextTests
 
 		ontologyBasedMatcher = new OntologyBasedMatcher(
 				Arrays.asList(tomatoAttribute, beanAttribute, vegAttribute, diseaseAttribute),
-				biobankUniverseRepository, queryExpansionService, ontologyService);
+				biobankUniverseRepository, queryExpansionService);
 	}
 
 	@Test
@@ -133,11 +130,9 @@ public class OntologyBasedMatcherTest extends AbstractTestNGSpringContextTests
 				.filter(w -> !NGramDistanceAlgorithm.STOPWORDSLIST.contains(w)).map(Stemmer::stem)
 				.collect(Collectors.joining(" "));
 
-		List<QueryRule> rules = new ArrayList<>();
-		rules.add(new QueryRule(LABEL, FUZZY_MATCH, queryString));
-		rules.add(new QueryRule(DESCRIPTION, FUZZY_MATCH, queryString));
+		QueryRule finalDisMaxQuery = new QueryRule(Arrays.asList(new QueryRule(LABEL, FUZZY_MATCH, queryString),
+				new QueryRule(DESCRIPTION, FUZZY_MATCH, queryString)));
 
-		QueryRule finalDisMaxQuery = new QueryRule(rules);
 		finalDisMaxQuery.setOperator(Operator.DIS_MAX);
 
 		List<QueryRule> finalQueryRules = Lists.newArrayList(
@@ -186,12 +181,6 @@ public class OntologyBasedMatcherTest extends AbstractTestNGSpringContextTests
 		public BiobankUniverseRepository biobankUniverseRepository()
 		{
 			return mock(BiobankUniverseRepository.class);
-		}
-
-		@Bean
-		public OntologyService ontologyService()
-		{
-			return mock(OntologyService.class);
 		}
 
 		@Bean

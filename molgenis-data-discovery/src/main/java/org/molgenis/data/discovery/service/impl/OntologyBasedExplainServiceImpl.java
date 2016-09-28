@@ -66,28 +66,25 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 	@Override
 	public List<AttributeMappingCandidate> explain(BiobankUniverse biobankUniverse,
 			SemanticSearchParam semanticSearchParam, BiobankSampleAttribute targetAttribute,
-			List<BiobankSampleAttribute> sourceAttributes, BiobankUniverseScore similarity)
+			List<BiobankSampleAttribute> sourceAttributes, AttributeCandidateScoringImpl attributeCandidateScoring)
 	{
 		Map<String, Boolean> matchedWordsExplained = new HashMap<>();
 
 		List<AttributeMappingCandidate> candidates = new ArrayList<>();
 
-		if (LOG.isTraceEnabled())
-		{
-			LOG.trace("Started explaining the matched source attributes");
-		}
+		LOG.trace("Started explaining the matched source attributes");
 
 		for (BiobankSampleAttribute sourceAttribute : sourceAttributes)
 		{
 			Multimap<OntologyTerm, OntologyTerm> relatedOntologyTerms = findAllRelatedOntologyTerms(targetAttribute,
-					sourceAttribute, biobankUniverse, semanticSearchParam);
+					sourceAttribute, biobankUniverse);
 
 			MatchingExplanation explanation = null;
 
 			if (!relatedOntologyTerms.isEmpty())
 			{
-				Hit<String> computeScoreForMatchedSource = similarity.score(targetAttribute, sourceAttribute,
-						biobankUniverse, relatedOntologyTerms, semanticSearchParam.isStrictMatch());
+				Hit<String> computeScoreForMatchedSource = attributeCandidateScoring.score(targetAttribute,
+						sourceAttribute, biobankUniverse, relatedOntologyTerms, semanticSearchParam.isStrictMatch());
 
 				Set<String> matchedWords = findMatchedWords(computeScoreForMatchedSource.getResult(),
 						sourceAttribute.getLabel());
@@ -134,10 +131,7 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 			}
 		}
 
-		if (LOG.isTraceEnabled())
-		{
-			LOG.trace("Finished explaining the matched source attributes");
-		}
+		LOG.trace("Finished explaining the matched source attributes");
 
 		return candidates.stream().sorted().collect(Collectors.toList());
 	}
@@ -195,20 +189,8 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 		// return true;
 	}
 
-	private Set<OntologyTerm> getAllOntologyTerms(BiobankSampleAttribute biobankSampleAttribute,
-			BiobankUniverse biobankUniverse)
-	{
-		List<SemanticType> keyConcepts = biobankUniverse.getKeyConcepts();
-
-		return biobankSampleAttribute.getTagGroups().stream().flatMap(tagGroup -> tagGroup.getOntologyTerms().stream())
-				.filter(ot -> ot.getSemanticTypes().isEmpty()
-						|| ot.getSemanticTypes().stream().allMatch(st -> !keyConcepts.contains(st)))
-				.collect(toSet());
-	}
-
 	private Multimap<OntologyTerm, OntologyTerm> findAllRelatedOntologyTerms(BiobankSampleAttribute targetAttribute,
-			BiobankSampleAttribute sourceAttribute, BiobankUniverse biobankUniverse,
-			SemanticSearchParam semanticSearchParam)
+			BiobankSampleAttribute sourceAttribute, BiobankUniverse biobankUniverse)
 	{
 		Multimap<OntologyTerm, OntologyTerm> relatedOntologyTerms = LinkedHashMultimap.create();
 
@@ -229,5 +211,16 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 		}
 
 		return relatedOntologyTerms;
+	}
+
+	private Set<OntologyTerm> getAllOntologyTerms(BiobankSampleAttribute biobankSampleAttribute,
+			BiobankUniverse biobankUniverse)
+	{
+		List<SemanticType> keyConcepts = biobankUniverse.getKeyConcepts();
+
+		return biobankSampleAttribute.getTagGroups().stream().flatMap(tagGroup -> tagGroup.getOntologyTerms().stream())
+				.filter(ot -> ot.getSemanticTypes().isEmpty()
+						|| ot.getSemanticTypes().stream().allMatch(st -> !keyConcepts.contains(st)))
+				.collect(toSet());
 	}
 }

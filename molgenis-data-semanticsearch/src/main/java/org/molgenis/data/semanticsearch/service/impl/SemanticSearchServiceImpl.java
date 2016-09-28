@@ -182,16 +182,16 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	public Hit<OntologyTerm> findTagForAttr(AttributeMetaData attribute, List<String> ontologyIds)
 	{
 		List<TagGroup> ontologyTermHits = findAllTagsForAttr(attribute, ontologyIds);
-		return ontologyTermHits.stream().findFirst().map(otHit -> create(otHit.getOntologyTerm(), otHit.getScore()))
-				.orElse(null);
+		return ontologyTermHits.stream().findFirst()
+				.map(otHit -> create(otHit.getCombinedOntologyTerm(), otHit.getScore())).orElse(null);
 	}
 
 	@Override
 	public Hit<OntologyTerm> findTag(String description, List<String> ontologyIds)
 	{
 		List<TagGroup> ontologyTermHits = findAllTags(description, ontologyIds);
-		return ontologyTermHits.stream().findFirst().map(otHit -> create(otHit.getOntologyTerm(), otHit.getScore()))
-				.orElse(null);
+		return ontologyTermHits.stream().findFirst()
+				.map(otHit -> create(otHit.getCombinedOntologyTerm(), otHit.getScore())).orElse(null);
 	}
 
 	@Override

@@ -1,5 +1,6 @@
 package org.molgenis.data.semanticsearch.service.impl;
 
+import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -75,8 +76,8 @@ public class SemanticSearchParamFactory
 
 			if (!tagsForAttribute.isEmpty())
 			{
-				tagGroups = tagsForAttribute.values().stream().map(ot -> TagGroup.create(ot, ot.getLabel(), 1.0f))
-						.collect(toList());
+				tagGroups = tagsForAttribute.values().stream()
+						.map(ot -> TagGroup.create(asList(ot), ot.getLabel(), 1.0f)).collect(toList());
 			}
 			else
 			{

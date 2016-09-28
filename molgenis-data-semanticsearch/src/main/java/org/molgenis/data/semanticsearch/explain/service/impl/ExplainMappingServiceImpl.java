@@ -66,7 +66,7 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 		if (semanticSearchParam.getQueryExpansionParameter().isSemanticSearchEnabled())
 		{
 			ontologyTermQueryExpansions = semanticSearchParam.getTagGroups().stream()
-					.map(hit -> new OntologyTermQueryExpansion(hit.getOntologyTerm(), ontologyService,
+					.map(hit -> new OntologyTermQueryExpansion(hit.getCombinedOntologyTerm(), ontologyService,
 							semanticSearchParam.getQueryExpansionParameter()))
 					.collect(toList());
 		}
@@ -158,7 +158,7 @@ public class ExplainMappingServiceImpl implements ExplainMappingService
 			{
 				OntologyTerm origin = OntologyTerm
 						.and(queryExpansionSolution.getMatchOntologyTerms().stream().toArray(OntologyTerm[]::new));
-				OntologyTermHit ontologyTermHit = OntologyTermHit.create(origin, tagGroup.getOntologyTerm());
+				OntologyTermHit ontologyTermHit = OntologyTermHit.create(origin, tagGroup.getCombinedOntologyTerm());
 
 				Hit<String> joinedSynonymHit = max.get();
 				String matchedWords = termJoiner.join(findMatchedWords(joinedSynonymHit.getResult(), matchedSource));

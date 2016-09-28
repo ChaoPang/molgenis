@@ -214,7 +214,7 @@ public class CalculateSimilaritySimulationImpl implements CalculateSimilaritySim
 			List<BiobankSampleAttribute> randomSourceAttributes, Map<String, Double> cachedRelatedness)
 	{
 		OntologyBasedMatcher matcher = new OntologyBasedMatcher(randomSourceAttributes, biobankUniverseRepository,
-				queryExpansionService, ontologyService);
+				queryExpansionService);
 		BiobankUniverse biobankUniverse = BiobankUniverse.create("1", "test", emptyList(), new MolgenisUser(),
 				emptyList(), emptyList());
 

@@ -2,8 +2,10 @@ package org.molgenis.data.semanticsearch.utils;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
+import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.utils.Stemmer;
 
 public class TagGroupComparator implements Comparator<TagGroup>
@@ -52,8 +54,14 @@ public class TagGroupComparator implements Comparator<TagGroup>
 				// the order of these two elements need to be re-sorted based on the synonym information content
 				if (!isOntologyTermNameMatched(o1) && !isOntologyTermNameMatched(o2))
 				{
-					int informationContent1 = calculateInformationContent(synonym1, o1.getOntologyTerm().getSynonyms());
-					int informationContent2 = calculateInformationContent(synonym2, o2.getOntologyTerm().getSynonyms());
+					List<String> synonyms1 = o1.getOntologyTerms().stream().flatMap(ot -> ot.getSynonyms().stream())
+							.distinct().collect(Collectors.toList());
+					List<String> synonyms2 = o2.getOntologyTerms().stream().flatMap(ot -> ot.getSynonyms().stream())
+							.distinct().collect(Collectors.toList());
+
+					int informationContent1 = calculateInformationContent(synonym1, synonyms1);
+					int informationContent2 = calculateInformationContent(synonym2, synonyms2);
+
 					return Integer.compare(informationContent1, informationContent2);
 				}
 			}
@@ -76,11 +84,13 @@ public class TagGroupComparator implements Comparator<TagGroup>
 
 	boolean isOntologyTermNameMatched(TagGroup hit)
 	{
-		return hit.getOntologyTerm().getLabel().equalsIgnoreCase(hit.getMatchedWords());
+		return hit.getCombinedOntologyTerm().getLabel().equalsIgnoreCase(hit.getMatchedWords());
 	}
 
 	boolean isSemanticTypesEmpty(TagGroup hit)
 	{
-		return hit.getOntologyTerm().getSemanticTypes().isEmpty();
+		List<SemanticType> collect = hit.getOntologyTerms().stream().flatMap(ot -> ot.getSemanticTypes().stream())
+				.distinct().collect(Collectors.toList());
+		return collect.isEmpty();
 	}
 }

@@ -206,10 +206,13 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 			List<TagGroup> copyOfOntologyTermHits = Lists.newArrayList(orderedIndividualOntologyTermHits);
 			for (int i = orderedIndividualOntologyTermHits.size() - 1; i > 1; i--)
 			{
-				OntologyTerm lowRankingOntologyTerm = orderedIndividualOntologyTermHits.get(i).getOntologyTerm();
+				OntologyTerm lowRankingOntologyTerm = orderedIndividualOntologyTermHits.get(i)
+						.getCombinedOntologyTerm();
+
 				for (int j = i - 1; j > 0; j--)
 				{
-					OntologyTerm highRankingOntologyTerm = orderedIndividualOntologyTermHits.get(j).getOntologyTerm();
+					OntologyTerm highRankingOntologyTerm = orderedIndividualOntologyTermHits.get(j)
+							.getCombinedOntologyTerm();
 
 					if (ontologyService.isDescendant(highRankingOntologyTerm, lowRankingOntologyTerm))
 					{
@@ -235,8 +238,9 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 		List<OntologyTerm> ontologyTerms = new ArrayList<>();
 		for (Entry<String, Collection<TagGroup>> entry : candidates.asMap().entrySet())
 		{
-			List<OntologyTerm> collect = entry.getValue().stream().map(TagGroup::getOntologyTerm)
-					.collect(Collectors.toList());
+			List<OntologyTerm> collect = entry.getValue().stream()
+					.flatMap(tagGroup -> tagGroup.getOntologyTerms().stream()).collect(Collectors.toList());
+
 			if (ontologyTerms.size() == 0)
 			{
 				ontologyTerms.addAll(collect);
@@ -297,6 +301,7 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 	private boolean tagGroupKeyConcept(List<SemanticType> keyConcepts, TagGroup tagGroup)
 	{
 		if (keyConcepts.isEmpty()) return true;
-		return tagGroup.getOntologyTerm().getSemanticTypes().stream().allMatch(keyConcepts::contains);
+		return tagGroup.getOntologyTerms().stream().flatMap(ot -> ot.getSemanticTypes().stream())
+				.allMatch(keyConcepts::contains);
 	}
 }

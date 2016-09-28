@@ -285,11 +285,9 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 	private Multimap<OntologyTerm, OntologyTerm> groupAtomicOntologyTermsBySynonym(List<TagGroup> ontologyTermHits)
 	{
 		Multimap<OntologyTerm, OntologyTerm> multiMap = LinkedHashMultimap.create();
-		ontologyService.getAtomicOntologyTerms(ontologyTermHits.get(0).getOntologyTerm())
-				.forEach(ot -> multiMap.put(ot, ot));
+		ontologyTermHits.get(0).getOntologyTerms().forEach(ot -> multiMap.put(ot, ot));
 
-		ontologyTermHits.stream().skip(1)
-				.flatMap(hit -> ontologyService.getAtomicOntologyTerms(hit.getOntologyTerm()).stream())
+		ontologyTermHits.stream().skip(1).flatMap(hit -> hit.getOntologyTerms().stream())
 				.filter(ot -> !multiMap.containsKey(ot)).forEach(atomicOntologyTerm -> {
 
 					OntologyTerm ontologyTermInTheMap = multiMap.keySet().stream()

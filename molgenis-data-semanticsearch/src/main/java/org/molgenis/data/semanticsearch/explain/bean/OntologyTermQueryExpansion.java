@@ -1,5 +1,7 @@
 package org.molgenis.data.semanticsearch.explain.bean;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -13,8 +15,6 @@ import org.molgenis.ontology.core.service.OntologyService;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-
-import static java.util.Objects.requireNonNull;
 
 public class OntologyTermQueryExpansion
 {
@@ -40,8 +40,7 @@ public class OntologyTermQueryExpansion
 
 	public OntologyTermQueryExpansionSolution getQueryExpansionSolution(TagGroup tagGroup)
 	{
-		List<OntologyTerm> sourceMatchedOntologyTerms = ontologyService
-				.getAtomicOntologyTerms(tagGroup.getOntologyTerm());
+		List<OntologyTerm> sourceMatchedOntologyTerms = tagGroup.getOntologyTerms();
 
 		List<OntologyTerm> matchedOntologyTerms = new ArrayList<>();
 

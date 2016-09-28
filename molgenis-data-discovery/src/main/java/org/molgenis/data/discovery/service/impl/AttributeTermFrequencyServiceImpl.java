@@ -52,7 +52,7 @@ public class AttributeTermFrequencyServiceImpl implements TermFrequencyService
 
 	public float getTermFrequency(String term)
 	{
-		return (float) Math.log10(memoizedTotalAttributes.get() / getTermOccurrence(term));
+		return (float) Math.log10((double) memoizedTotalAttributes.get() / getTermOccurrence(term));
 	}
 
 	public Integer getTermOccurrence(String term)

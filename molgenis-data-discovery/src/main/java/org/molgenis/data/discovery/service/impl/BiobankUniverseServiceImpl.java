@@ -35,7 +35,6 @@ import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
 import org.molgenis.data.semanticsearch.service.bean.SemanticSearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
-import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.ic.TermFrequencyService;
@@ -57,7 +56,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	private final OntologyService ontologyService;
 	private final TagGroupGenerator tagGroupGenerator;
 	private final OntologyBasedExplainService ontologyBasedExplainService;
-	private final BiobankUniverseScore biobankUniverseScore;
+	private final AttributeCandidateScoringImpl biobankUniverseScore;
 	private final VectorSpaceModelCollectionSimilarity vectorSpaceModelCollectionSimilarity;
 
 	@Autowired
@@ -71,7 +70,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		this.ontologyService = requireNonNull(ontologyService);
 		this.tagGroupGenerator = requireNonNull(tagGroupGenerator);
 		this.ontologyBasedExplainService = requireNonNull(ontologyBasedExplainService);
-		this.biobankUniverseScore = new BiobankUniverseScore(ontologyService,
+		this.biobankUniverseScore = new AttributeCandidateScoringImpl(ontologyService,
 				new VectorSpaceModelAttributeSimilarity(termFrequencyService));
 		this.vectorSpaceModelCollectionSimilarity = new VectorSpaceModelCollectionSimilarity(biobankUniverseRepository,
 				ontologyService);
@@ -301,12 +300,10 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		String matchedWords = tagGroup.getMatchedWords();
 		float score = tagGroup.getScore();
 
-		List<OntologyTerm> ontologyTerms = ontologyService.getAtomicOntologyTerms(tagGroup.getOntologyTerm());
+		List<SemanticType> semanticTypes = tagGroup.getOntologyTerms().stream()
+				.flatMap(ot -> ot.getSemanticTypes().stream()).collect(toList());
 
-		List<SemanticType> semanticTypes = ontologyTerms.stream().flatMap(ot -> ot.getSemanticTypes().stream())
-				.collect(toList());
-
-		return IdentifiableTagGroup.create(identifier, ontologyTerms, semanticTypes, matchedWords, score);
+		return IdentifiableTagGroup.create(identifier, tagGroup.getOntologyTerms(), semanticTypes, matchedWords, score);
 	}
 
 	@Override
