@@ -62,17 +62,15 @@ public class OntologyBasedExplainServiceImplTest extends AbstractTestNGSpringCon
 	@Test
 	public void computeScoreForMatchedSource()
 	{
+		// Define the data
 		SemanticType semanticType = SemanticType.create("1", "smoking", "smoking", true);
-
-		OntologyTerm sourceOntologyTerm = OntologyTerm.create("C0302836", "C0302836", "Smoking tobacco",
-				StringUtils.EMPTY, Lists.newArrayList("Smoking tobacco", "Smoked Tobacco"), emptyList(), emptyList(),
-				asList(semanticType));
 
 		OntologyTerm targetOntologyTerm = OntologyTerm.create("C0302836", "C0302836", "Cigar Smoker", StringUtils.EMPTY,
 				Lists.newArrayList("Cigar Smoker"), emptyList(), emptyList(), asList(semanticType));
 
-		Multimap<OntologyTerm, OntologyTerm> relatedOntologyTerms = LinkedHashMultimap.create();
-		relatedOntologyTerms.put(targetOntologyTerm, sourceOntologyTerm);
+		OntologyTerm sourceOntologyTerm = OntologyTerm.create("C0302836", "C0302836", "Smoking tobacco",
+				StringUtils.EMPTY, Lists.newArrayList("Smoking tobacco", "Smoked Tobacco"), emptyList(), emptyList(),
+				asList(semanticType));
 
 		IdentifiableTagGroup targetTagGroup = IdentifiableTagGroup.create("1", Arrays.asList(targetOntologyTerm),
 				Collections.emptyList(), "cigar smoker", 0.7f);
@@ -80,21 +78,31 @@ public class OntologyBasedExplainServiceImplTest extends AbstractTestNGSpringCon
 		IdentifiableTagGroup sourceTagGroup = IdentifiableTagGroup.create("2", Arrays.asList(sourceOntologyTerm),
 				Collections.emptyList(), "tobacco smoke", 0.3f);
 
+		BiobankUniverse biobankUniverse = BiobankUniverse.create("1", "test universe", emptyList(), new MolgenisUser(),
+				emptyList(), emptyList());
+
 		BiobankSampleCollection collection = BiobankSampleCollection.create("test collection");
+
+		BiobankSampleAttribute targetAttribute = BiobankSampleAttribute.create("1", "SMK_CIGAR_CURRENT",
+				"Current Cigar Smoker", "", collection, Arrays.asList(targetTagGroup));
+
+		BiobankSampleAttribute sourceAttribute1 = BiobankSampleAttribute.create("2", "SMK121",
+				"How many hours a day you are exposed to the tobacco smoke of others? (Repeat) (1)", "", collection,
+				Arrays.asList(sourceTagGroup));
+
+		BiobankSampleAttribute sourceAttribute2 = BiobankSampleAttribute.create("3", "SMK231", "Current", "",
+				collection, Collections.emptyList());
+
+		BiobankSampleAttribute sourceAttribute3 = BiobankSampleAttribute.create("4", "SMK234", "Current cigar smoker",
+				"", collection, Collections.emptyList());
 
 		SemanticSearchParam semanticSearchParam = SemanticSearchParam.create(Collections.emptySet(),
 				Collections.emptyList(), QueryExpansionParam.create(false, false));
 
-		BiobankUniverse biobankUniverse = BiobankUniverse.create("1", "test universe", emptyList(), new MolgenisUser(),
-				emptyList(), emptyList());
+		Multimap<OntologyTerm, OntologyTerm> relatedOntologyTerms = LinkedHashMultimap.create();
+		relatedOntologyTerms.put(targetOntologyTerm, sourceOntologyTerm);
 
-		BiobankSampleAttribute target = BiobankSampleAttribute.create("1", "SMK_CIGAR_CURRENT", "Current Cigar Smoker",
-				"", collection, Arrays.asList(targetTagGroup));
-
-		BiobankSampleAttribute source = BiobankSampleAttribute.create("2", "SMK121",
-				"How many hours a day you are exposed to the tobacco smoke of others? (Repeat) (1)", "", collection,
-				Arrays.asList(sourceTagGroup));
-
+		// Define the actions
 		when(ontologyService.isDescendant(sourceOntologyTerm, targetOntologyTerm)).thenReturn(true);
 
 		when(ontologyService.getOntologyTermSemanticRelatedness(sourceOntologyTerm, targetOntologyTerm))
@@ -106,49 +114,33 @@ public class OntologyBasedExplainServiceImplTest extends AbstractTestNGSpringCon
 		when(ontologyService.areWithinDistance(targetOntologyTerm, sourceOntologyTerm,
 				OntologyBasedMatcher.EXPANSION_LEVEL)).thenReturn(true);
 
-		when(attributeCandidateScoringImpl.score(target, source, biobankUniverse, relatedOntologyTerms,
-				semanticSearchParam.isStrictMatch())).thenReturn(Hit.create("cigar smoker tobacco smoking", 0.4f));
+		when(attributeCandidateScoringImpl.score(targetAttribute, sourceAttribute1, biobankUniverse,
+				relatedOntologyTerms, semanticSearchParam.isStrictMatch()))
+						.thenReturn(Hit.create("cigar smoker tobacco smoking", 0.4f));
 
-		List<AttributeMappingCandidate> explain = ontologyBasedExplainServiceImpl.explain(biobankUniverse,
-				semanticSearchParam, target, Arrays.asList(source), attributeCandidateScoringImpl);
+		when(attributeCandidateScoringImpl.score(targetAttribute, sourceAttribute2, biobankUniverse,
+				relatedOntologyTerms, semanticSearchParam.isStrictMatch())).thenReturn(Hit.create("current", 0.3f));
 
-		AttributeMappingCandidate create = AttributeMappingCandidate.create("identifier", biobankUniverse, target,
-				source, MatchingExplanation.create("identifier", Arrays.asList(sourceOntologyTerm),
+		when(attributeCandidateScoringImpl.score(targetAttribute, sourceAttribute3, biobankUniverse,
+				relatedOntologyTerms, semanticSearchParam.isStrictMatch()))
+						.thenReturn(Hit.create("current cigar smoker", 1.0f));
+
+		// Test
+		List<AttributeMappingCandidate> attributeMappingCandidates = ontologyBasedExplainServiceImpl.explain(biobankUniverse,
+				semanticSearchParam, targetAttribute,
+				Arrays.asList(sourceAttribute1, sourceAttribute2, sourceAttribute3), attributeCandidateScoringImpl);
+
+		AttributeMappingCandidate candidate1 = AttributeMappingCandidate.create("identifier", biobankUniverse,
+				targetAttribute, sourceAttribute1,
+				MatchingExplanation.create("identifier", Arrays.asList(sourceOntologyTerm),
 						"cigar smoker tobacco smoking", "tobacco smoking cigar smoker", 0.4f));
 
-		Assert.assertEquals(explain, Arrays.asList(create));
-	}
+		AttributeMappingCandidate candidate3 = AttributeMappingCandidate.create("identifier", biobankUniverse,
+				targetAttribute, sourceAttribute3, MatchingExplanation.create("identifier", emptyList(),
+						"Current Cigar Smoker", "current cigar smoker", 1.0f));
 
-	//
-	// @Test
-	// public void explain()
-	// {
-	//
-	// }
-	//
-	// @Test
-	// public void findAllRelatedOntologyTerms()
-	// {
-	//
-	// }
-	//
-	// @Test
-	// public void findLeftUnmatchedWords()
-	// {
-	//
-	// }
-	//
-	// @Test
-	// public void findMatchedSynonymsInAttribute()
-	// {
-	//
-	// }
-	//
-	// @Test
-	// public void findMatchedWords()
-	// {
-	//
-	// }
+		Assert.assertEquals(attributeMappingCandidates, Arrays.asList(candidate3, candidate1));
+	}
 
 	@Configuration
 	public static class Config

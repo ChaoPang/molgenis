@@ -25,7 +25,7 @@
 						for(var i = 0; i < data.items.length; i++){
 							totalMax += data.items[i].progressMax;
 							totalProgress += data.items[i].progressInt;
-							reload = reload || (data.items[i].status != "SUCCESS");
+							reload = reload || (data.items[i].status == "RUNNING");
 						}
 					}
 					

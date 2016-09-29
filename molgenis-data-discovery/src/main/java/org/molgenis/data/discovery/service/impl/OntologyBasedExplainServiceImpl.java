@@ -117,8 +117,7 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 						targetAttribute, sourceAttribute, explanation));
 			}
 			else if (!matchedWordsExplained.containsKey(matchedWords)
-					&& (explanation.getNgramScore() > semanticSearchParam.getHighQualityThreshold()
-							|| isMatchHighQuality(explanation, biobankUniverse)))
+					&& isMatchHighQuality(explanation, semanticSearchParam, biobankUniverse))
 			{
 				candidates.add(AttributeMappingCandidate.create(idGenerator.generateId(), biobankUniverse,
 						targetAttribute, sourceAttribute, explanation));
@@ -136,8 +135,14 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 		return candidates.stream().sorted().collect(Collectors.toList());
 	}
 
-	private boolean isMatchHighQuality(MatchingExplanation explanation, BiobankUniverse biobankUniverse)
+	private boolean isMatchHighQuality(MatchingExplanation explanation, SemanticSearchParam semanticSearchParam,
+			BiobankUniverse biobankUniverse)
 	{
+		if (explanation.getNgramScore() > semanticSearchParam.getHighQualityThreshold())
+		{
+			return true;
+		}
+
 		List<OntologyTerm> ontologyTerms = explanation.getOntologyTerms();
 
 		if (ontologyTerms.isEmpty())
@@ -147,6 +152,7 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 		}
 
 		List<SemanticType> conceptFilter = biobankUniverse.getKeyConcepts();
+
 		Multimap<String, OntologyTerm> ontologyTermWithSameSynonyms = LinkedHashMultimap.create();
 		Set<String> stemmedMatchedWords = Stemmer.splitAndStem(explanation.getMatchedWords());
 
@@ -161,25 +167,8 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 			}
 		}
 
-		List<Collection<OntologyTerm>> collect = ontologyTermWithSameSynonyms.asMap().values().stream().filter(ots -> {
-			// Good ontology terms are defined as the ontology terms whose semantic types are global concepts and not in
-			// the conceptFilter
-			long countOfGoodOntologyTerms = ots.stream()
-					.filter(ot -> ot.getSemanticTypes().isEmpty() || ot.getSemanticTypes().stream().allMatch(
-							semanticType -> semanticType.isGlobalKeyConcept() && !conceptFilter.contains(semanticType)))
-					.count();
-
-			// Bad ontology terms are defined as the ontology terms whose any of the semantic types are not global
-			// concepts or in the conceptFilter
-			long countOfBadOntologyTerms = ots.stream()
-					.filter(ot -> !ot.getSemanticTypes().isEmpty() && ot.getSemanticTypes().stream().anyMatch(
-							semanticType -> !semanticType.isGlobalKeyConcept() || conceptFilter.contains(semanticType)))
-					.count();
-
-			// If there are more good ontology terms than the bad ones, we keep the ontology terms
-			return countOfGoodOntologyTerms >= countOfBadOntologyTerms;
-
-		}).collect(toList());
+		List<Collection<OntologyTerm>> collect = ontologyTermWithSameSynonyms.asMap().values().stream()
+				.filter(ots -> areOntologyTermsImportant(conceptFilter, ots)).collect(toList());
 
 		String matchedWords = SemanticSearchServiceUtils.splitIntoUniqueTerms(explanation.getMatchedWords()).stream()
 				.map(String::toLowerCase).filter(word -> !STOPWORDSLIST.contains(word)).collect(joining(" "));
@@ -187,6 +176,26 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 		// TODO: for testing purpose
 		return !collect.isEmpty() && matchedWords.length() >= 3;
 		// return true;
+	}
+
+	private boolean areOntologyTermsImportant(List<SemanticType> conceptFilter, Collection<OntologyTerm> ots)
+	{
+		// Good ontology terms are defined as the ontology terms whose semantic types are global concepts and not in
+		// the conceptFilter
+		long countOfGoodOntologyTerms = ots.stream()
+				.filter(ot -> ot.getSemanticTypes().isEmpty() || ot.getSemanticTypes().stream().allMatch(
+						semanticType -> semanticType.isGlobalKeyConcept() && !conceptFilter.contains(semanticType)))
+				.count();
+
+		// Bad ontology terms are defined as the ontology terms whose any of the semantic types are not global
+		// concepts or in the conceptFilter
+		long countOfBadOntologyTerms = ots.stream()
+				.filter(ot -> !ot.getSemanticTypes().isEmpty() && ot.getSemanticTypes().stream().anyMatch(
+						semanticType -> !semanticType.isGlobalKeyConcept() || conceptFilter.contains(semanticType)))
+				.count();
+
+		// If there are more good ontology terms than the bad ones, we keep the ontology terms
+		return countOfGoodOntologyTerms >= countOfBadOntologyTerms;
 	}
 
 	private Multimap<OntologyTerm, OntologyTerm> findAllRelatedOntologyTerms(BiobankSampleAttribute targetAttribute,
