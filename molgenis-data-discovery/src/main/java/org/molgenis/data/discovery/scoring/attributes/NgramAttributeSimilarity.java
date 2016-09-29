@@ -34,8 +34,9 @@ public class NgramAttributeSimilarity extends AttributeSimilarity
 						&& weightedWordSimilarity.containsKey(originalWord))
 				.map(word -> weightedWordSimilarity.get(word)).mapToDouble(Double::doubleValue).sum();
 
-		return (float) Math.round(stringMatching(document1, document2, removeStopWords) + calibratedScore) * 100000
-				/ 100000.0f;
+		double score = stringMatching(document1, document2, removeStopWords) + calibratedScore;
+
+		return (float) Math.round(score * 10) / 1000.0f;
 	}
 
 	public Map<String, Double> redistributedNGramScore(List<String> terms)

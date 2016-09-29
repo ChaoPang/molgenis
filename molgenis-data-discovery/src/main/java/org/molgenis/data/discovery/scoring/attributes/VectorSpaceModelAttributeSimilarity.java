@@ -51,7 +51,7 @@ public class VectorSpaceModelAttributeSimilarity extends AttributeSimilarity
 
 		docProduct = docProduct / euclideanNorm;
 
-		return (float) docProduct;
+		return (float) Math.round(docProduct * 1000) / 1000f;
 	}
 
 	private double euclideanNorms(double[] vector)

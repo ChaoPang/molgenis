@@ -14,14 +14,14 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-@ContextConfiguration(classes = VectorSpaceModelAttributeSimilarityTest.Config.class)
-public class VectorSpaceModelAttributeSimilarityTest extends AbstractTestNGSpringContextTests
+@ContextConfiguration(classes = NgramAttributeSimilarityTest.Config.class)
+public class NgramAttributeSimilarityTest extends AbstractTestNGSpringContextTests
 {
 	@Autowired
 	TermFrequencyService termFrequencyService;
 
 	@Autowired
-	VectorSpaceModelAttributeSimilarity vectorSpaceModelAttributeSimilarity;
+	NgramAttributeSimilarity ngramAttributeSimilarity;
 
 	@BeforeMethod
 	public void setup()
@@ -38,19 +38,16 @@ public class VectorSpaceModelAttributeSimilarityTest extends AbstractTestNGSprin
 	@Test
 	public void testScore()
 	{
-		assertEquals(0.175f,
-				vectorSpaceModelAttributeSimilarity.score("history of hypertension", "history of medication", false));
+		assertEquals(0.498f, ngramAttributeSimilarity.score("history of hypertension", "history of medication", false));
 
-		assertEquals(0.293f,
-				vectorSpaceModelAttributeSimilarity.score("history of hypertension", "history of medication", true));
+		assertEquals(0.577f, ngramAttributeSimilarity.score("history of hypertension", "history of medication", true));
 
-		assertEquals(0.905f,
-				vectorSpaceModelAttributeSimilarity.score("history of hypertension", "hypertension", true));
+		assertEquals(0.647f, ngramAttributeSimilarity.score("history of hypertension", "hypertension", true));
 
-		assertEquals(0.973f, vectorSpaceModelAttributeSimilarity.score("history of hypertension hypertension",
-				"hypertension", true));
+		assertEquals(0.490f,
+				ngramAttributeSimilarity.score("history of hypertension hypertension", "hypertension", true));
 
-		assertEquals(0.0f, vectorSpaceModelAttributeSimilarity.score("history of", "hypertension", false));
+		assertEquals(0.111f, ngramAttributeSimilarity.score("history of", "hypertension", false));
 	}
 
 	@Configuration
@@ -63,9 +60,9 @@ public class VectorSpaceModelAttributeSimilarityTest extends AbstractTestNGSprin
 		}
 
 		@Bean
-		public VectorSpaceModelAttributeSimilarity vectorSpaceModelAttributeSimilarity()
+		public NgramAttributeSimilarity ngramAttributeSimilarity()
 		{
-			return new VectorSpaceModelAttributeSimilarity(termFrequencyService());
+			return new NgramAttributeSimilarity(termFrequencyService());
 		}
 	}
 }
