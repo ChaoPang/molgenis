@@ -241,18 +241,12 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 					relatedOntologyTerm).stream().map(query -> parseBoostQueryString(query,
 							Math.pow(0.5, ontologyService.getOntologyTermDistance(ontologyTerm, relatedOntologyTerm))));
 
-			if (LOG.isTraceEnabled())
-			{
-				LOG.info("Started retrieving the children for the OntologyTerm: " + ontologyTerm.toString());
-			}
+			LOG.trace("Started retrieving the children for the OntologyTerm: {}", ontologyTerm.toString());
 
 			List<String> queryTermsFromChildOntologyTerms = ontologyService.getChildren(ontologyTerm, predicate)
 					.stream().flatMap(mapChildOntologyTermToQueries).collect(toList());
 
-			if (LOG.isTraceEnabled())
-			{
-				LOG.info("Retrieved " + queryTermsFromChildOntologyTerms.size());
-			}
+			LOG.trace("Retrieved {}", queryTermsFromChildOntologyTerms.size());
 
 			queryTerms.addAll(queryTermsFromChildOntologyTerms);
 

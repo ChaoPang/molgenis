@@ -66,11 +66,11 @@ public class QueryExpansionServiceImplTest extends AbstractTestNGSpringContextTe
 	@Test
 	public void testCreateQueryRulesForOntologyTerms()
 	{
-		OntologyTerm ontologyTerm_1 = OntologyTerm.create("http://www.molgenis.org/1", "molgenis label in the gcc",
+		OntologyTerm ontologyTerm_1 = OntologyTerm.create("1", "http://www.molgenis.org/1", "molgenis label in the gcc",
 				Arrays.asList("label 2"));
-		OntologyTerm ontologyTerm_2 = OntologyTerm.create("http://www.molgenis.org/2",
+		OntologyTerm ontologyTerm_2 = OntologyTerm.create("2", "http://www.molgenis.org/2",
 				"molgenis label 2 in the genetics", Arrays.asList("label 2"));
-		OntologyTerm ontologyTerm_3 = OntologyTerm.create("http://www.molgenis.org/3", "molgenis child",
+		OntologyTerm ontologyTerm_3 = OntologyTerm.create("3", "http://www.molgenis.org/3", "molgenis child",
 				Arrays.asList("child"));
 		OntologyTerm ontologyTerm_4 = OntologyTerm.and(ontologyTerm_1, ontologyTerm_2);
 
@@ -171,7 +171,7 @@ public class QueryExpansionServiceImplTest extends AbstractTestNGSpringContextTe
 	public void testCollectQueryTermsFromOntologyTerm()
 	{
 		// Case 1
-		OntologyTerm ontologyTerm1 = OntologyTerm.create("http://onto/standingheight", "Standing height",
+		OntologyTerm ontologyTerm1 = OntologyTerm.create("1", "http://onto/standingheight", "Standing height",
 				"Description is not used", Arrays.<String> asList("body_length"));
 		when(ontologyService.getChildren(ontologyTerm1, new OntologyTermChildrenPredicate(3, false, ontologyService)))
 				.thenReturn(emptyList());
@@ -180,10 +180,10 @@ public class QueryExpansionServiceImplTest extends AbstractTestNGSpringContextTe
 		assertEquals(actual_1, Arrays.asList("body length", "standing height"));
 
 		// Case 2
-		OntologyTerm ontologyTerm2 = OntologyTerm.create("http://onto/standingheight", "height",
+		OntologyTerm ontologyTerm2 = OntologyTerm.create("2", "http://onto/standingheight", "height",
 				"Description is not used", Collections.emptyList());
 
-		OntologyTerm ontologyTerm3 = OntologyTerm.create("http://onto/standingheight-children", "length",
+		OntologyTerm ontologyTerm3 = OntologyTerm.create("3", "http://onto/standingheight-children", "length",
 				Arrays.<String> asList("body_length"));
 
 		when(ontologyService.getChildren(ontologyTerm2, new OntologyTermChildrenPredicate(3, false, ontologyService)))
