@@ -126,14 +126,14 @@ public class OntologyBasedExplainServiceImplTest extends AbstractTestNGSpringCon
 						.thenReturn(Hit.create("current cigar smoker", 1.0f));
 
 		// Test
-		List<AttributeMappingCandidate> attributeMappingCandidates = ontologyBasedExplainServiceImpl.explain(biobankUniverse,
-				semanticSearchParam, targetAttribute,
+		List<AttributeMappingCandidate> attributeMappingCandidates = ontologyBasedExplainServiceImpl.explain(
+				biobankUniverse, semanticSearchParam, targetAttribute,
 				Arrays.asList(sourceAttribute1, sourceAttribute2, sourceAttribute3), attributeCandidateScoringImpl);
 
 		AttributeMappingCandidate candidate1 = AttributeMappingCandidate.create("identifier", biobankUniverse,
 				targetAttribute, sourceAttribute1,
 				MatchingExplanation.create("identifier", Arrays.asList(sourceOntologyTerm),
-						"cigar smoker tobacco smoking", "tobacco smoking cigar smoker", 0.4f));
+						"cigar smoker tobacco smoking", "cigar smoker tobacco smoking", 0.4f));
 
 		AttributeMappingCandidate candidate3 = AttributeMappingCandidate.create("identifier", biobankUniverse,
 				targetAttribute, sourceAttribute3, MatchingExplanation.create("identifier", emptyList(),
