@@ -15,9 +15,7 @@ import static org.molgenis.ontology.utils.Stemmer.splitAndStem;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -119,71 +117,64 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 			LOG.debug("Hits: {}", relevantTagGroups);
 		}
 
-		List<TagGroup> allTagGroups = new ArrayList<>();
-
-		Set<TagGroup> usedTagGroups = new HashSet<>();
+		List<TagGroup> combinedTagGroups = new ArrayList<>();
 
 		// 1. Create a list of ontology term candidates with the best matching synonym known
 		// 2. Loop through the list of candidates and collect all the possible candidates (all best combinations of
 		// ontology terms)
 		// 3. Compute a list of possible ontology terms.
-		for (TagGroup targetGroup : relevantTagGroups)
+		for (TagGroup targetGroup : Lists.newArrayList(relevantTagGroups))
 		{
-			if (!usedTagGroups.contains(targetGroup))
-			{
-				Multimap<String, TagGroup> ontologyTermGroups = LinkedHashMultimap.create();
-				ontologyTermGroups.put(targetGroup.getMatchedWords(), targetGroup);
+			Multimap<String, TagGroup> ontologyTermGroups = LinkedHashMultimap.create();
+			ontologyTermGroups.put(targetGroup.getMatchedWords(), targetGroup);
 
-				for (TagGroup tagGroup : relevantTagGroups.stream().filter(tagGroup -> !targetGroup.equals(tagGroup))
-						.collect(toList()))
+			for (TagGroup tagGroup : relevantTagGroups)
+			{
+				if (targetGroup.equals(tagGroup)) continue;
+
+				if (ontologyTermGroups.containsKey(tagGroup.getMatchedWords()))
 				{
-					if (ontologyTermGroups.containsKey(tagGroup.getMatchedWords()))
+					ontologyTermGroups.put(tagGroup.getMatchedWords(), tagGroup);
+				}
+				else
+				{
+					String previousJoinedTerm = termJoiner.join(ontologyTermGroups.keys().elementSet());
+					Set<String> previousJoinedMatchedWords = removeIllegalCharactersAndStopWords(previousJoinedTerm);
+					Set<String> currentMatchedWords = removeIllegalCharactersAndStopWords(tagGroup.getMatchedWords());
+
+					// The next TagGroup words should not be present in the previous involved TagGroups
+					String joinedTerm = termJoiner.join(Sets.union(previousJoinedMatchedWords, currentMatchedWords));
+					float joinedScore = round(distanceFrom(joinedTerm, queryWords));
+					float previousScore = round(distanceFrom(previousJoinedTerm, queryWords));
+
+					if (joinedScore > previousScore)
 					{
 						ontologyTermGroups.put(tagGroup.getMatchedWords(), tagGroup);
 					}
-					else
-					{
-						String previousJoinedTerm = termJoiner.join(ontologyTermGroups.keys().elementSet());
-						Set<String> previousJoinedMatchedWords = removeIllegalCharactersAndStopWords(
-								previousJoinedTerm);
-						Set<String> currentMatchedWords = removeIllegalCharactersAndStopWords(
-								tagGroup.getMatchedWords());
-
-						// The next TagGroup words should not be present in the previous involved TagGroups
-						String joinedTerm = termJoiner
-								.join(Sets.union(previousJoinedMatchedWords, currentMatchedWords));
-						float joinedScore = round(distanceFrom(joinedTerm, queryWords));
-						float previousScore = round(distanceFrom(previousJoinedTerm, queryWords));
-
-						if (joinedScore > previousScore)
-						{
-							ontologyTermGroups.put(tagGroup.getMatchedWords(), tagGroup);
-						}
-					}
 				}
-
-				String joinedSynonym = termJoiner.join(ontologyTermGroups.keySet());
-				float newScore = round(distanceFrom(joinedSynonym, queryWords));
-				List<TagGroup> newTagGroups = createTagGroups(ontologyTermGroups).stream()
-						.map(ontologyTerm -> TagGroup.create(ontologyTerm, joinedSynonym, newScore)).collect(toList());
-
-				allTagGroups.addAll(newTagGroups);
-
-				usedTagGroups.addAll(ontologyTermGroups.values());
 			}
+
+			String joinedSynonym = termJoiner.join(ontologyTermGroups.keySet());
+			float newScore = round(distanceFrom(joinedSynonym, queryWords));
+			List<TagGroup> newTagGroups = createTagGroups(ontologyTermGroups).stream()
+					.map(list -> TagGroup.create(list, joinedSynonym, newScore)).collect(toList());
+
+			combinedTagGroups.addAll(newTagGroups);
+
+			relevantTagGroups.removeAll(ontologyTermGroups.values());
 		}
 
-		if (allTagGroups.size() > 0)
+		if (combinedTagGroups.size() > 0)
 		{
-			float maxScore = (float) allTagGroups.stream().map(TagGroup::getScore).mapToDouble(Float::doubleValue).max()
-					.getAsDouble() * 0.8f;
-			allTagGroups = allTagGroups.stream().sorted(reverseOrder())
+			float maxScore = (float) combinedTagGroups.stream().map(TagGroup::getScore).mapToDouble(Float::doubleValue)
+					.max().getAsDouble() * 0.8f;
+			combinedTagGroups = combinedTagGroups.stream().sorted(reverseOrder())
 					.filter(tagGroup -> tagGroup.getScore() >= maxScore).limit(20).collect(toList());
 			if (LOG.isDebugEnabled())
 			{
-				LOG.debug("result: {}", allTagGroups);
+				LOG.debug("result: {}", combinedTagGroups);
 			}
-			return allTagGroups;
+			return combinedTagGroups;
 		}
 
 		return emptyList();
@@ -233,27 +224,38 @@ public class TagGroupGeneratorImpl implements TagGroupGenerator
 				bestMatchingSynonym.getScore());
 	}
 
-	List<OntologyTerm> createTagGroups(Multimap<String, TagGroup> candidates)
+	List<List<OntologyTerm>> createTagGroups(Multimap<String, TagGroup> candidates)
 	{
-		List<OntologyTerm> ontologyTerms = new ArrayList<>();
-		for (Entry<String, Collection<TagGroup>> entry : candidates.asMap().entrySet())
-		{
-			List<OntologyTerm> collect = entry.getValue().stream()
-					.flatMap(tagGroup -> tagGroup.getOntologyTerms().stream()).collect(Collectors.toList());
+		List<List<OntologyTerm>> ontologyTermGroups = new ArrayList<>();
 
-			if (ontologyTerms.size() == 0)
+		for (Collection<TagGroup> values : candidates.asMap().values())
+		{
+			List<OntologyTerm> atomicOntologyTermGroup = values.stream()
+					.flatMap(tagGroup -> tagGroup.getOntologyTerms().stream()).collect(toList());
+
+			if (ontologyTermGroups.isEmpty())
 			{
-				ontologyTerms.addAll(collect);
+				ontologyTermGroups.addAll(atomicOntologyTermGroup.stream().map(Lists::newArrayList).collect(toList()));
 			}
 			else
 			{
-				// the pairwise combinations of any sets of ontology terms
-				ontologyTerms = ontologyTerms.stream()
-						.flatMap(ot1 -> collect.stream().map(ot2 -> OntologyTerm.and(ot1, ot2)))
-						.collect(Collectors.toList());
+				List<List<OntologyTerm>> tempOntologyTermGroups = new ArrayList<>();
+
+				for (OntologyTerm ontologyTerm : atomicOntologyTermGroup)
+				{
+					List<List<OntologyTerm>> copyOfOntologyTermGroups = ontologyTermGroups.stream()
+							.map(list -> Lists.newArrayList(list)).collect(Collectors.toList());
+
+					copyOfOntologyTermGroups.forEach(list -> list.add(ontologyTerm));
+
+					tempOntologyTermGroups.addAll(copyOfOntologyTermGroups);
+				}
+
+				ontologyTermGroups = Lists.newArrayList(tempOntologyTermGroups);
 			}
 		}
-		return ontologyTerms;
+
+		return ontologyTermGroups;
 	}
 
 	/**
