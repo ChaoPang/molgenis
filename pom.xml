@@ -726,5 +726,6 @@
         <module>molgenis-data-cache</module>
         <module>molgenis-data-platform</module>
         <module>molgenis-annotators-cmd</module>
+        <module>molgenis-data-nlp</module>
     </modules>
 </project>
