@@ -20,7 +20,8 @@ public class MatchingExplanationMetaData extends SystemEntityMetaData
 	public static final String MATCHING_EXPLANATION = PACKAGE_UNIVERSE + PACKAGE_SEPARATOR + SIMPLE_NAME;
 
 	public static final String IDENTIFIER = "identifier";
-	public static final String ONTOLOGY_TERMS = "ontologyTerms";
+	public static final String TARGET_ONTOLOGY_TERMS = "targetOntologyTerms";
+	public static final String SOURCE_ONTOLOGY_TERMS = "sourceOntologyTerms";
 	public static final String MATCHED_QUERY_STRING = "matchedQueryString";
 	public static final String MATCHED_TARGET_WORDS = "matchedTargetWords";
 	public static final String MATCHED_SOURCE_WORDS = "matchedSourceWords";
@@ -46,7 +47,8 @@ public class MatchingExplanationMetaData extends SystemEntityMetaData
 		setPackage(biobankUniversePackage);
 
 		addAttribute(IDENTIFIER, ROLE_ID);
-		addAttribute(ONTOLOGY_TERMS).setDataType(MREF).setRefEntity(ontologyTermMetaData);
+		addAttribute(TARGET_ONTOLOGY_TERMS).setDataType(MREF).setRefEntity(ontologyTermMetaData);
+		addAttribute(SOURCE_ONTOLOGY_TERMS).setDataType(MREF).setRefEntity(ontologyTermMetaData);
 		addAttribute(MATCHED_QUERY_STRING);
 		addAttribute(MATCHED_TARGET_WORDS);
 		addAttribute(MATCHED_SOURCE_WORDS);

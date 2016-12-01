@@ -5,12 +5,17 @@ import com.google.common.collect.Multimap;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
+import org.molgenis.data.discovery.model.matching.MatchedOntologyTermHit;
 import org.molgenis.data.discovery.utils.MatchingExplanationHit;
+import org.molgenis.data.semanticsearch.explain.bean.OntologyTermHit;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.ic.TermFrequencyService;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
+
+import java.util.Arrays;
+import java.util.List;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -54,6 +59,18 @@ public class AttributeCandidateScoringImplTest
 		IdentifiableTagGroup tagGroup2 = IdentifiableTagGroup
 				.create("2", asList(consumption, beans), emptyList(), "consumption beans", 1.0f);
 
+		OntologyTermHit targetOntologyTermHit1 = OntologyTermHit.create(consumption, "consumption", 0.75f);
+
+		OntologyTermHit sourceOntologyTermHit1 = OntologyTermHit.create(consumption, "consumption", 0.78260875f);
+
+		OntologyTermHit targetOntologyTermHit2 = OntologyTermHit.create(vegetables, "vegetables", 0.57142854f);
+
+		OntologyTermHit sourceOntologyTermHit2 = OntologyTermHit.create(beans, "beans", 0.5263158f);
+
+		List<MatchedOntologyTermHit> matchedOntologyTermHits = Arrays
+				.asList(MatchedOntologyTermHit.create(targetOntologyTermHit1, sourceOntologyTermHit1, 1.0d),
+						MatchedOntologyTermHit.create(targetOntologyTermHit2, sourceOntologyTermHit2, 0.8d));
+
 		BiobankSampleAttribute targetAttribute = BiobankSampleAttribute
 				.create("1", "targetAttribute", "Consumption of vegetables", EMPTY, INT, biobankSampleCollection,
 						asList(tagGroup1));
@@ -84,12 +101,13 @@ public class AttributeCandidateScoringImplTest
 		MatchingExplanationHit matchingExplanationHit1 = attributeCandidateScoringImpl
 				.score(targetAttribute, sourceAttribute1, relatedOntologyTerms, false);
 
-		assertEquals(matchingExplanationHit1,
-				MatchingExplanationHit.create("consumption vegetables beans", 0.875072f, 0.875072f));
+		assertEquals(matchingExplanationHit1, MatchingExplanationHit
+				.create("consumption vegetables beans", matchedOntologyTermHits, 0.875072f, 0.875072f));
 
 		MatchingExplanationHit matchingExplanationHit2 = attributeCandidateScoringImpl
 				.score(targetAttribute, sourceAttribute2, LinkedHashMultimap.create(), false);
 
-		assertEquals(matchingExplanationHit2, MatchingExplanationHit.create("consumption", 0.243f, 0.617f));
+		assertEquals(matchingExplanationHit2,
+				MatchingExplanationHit.create("consumption", emptyList(), 0.243f, 0.617f));
 	}
 }

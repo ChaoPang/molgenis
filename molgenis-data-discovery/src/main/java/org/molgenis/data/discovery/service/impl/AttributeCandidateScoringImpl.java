@@ -180,7 +180,8 @@ public class AttributeCandidateScoringImpl
 			float ngramScore = hitForDescription.getNgramScore() > hitForLabel.getNgramScore() ? hitForDescription
 					.getNgramScore() : (hitForLabel.getNgramScore() + hitForDescription.getNgramScore()) / 2;
 
-			hitForLabel = MatchingExplanationHit.create(hitForLabel.getMatchedWords(), vsmScore, ngramScore);
+			hitForLabel = MatchingExplanationHit
+					.create(hitForLabel.getMatchedWords(), matchedOntologyTermHits, vsmScore, ngramScore);
 		}
 		return hitForLabel;
 	}
@@ -244,7 +245,7 @@ public class AttributeCandidateScoringImpl
 			ngramScore = ngramScore - semanticContribution + calibratedContribution;
 		}
 
-		return MatchingExplanationHit.create(matchedWords, vsmScore, ngramScore);
+		return MatchingExplanationHit.create(matchedWords, matchedOntologyTermHits, vsmScore, ngramScore);
 	}
 
 	private OntologyTermHit createOntologyTermTag(OntologyTerm ontologyTerm,

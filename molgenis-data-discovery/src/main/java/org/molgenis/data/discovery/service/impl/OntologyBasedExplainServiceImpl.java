@@ -7,10 +7,12 @@ import org.molgenis.data.discovery.filters.DataTypePostFilter;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.matching.AttributeMappingCandidate;
+import org.molgenis.data.discovery.model.matching.MatchedOntologyTermHit;
 import org.molgenis.data.discovery.model.matching.MatchingExplanation;
 import org.molgenis.data.discovery.service.OntologyBasedExplainService;
 import org.molgenis.data.discovery.utils.MatchingExplanationHit;
 import org.molgenis.data.populate.IdGenerator;
+import org.molgenis.data.semanticsearch.explain.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.bean.SearchParam;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.SemanticType;
@@ -21,7 +23,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.*;
@@ -80,12 +81,16 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 			String matchedSourceWords = termJoiner
 					.join(findMatchedWords(matchingExplanationHit.getMatchedWords(), sourceAttribute.getLabel()));
 
-			List<OntologyTerm> ontologyTerms = relatedOntologyTerms.values().stream().distinct().collect(toList());
+			List<OntologyTerm> targetOntologyTerms = matchingExplanationHit.getMatchedOntologyTermHits().stream()
+					.map(MatchedOntologyTermHit::getTarget).map(OntologyTermHit::getOntologyTerm).collect(toList());
+
+			List<OntologyTerm> sourceOntologyTerms = matchingExplanationHit.getMatchedOntologyTermHits().stream()
+					.map(MatchedOntologyTermHit::getSource).map(OntologyTermHit::getOntologyTerm).collect(toList());
 
 			MatchingExplanation explanation = MatchingExplanation
-					.create(idGenerator.generateId(), ontologyTerms, matchingExplanationHit.getMatchedWords(),
-							matchedTargetWords, matchedSourceWords, matchingExplanationHit.getVsmScore(),
-							matchingExplanationHit.getNgramScore());
+					.create(idGenerator.generateId(), targetOntologyTerms, sourceOntologyTerms,
+							matchingExplanationHit.getMatchedWords(), matchedTargetWords, matchedSourceWords,
+							matchingExplanationHit.getVsmScore(), matchingExplanationHit.getNgramScore());
 
 			// For those source attributes who get matched to the target with the same matched word, we cached the
 			// 'quality' in a map so that we don't need to compute the quality twice
@@ -119,7 +124,7 @@ public class OntologyBasedExplainServiceImpl implements OntologyBasedExplainServ
 
 		LOG.trace("Finished explaining the matched source attributes");
 
-		return candidates.stream().sorted().collect(Collectors.toList());
+		return candidates.stream().sorted().collect(toList());
 	}
 
 	private boolean isMatchHighQuality(MatchingExplanation explanation, SearchParam searchParam,

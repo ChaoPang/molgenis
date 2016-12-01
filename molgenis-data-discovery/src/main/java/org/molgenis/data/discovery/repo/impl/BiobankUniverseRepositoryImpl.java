@@ -178,7 +178,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 			Fetch fetchExplanation = new Fetch();
 			matchingExplanationMetaData.getAtomicAttributes()
 					.forEach(attribute -> fetchExplanation.field(attribute.getName()));
-			fetchExplanation.field(MatchingExplanationMetaData.ONTOLOGY_TERMS, fetchOntologyTerm);
+			fetchExplanation.field(MatchingExplanationMetaData.TARGET_ONTOLOGY_TERMS, fetchOntologyTerm);
 
 			Fetch attributeMappingCandidateFetch = new Fetch();
 			attributeMappingCandidateMetaData.getAtomicAttributes()
@@ -702,7 +702,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		Fetch fetchExplanation = new Fetch();
 		matchingExplanationMetaData.getAtomicAttributes()
 				.forEach(attribute -> fetchExplanation.field(attribute.getName()));
-		fetchExplanation.field(MatchingExplanationMetaData.ONTOLOGY_TERMS, fetchOntologyTerm);
+		fetchExplanation.field(MatchingExplanationMetaData.TARGET_ONTOLOGY_TERMS, fetchOntologyTerm);
 
 		Fetch biobankUniverseFetch = new Fetch();
 		biobankUniverseMetaData.getAtomicAttributes()
@@ -1003,15 +1003,19 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		double vsmScore = mappingExplanation.getVsmScore();
 		double ngramScore = mappingExplanation.getNgramScore();
 
-		Iterable<Entity> ontologyTermEntities = entityManager.getReferences(ontologyTermMetaData,
-				mappingExplanation.getOntologyTerms().stream().map(OntologyTerm::getId).collect(toList()));
+		Iterable<Entity> targetOntologyTermEntities = entityManager.getReferences(ontologyTermMetaData,
+				mappingExplanation.getTargetOntologyTerms().stream().map(OntologyTerm::getId).collect(toList()));
+
+		Iterable<Entity> sourceOntologyTermEntities = entityManager.getReferences(ontologyTermMetaData,
+				mappingExplanation.getSourceOntologyTerms().stream().map(OntologyTerm::getId).collect(toList()));
 
 		Entity entity = new DynamicEntity(matchingExplanationMetaData);
 		entity.set(MatchingExplanationMetaData.IDENTIFIER, identifier);
 		entity.set(MatchingExplanationMetaData.MATCHED_QUERY_STRING, queryString);
 		entity.set(MatchingExplanationMetaData.MATCHED_TARGET_WORDS, matchedTargetWords);
 		entity.set(MatchingExplanationMetaData.MATCHED_SOURCE_WORDS, matchedSourceWords);
-		entity.set(MatchingExplanationMetaData.ONTOLOGY_TERMS, ontologyTermEntities);
+		entity.set(MatchingExplanationMetaData.TARGET_ONTOLOGY_TERMS, targetOntologyTermEntities);
+		entity.set(MatchingExplanationMetaData.SOURCE_ONTOLOGY_TERMS, sourceOntologyTermEntities);
 		entity.set(MatchingExplanationMetaData.VSM_SCORE, vsmScore);
 		entity.set(MatchingExplanationMetaData.N_GRAM_SCORE, ngramScore);
 
@@ -1029,19 +1033,33 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 		Double ngramScore = mappingExplanationEntity.getDouble(MatchingExplanationMetaData.N_GRAM_SCORE);
 		Double vsmScore = mappingExplanationEntity.getDouble(MatchingExplanationMetaData.VSM_SCORE);
 
-		List<OntologyTerm> ontologyTerms = new ArrayList<>();
-		Iterable<Entity> ontologyTermEntities = mappingExplanationEntity
-				.getEntities(MatchingExplanationMetaData.ONTOLOGY_TERMS);
-		if (ontologyTermEntities != null)
+		List<OntologyTerm> targetOntologyTerms = new ArrayList<>();
+
+		Iterable<Entity> targetOntologyTermEntities = mappingExplanationEntity
+				.getEntities(MatchingExplanationMetaData.TARGET_ONTOLOGY_TERMS);
+
+		if (targetOntologyTermEntities != null)
 		{
-			List<OntologyTerm> collect = stream(ontologyTermEntities.spliterator(), false).map(OntologyTermEntity::new)
-					.map(OntologyTermRepository::toOntologyTerm).collect(toList());
-			ontologyTerms.addAll(collect);
+			List<OntologyTerm> collect = stream(targetOntologyTermEntities.spliterator(), false)
+					.map(OntologyTermEntity::new).map(OntologyTermRepository::toOntologyTerm).collect(toList());
+			targetOntologyTerms.addAll(collect);
+		}
+
+		List<OntologyTerm> sourceOntologyTerms = new ArrayList<>();
+
+		Iterable<Entity> sourceOntologyTermEntities = mappingExplanationEntity
+				.getEntities(MatchingExplanationMetaData.SOURCE_ONTOLOGY_TERMS);
+
+		if (sourceOntologyTermEntities != null)
+		{
+			List<OntologyTerm> collect = stream(sourceOntologyTermEntities.spliterator(), false)
+					.map(OntologyTermEntity::new).map(OntologyTermRepository::toOntologyTerm).collect(toList());
+			sourceOntologyTerms.addAll(collect);
 		}
 
 		return MatchingExplanation
-				.create(identifier, ontologyTerms, queryString, matchedTargetWords, matchedSourceWords, vsmScore,
-						ngramScore);
+				.create(identifier, targetOntologyTerms, sourceOntologyTerms, queryString, matchedTargetWords,
+						matchedSourceWords, vsmScore, ngramScore);
 	}
 
 	private AttributeMappingDecision entityToAttributeMappingDecision(Entity entity)

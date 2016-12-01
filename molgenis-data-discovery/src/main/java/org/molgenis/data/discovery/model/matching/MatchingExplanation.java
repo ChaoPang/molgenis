@@ -6,13 +6,18 @@ import org.molgenis.ontology.core.model.OntologyTerm;
 
 import java.util.List;
 
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Stream.concat;
+
 @AutoValue
 @AutoGson(autoValueClass = AutoValue_MatchingExplanation.class)
 public abstract class MatchingExplanation
 {
 	public abstract String getIdentifier();
 
-	public abstract List<OntologyTerm> getOntologyTerms();
+	public abstract List<OntologyTerm> getTargetOntologyTerms();
+
+	public abstract List<OntologyTerm> getSourceOntologyTerms();
 
 	public abstract String getQueryString();
 
@@ -24,15 +29,22 @@ public abstract class MatchingExplanation
 
 	public abstract double getNgramScore();
 
-	public static MatchingExplanation create(String identifier, List<OntologyTerm> ontologyTerms, String queryString,
-			String matchedTargetWords, String matchedSourceWords, double vsmScore, double ngramScore)
+	public static MatchingExplanation create(String identifier, List<OntologyTerm> targetOntologyTerms,
+			List<OntologyTerm> sourceOntologyTerms, String queryString, String matchedTargetWords,
+			String matchedSourceWords, double vsmScore, double ngramScore)
 	{
-		return new AutoValue_MatchingExplanation(identifier, ontologyTerms, queryString, matchedTargetWords,
-				matchedSourceWords, vsmScore, ngramScore);
+		return new AutoValue_MatchingExplanation(identifier, targetOntologyTerms, sourceOntologyTerms, queryString,
+				matchedTargetWords, matchedSourceWords, vsmScore, ngramScore);
 	}
 
 	public String getMatchedWords()
 	{
 		return getMatchedTargetWords() + ' ' + getMatchedSourceWords();
+	}
+
+	public List<OntologyTerm> getOntologyTerms()
+	{
+		return concat(getTargetOntologyTerms().stream(), getSourceOntologyTerms().stream()).distinct()
+				.collect(toList());
 	}
 }
