@@ -1,12 +1,12 @@
 package org.molgenis.data.nlp.beans.noun;
 
-import static java.util.stream.Collectors.toList;
+import org.molgenis.data.nlp.beans.core.KeyConcept;
+import org.molgenis.data.nlp.beans.core.Word;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import org.molgenis.data.nlp.beans.core.KeyConcept;
-import org.molgenis.data.nlp.beans.core.Word;
+import static java.util.stream.Collectors.toList;
 
 public class NounKeyConcept extends KeyConcept
 {
@@ -19,7 +19,7 @@ public class NounKeyConcept extends KeyConcept
 	{
 		List<Word> keyConceptNounWords = new ArrayList<>();
 
-		if (words.get(words.size() - 1).isNoun())
+		if (!words.isEmpty() && words.get(words.size() - 1).isNoun())
 		{
 			int firstNounIndex = words.stream().filter(Word::isNoun).mapToInt(word -> words.indexOf(word)).min()
 					.orElse(words.size() - 1);

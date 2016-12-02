@@ -1,4 +1,4 @@
-package org.molgenis.data.nlp.relations;
+package org.molgenis.data.nlp.beans.relations;
 
 import static java.util.stream.Collectors.toList;
 

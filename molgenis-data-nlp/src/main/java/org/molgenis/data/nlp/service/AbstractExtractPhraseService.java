@@ -8,8 +8,8 @@ import edu.stanford.nlp.trees.Tree;
 import org.molgenis.data.nlp.beans.Phrase;
 import org.molgenis.data.nlp.beans.core.PhraseObject;
 import org.molgenis.data.nlp.beans.core.Word;
-import org.molgenis.data.nlp.relations.Relation;
-import org.molgenis.data.nlp.relations.WordRelation;
+import org.molgenis.data.nlp.beans.relations.Relation;
+import org.molgenis.data.nlp.beans.relations.WordRelation;
 
 import java.util.ArrayList;
 import java.util.List;

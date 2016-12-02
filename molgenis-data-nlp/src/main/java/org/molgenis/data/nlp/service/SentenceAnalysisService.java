@@ -1,14 +1,13 @@
 package org.molgenis.data.nlp.service;
 
+import edu.stanford.nlp.pipeline.StanfordCoreNLP;
+import org.molgenis.data.nlp.beans.Phrase;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import org.molgenis.data.nlp.beans.Phrase;
-
-import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 
 public class SentenceAnalysisService
 {
@@ -35,7 +34,7 @@ public class SentenceAnalysisService
 	public static void main(String[] args) throws IOException
 	{
 		SentenceAnalysisService converter = new SentenceAnalysisService();
-		String string = "Indicator of whether the participant currently uses blood glucose lowering medication.";
+		String string = "Have you ever had a heart attack? (Repeat) (1)";
 		List<Phrase> nounPhrases = converter.getPhrases(string);
 		System.out.format("The input: %s%nThe phrases: %s%n%n", string, nounPhrases);
 	}

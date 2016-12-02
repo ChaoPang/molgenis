@@ -1,4 +1,4 @@
-package org.molgenis.data.nlp.relations;
+package org.molgenis.data.nlp.beans.relations;
 
 import com.google.auto.value.AutoValue;
 import edu.stanford.nlp.trees.GrammaticalRelation;

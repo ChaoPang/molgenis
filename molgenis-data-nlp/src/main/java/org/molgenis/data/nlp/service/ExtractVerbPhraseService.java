@@ -12,8 +12,8 @@ import org.molgenis.data.nlp.beans.Phrase;
 import org.molgenis.data.nlp.beans.core.PhraseObject;
 import org.molgenis.data.nlp.beans.core.Word;
 import org.molgenis.data.nlp.beans.verb.VerbPhraseObjectFactory;
-import org.molgenis.data.nlp.relations.Relation;
-import org.molgenis.data.nlp.relations.WordRelation;
+import org.molgenis.data.nlp.beans.relations.Relation;
+import org.molgenis.data.nlp.beans.relations.WordRelation;
 import org.molgenis.data.nlp.utils.NlpUtils;
 
 import java.io.IOException;
