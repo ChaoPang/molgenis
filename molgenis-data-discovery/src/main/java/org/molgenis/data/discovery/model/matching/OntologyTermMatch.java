@@ -5,8 +5,8 @@ import org.molgenis.gson.AutoGson;
 import org.molgenis.ontology.core.model.OntologyTerm;
 
 @AutoValue
-@AutoGson(autoValueClass = AutoValue_OntologyTermRelated.class)
-public abstract class OntologyTermRelated
+@AutoGson(autoValueClass = AutoValue_OntologyTermMatch.class)
+public abstract class OntologyTermMatch
 {
 	public abstract OntologyTerm getTarget();
 
@@ -14,8 +14,8 @@ public abstract class OntologyTermRelated
 
 	public abstract int getStopLevel();
 
-	public static OntologyTermRelated create(OntologyTerm target, OntologyTerm source, int stopLevel)
+	public static OntologyTermMatch create(OntologyTerm target, OntologyTerm source, int stopLevel)
 	{
-		return new AutoValue_OntologyTermRelated(target, source, stopLevel);
+		return new AutoValue_OntologyTermMatch(target, source, stopLevel);
 	}
 }

@@ -50,8 +50,7 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData.BiobankAttributeDataType.toEnum;
 import static org.molgenis.data.discovery.meta.matching.AttributeMappingDecisionMetaData.DecisionOptions.NO;
 import static org.molgenis.data.discovery.meta.matching.AttributeMappingDecisionMetaData.DecisionOptions.YES;
-import static org.molgenis.data.discovery.service.BiobankUniverseService.AttributeMatchStatus.DECIDED;
-import static org.molgenis.data.discovery.service.BiobankUniverseService.AttributeMatchStatus.UN_DECIDED;
+import static org.molgenis.data.discovery.service.BiobankUniverseService.AttributeMatchStatus.*;
 
 public class BiobankUniverseServiceImpl implements BiobankUniverseService
 {
@@ -239,10 +238,26 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 			BiobankSampleAttribute rowKey = curatedAttributeMatch.getTarget();
 			BiobankSampleCollection columnKey = curatedAttributeMatch.getSource().getCollection();
 			AttributeMappingDecision attributeMappingDecision = curatedAttributeMatch.getDecisions().get(0);
-			if (!table.contains(rowKey, columnKey) && attributeMappingDecision.getDecision().equals(YES))
+
+			AttributeMatchStatus attributeMatchStatus;
+			switch (attributeMappingDecision.getDecision())
 			{
-				table.put(rowKey, columnKey, DECIDED);
+				case YES:
+					attributeMatchStatus = CURATED_MATCHES;
+					break;
+				case NO:
+					attributeMatchStatus = CURATED_NO_MATCHES;
+					break;
+				default:
+					attributeMatchStatus = UN_DECIDED;
 			}
+
+			if (table.contains(rowKey, columnKey))
+			{
+				attributeMatchStatus = combineAttributeMatchStatus(table.get(rowKey, columnKey), attributeMatchStatus);
+			}
+
+			table.put(rowKey, columnKey, attributeMatchStatus);
 		}
 
 		for (BiobankSampleAttribute targetAttribute : targetAttributes)
@@ -257,6 +272,22 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 		}
 
 		return table;
+	}
+
+	private AttributeMatchStatus combineAttributeMatchStatus(AttributeMatchStatus attributeMatchStatus1,
+			AttributeMatchStatus attributeMatchStatus2)
+	{
+		if (attributeMatchStatus1.equals(CURATED_MATCHES) || attributeMatchStatus2.equals(CURATED_MATCHES))
+		{
+			return CURATED_MATCHES;
+		}
+
+		if (attributeMatchStatus1.equals(CURATED_NO_MATCHES) && attributeMatchStatus2.equals(CURATED_NO_MATCHES))
+		{
+			return CURATED_NO_MATCHES;
+		}
+
+		return UN_DECIDED;
 	}
 
 	@Override

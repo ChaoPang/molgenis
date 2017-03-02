@@ -21,7 +21,7 @@ public interface BiobankUniverseService
 {
 	public enum AttributeMatchStatus
 	{
-		UN_DECIDED, DECIDED, NO_CANDIDATES;
+		UN_DECIDED, CURATED_MATCHES, CURATED_NO_MATCHES, NO_CANDIDATES;
 	}
 
 	/**

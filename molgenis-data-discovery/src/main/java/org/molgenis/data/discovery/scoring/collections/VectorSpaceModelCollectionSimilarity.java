@@ -7,7 +7,7 @@ import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverseMemberVector;
 import org.molgenis.data.discovery.model.matching.BiobankSampleCollectionSimilarity;
-import org.molgenis.data.discovery.model.matching.OntologyTermRelated;
+import org.molgenis.data.discovery.model.matching.OntologyTermMatch;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.populate.IdGenerator;
 import org.molgenis.data.semanticsearch.semantic.Hit;
@@ -43,16 +43,16 @@ public class VectorSpaceModelCollectionSimilarity
 
 	final static int DISTANCE = 5;
 
-	private LoadingCache<OntologyTermRelated, Double> cachedOntologyTermSemanticRelateness = CacheBuilder.newBuilder()
-			.maximumSize(2000).expireAfterWrite(1, TimeUnit.HOURS).build(new CacheLoader<OntologyTermRelated, Double>()
+	private LoadingCache<OntologyTermMatch, Double> cachedOntologyTermSemanticRelateness = CacheBuilder.newBuilder()
+			.maximumSize(2000).expireAfterWrite(1, TimeUnit.HOURS).build(new CacheLoader<OntologyTermMatch, Double>()
 			{
-				public Double load(OntologyTermRelated ontologyTermRelated)
+				public Double load(OntologyTermMatch ontologyTermMatch)
 				{
-					if (ontologyService.related(ontologyTermRelated.getTarget(), ontologyTermRelated.getSource(),
-							ontologyTermRelated.getStopLevel()))
+					if (ontologyService.related(ontologyTermMatch.getTarget(), ontologyTermMatch.getSource(),
+							ontologyTermMatch.getStopLevel()))
 					{
-						return ontologyService.getOntologyTermSemanticRelatedness(ontologyTermRelated.getTarget(),
-								ontologyTermRelated.getSource());
+						return ontologyService.getOntologyTermSemanticRelatedness(ontologyTermMatch.getTarget(),
+								ontologyTermMatch.getSource());
 					}
 					return 0.0d;
 				}
@@ -130,15 +130,15 @@ public class VectorSpaceModelCollectionSimilarity
 		Set<OntologyTerm> uniqueTargetOntologyTerms = targetOntologyTermFrequency.keySet();
 
 		// For the unmatched ontology terms, we try to pair them with the closest neighbor in the ontology structure
-		List<Hit<OntologyTermRelated>> relatedOntologyTerms = uniqueTargetOntologyTerms.stream()
+		List<Hit<OntologyTermMatch>> relatedOntologyTerms = uniqueTargetOntologyTerms.stream()
 				.flatMap(ot -> findRelatedOntologyTerms(ot, uniqueOntologyTermList).stream()).collect(toList());
 
 		double[] vector = new double[uniqueOntologyTermList.size()];
 
-		for (Hit<OntologyTermRelated> relatedOntologyTermHit : relatedOntologyTerms)
+		for (Hit<OntologyTermMatch> relatedOntologyTermHit : relatedOntologyTerms)
 		{
-			OntologyTermRelated ontologyTermRelated = relatedOntologyTermHit.getResult();
-			OntologyTerm sourceOntologyTerm = ontologyTermRelated.getSource();
+			OntologyTermMatch ontologyTermMatch = relatedOntologyTermHit.getResult();
+			OntologyTerm sourceOntologyTerm = ontologyTermMatch.getSource();
 			int index = uniqueOntologyTermList.indexOf(sourceOntologyTerm);
 			vector[index] = vector[index] + relatedOntologyTermHit.getScore();
 		}
@@ -152,16 +152,16 @@ public class VectorSpaceModelCollectionSimilarity
 		return (float) Math.sqrt(sum);
 	}
 
-	private List<Hit<OntologyTermRelated>> findRelatedOntologyTerms(OntologyTerm targetOntologyTerm,
+	private List<Hit<OntologyTermMatch>> findRelatedOntologyTerms(OntologyTerm targetOntologyTerm,
 			Collection<OntologyTerm> allOntologyTerms)
 	{
-		List<Hit<OntologyTermRelated>> ontologyTermHits = new ArrayList<>();
+		List<Hit<OntologyTermMatch>> ontologyTermHits = new ArrayList<>();
 
 		for (OntologyTerm sourceOntologyTerm : allOntologyTerms)
 		{
 			try
 			{
-				OntologyTermRelated create = OntologyTermRelated
+				OntologyTermMatch create = OntologyTermMatch
 						.create(targetOntologyTerm, sourceOntologyTerm, DISTANCE);
 
 				Double relatedness = cachedOntologyTermSemanticRelateness.get(create);

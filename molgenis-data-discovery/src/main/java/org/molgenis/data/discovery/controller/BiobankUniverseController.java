@@ -77,7 +77,6 @@ import static org.molgenis.data.discovery.job.BiobankUniverseJobExecutionMetaDat
 import static org.molgenis.data.discovery.meta.matching.AttributeMappingDecisionMetaData.DecisionOptions.YES;
 import static org.molgenis.data.discovery.model.network.NetworkConfiguration.NODE_SHAPE;
 import static org.molgenis.data.discovery.model.network.VisNetworkRequest.NetworkType.getValueStrings;
-import static org.molgenis.data.discovery.service.BiobankUniverseService.AttributeMatchStatus.DECIDED;
 import static org.molgenis.data.semanticsearch.utils.SemanticSearchServiceUtils.splitIntoUniqueTerms;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.web.bind.annotation.RequestMethod.GET;
@@ -296,16 +295,9 @@ public class BiobankUniverseController extends MolgenisPluginController
 				List<BiobankSampleCollection> members = biobankUniverse.getMembers().stream().skip(0).collect(toList());
 				reverse(members);
 
-				BiobankSampleCollection biobankSampleCollection;
-				if (isNotBlank(targetSampleCollectionName))
-				{
-					biobankSampleCollection = biobankUniverseService
-							.getBiobankSampleCollection(targetSampleCollectionName);
-				}
-				else
-				{
-					biobankSampleCollection = members.get(0);
-				}
+				BiobankSampleCollection biobankSampleCollection = isNotBlank(
+						targetSampleCollectionName) ? biobankUniverseService
+						.getBiobankSampleCollection(targetSampleCollectionName) : members.get(0);
 
 				AttributeMappingTablePager attributeMappingTablePager = AttributeMappingTablePager
 						.create(biobankUniverseService.countBiobankSampleAttributes(biobankSampleCollection),
@@ -315,7 +307,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 						.getAttributeMatchStatus(biobankUniverse, biobankSampleCollection, attributeMappingTablePager,
 								userAccountService.getCurrentUser());
 
-				Map<String, Map<String, Boolean>> candidateMappingCandidatesFreemarker = new HashMap<>();
+				Map<String, Map<String, AttributeMatchStatus>> candidateMappingCandidatesFreemarker = new HashMap<>();
 				Map<String, BiobankSampleAttribute> biobankSampleAttributeMap = new HashMap<>();
 
 				for (Cell<BiobankSampleAttribute, BiobankSampleCollection, AttributeMatchStatus> cell : attributeMatchStatusTable
@@ -334,7 +326,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 					}
 
 					candidateMappingCandidatesFreemarker.get(targetAttributeName)
-							.put(sourceBiobankSampleCollectionName, attributeMatchStatus.equals(DECIDED));
+							.put(sourceBiobankSampleCollectionName, attributeMatchStatus);
 
 					if (!biobankSampleAttributeMap.containsKey(targetAttributeName))
 					{
