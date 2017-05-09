@@ -109,113 +109,117 @@
             </div>
         </div>
     <#if candidateMappingCandidates??>
-        <table class="table table-bordered">
-            <#if (candidateMappingCandidates?keys?size > 0)>
-                <#assign firstAttributeName = candidateMappingCandidates?keys[0] />
-                <thead>
-                <tr>
-                    <th>Target attributes</th>
-                    <#list candidateMappingCandidates[firstAttributeName]?keys as sampleCollection>
-                        <th>Source: ${sampleCollection?html}</th>
-                    </#list>
-                </tr>
-                </thead>
-                <tbody>
-                    <#list candidateMappingCandidates?keys as attributeName>
-                    <tr>
-                        <td><strong>${attributeName?html}</strong></td>
-                        <#assign candidateMatcheMap =candidateMappingCandidates[attributeName]/>
-                        <#list candidateMatcheMap?keys as sourceSampleCollectionName>
-                            <#assign attributeMatchingCell = candidateMatcheMap[sourceSampleCollectionName]>
-                            <td>
-                                <!-- This is what is shown in the cell of the overview table -->
-                                <#if attributeMatchingCell == "CURATED_MATCHES">
-                                    <button type="button" class="btn btn-success btn-xs" data-toggle="modal"
-                                            data-target="#${attributeName}-${sourceSampleCollectionName}">
-                                        <span class="glyphicon glyphicon-ok"></span>
-                                    </button>
-                                <#elseif attributeMatchingCell == "CURATED_NO_MATCHES">
-                                    <button type="button" class="btn btn-danger btn-xs" data-toggle="modal"
-                                            data-target="#${attributeName}-${sourceSampleCollectionName}">
-                                        <span class="glyphicon glyphicon-ok"></span>
-                                    </button>
-                                <#else>
-                                    <button type="button" class="btn btn-default btn-xs" data-toggle="modal"
-                                            data-target="#${attributeName}-${sourceSampleCollectionName}">
-                                        <span class="glyphicon glyphicon-pencil"></span>
-                                    </button>
-                                </#if>
+        <div class="row">
+            <div class="col-md-12">
+                <table class="table table-responsive table-bordered">
+                    <#if (candidateMappingCandidates?keys?size > 0)>
+                        <#assign firstAttributeName = candidateMappingCandidates?keys[0] />
+                        <thead>
+                        <tr>
+                            <th>Target attributes</th>
+                            <#list candidateMappingCandidates[firstAttributeName]?keys as sampleCollection>
+                                <th>Source: ${sampleCollection?html}</th>
+                            </#list>
+                        </tr>
+                        </thead>
+                        <tbody>
+                            <#list candidateMappingCandidates?keys as attributeName>
+                            <tr>
+                                <td><strong>${attributeName?html}</strong></td>
+                                <#assign candidateMatcheMap =candidateMappingCandidates[attributeName]/>
+                                <#list candidateMatcheMap?keys as sourceSampleCollectionName>
+                                    <#assign attributeMatchingCell = candidateMatcheMap[sourceSampleCollectionName]>
+                                    <td>
+                                        <!-- This is what is shown in the cell of the overview table -->
+                                        <#if attributeMatchingCell == "CURATED_MATCHES">
+                                            <button type="button" class="btn btn-success btn-xs" data-toggle="modal"
+                                                    data-target="#${attributeName}-${sourceSampleCollectionName}">
+                                                <span class="glyphicon glyphicon-ok"></span>
+                                            </button>
+                                        <#elseif attributeMatchingCell == "CURATED_NO_MATCHES">
+                                            <button type="button" class="btn btn-danger btn-xs" data-toggle="modal"
+                                                    data-target="#${attributeName}-${sourceSampleCollectionName}">
+                                                <span class="glyphicon glyphicon-ok"></span>
+                                            </button>
+                                        <#else>
+                                            <button type="button" class="btn btn-default btn-xs" data-toggle="modal"
+                                                    data-target="#${attributeName}-${sourceSampleCollectionName}">
+                                                <span class="glyphicon glyphicon-pencil"></span>
+                                            </button>
+                                        </#if>
 
-                                <!-- This is the popup where users can make decisions on the candidate matches -->
-                                <div class="modal fade modal-wide attribute-candidate-match-modal"
-                                     id="${attributeName}-${sourceSampleCollectionName}"
-                                     tabindex="-1"
-                                     role="dialog"
-                                     aria-labelledby="myModalLabel" aria-hidden="true">
-                                    <#assign attribute = biobankSampleAttributeMap[attributeName]>
-                                    <form method="post"
-                                          action="${context_url}/universe/${biobankUniverse.identifier?html}/curate">
-                                        <input type="hidden" name="biobankUniverse"
-                                               value="${biobankUniverse.identifier?html}">
-                                        <input type="hidden" name="targetAttribute"
-                                               value="${attribute.identifier?html}">
-                                        <input type="hidden" name="sourceAttributes" , value="">
-                                        <input type="hidden" name="targetSampleCollection"
-                                               value="${targetSampleCollection.name}">
-                                        <input type="hidden" name="sourceSampleCollection"
-                                               value="${sourceSampleCollectionName}">
-                                        <input type="hidden" name="page"
-                                               value="${attributeMappingTablePager.currentPage?html}">
-                                        <div class="modal-dialog" role="document">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <button type="button" class="close" data-dismiss="modal"
-                                                            aria-label="Close">
-                                                        <span aria-hidden="true">&times;</span>
-                                                    </button>
-                                                    <h4 class="modal-title" id="myModalLabel">
-                                                        Curate ${attributeName?html} in the
-                                                        Source: ${sourceSampleCollectionName?html}</h4>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <div>
-                                                        Target attribute: </br>
-                                                        <table class="table table-borded">
-                                                            <tr>
-                                                                <th>Name</th>
-                                                                <td>${attribute.name?html}</td>
-                                                            </tr>
-                                                            <tr>
-                                                                <th>Label</th>
-                                                                <td>${attribute.label?html}</td>
-                                                            </tr>
-                                                            <tr>
-                                                                <th>Data type</th>
-                                                                <td>${attribute.biobankAttributeDataType?html}</td>
-                                                            </tr>
-                                                        </table>
+                                        <!-- This is the popup where users can make decisions on the candidate matches -->
+                                        <div class="modal fade modal-wide attribute-candidate-match-modal"
+                                             id="${attributeName}-${sourceSampleCollectionName}"
+                                             tabindex="-1"
+                                             role="dialog"
+                                             aria-labelledby="myModalLabel" aria-hidden="true">
+                                            <#assign attribute = biobankSampleAttributeMap[attributeName]>
+                                            <form method="post"
+                                                  action="${context_url}/universe/${biobankUniverse.identifier?html}/curate">
+                                                <input type="hidden" name="biobankUniverse"
+                                                       value="${biobankUniverse.identifier?html}">
+                                                <input type="hidden" name="targetAttribute"
+                                                       value="${attribute.identifier?html}">
+                                                <input type="hidden" name="sourceAttributes" , value="">
+                                                <input type="hidden" name="targetSampleCollection"
+                                                       value="${targetSampleCollection.name}">
+                                                <input type="hidden" name="sourceSampleCollection"
+                                                       value="${sourceSampleCollectionName}">
+                                                <input type="hidden" name="page"
+                                                       value="${attributeMappingTablePager.currentPage?html}">
+                                                <div class="modal-dialog" role="document">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <button type="button" class="close" data-dismiss="modal"
+                                                                    aria-label="Close">
+                                                                <span aria-hidden="true">&times;</span>
+                                                            </button>
+                                                            <h4 class="modal-title" id="myModalLabel">
+                                                                Curate ${attributeName?html} in the
+                                                                Source: ${sourceSampleCollectionName?html}</h4>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <div>
+                                                                Target attribute: </br>
+                                                                <table class="table table-borded">
+                                                                    <tr>
+                                                                        <th>Name</th>
+                                                                        <td>${attribute.name?html}</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th>Label</th>
+                                                                        <td>${attribute.label?html}</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th>Data type</th>
+                                                                        <td>${attribute.biobankAttributeDataType?html}</td>
+                                                                    </tr>
+                                                                </table>
+                                                            </div>
+                                                            <div name="attribute-candidate-match-container">
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary"
+                                                                    data-dismiss="modal">Close
+                                                            </button>
+                                                            <button type="submit" class="btn btn-primary">Submit
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                    <div name="attribute-candidate-match-container">
-                                                    </div>
                                                 </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary"
-                                                            data-dismiss="modal">Close
-                                                    </button>
-                                                    <button type="submit" class="btn btn-primary">Submit
-                                                    </button>
-                                                </div>
-                                            </div>
+                                            </form>
                                         </div>
-                                    </form>
-                                </div>
-                            </td>
-                        </#list>
-                    </tr>
-                    </#list>
-                </tbody>
-            </#if>
-        </table>
+                                    </td>
+                                </#list>
+                            </tr>
+                            </#list>
+                        </tbody>
+                    </#if>
+                </table>
+            </div>
+        </div>
     </#if>
 
     </div>
