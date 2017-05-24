@@ -1,7 +1,7 @@
 <#-- modal header -->
 <div class="modal-header">
     <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-    <h4 class="modal-title">DataSet: ${entityMetadata.getLabel()?html}</h4>
+    <h4 class="modal-title">DataSet: ${entityType.getLabel()?html}</h4>
 </div>
 
 <#-- modal body -->
@@ -12,7 +12,7 @@
         <table class="table">
             <tbody>
             <tr>
-            <#list entity.getEntityMetaData().getAtomicAttributes() as atomicAttribute>
+            <#list entity.getEntityType().getAtomicAttributes() as atomicAttribute>
                 <#assign key = atomicAttribute.getName()>
 
                 <#if counter == 3>
@@ -24,11 +24,12 @@
                 <th>${key?html}</th>
                 <#if entity.get(key)??>
                     <#assign type = atomicAttribute.getDataType()>
-                    <td><#if type == "CATEGORICAL_MREF" || type == "MREF"><#list entity.getEntities(key) as entity>${entity.getLabelValue()!?html}<#sep>
+                    <td><#if type == "CATEGORICAL_MREF" || type == "MREF" || type == "ONE_TO_MANY"><#list entity.getEntities(key) as entity>${entity.getLabelValue()!?html}<#sep>
                         , </#sep></#list>
                     <#elseif type == "CATEGORICAL" || type == "FILE" || type == "XREF"><#if entity.getEntity(key)??>${entity.getEntity(key).getLabelValue()!?html}</#if>
                     <#elseif type == "BOOL">${entity.getBoolean(key)?c}
-                    <#elseif type == "DATE" || type == "DATE_TIME">${entity.get(key)?datetime}
+                    <#elseif type == "DATE">${entity.get(key).format("MMM d, yyyy")}
+                    <#elseif type == "DATE_TIME">${entity.get(key).format("MMM d, yyyy hh:mm:ss a")}
                     <#else>${entity.get(key)!?html}</#if></td>
                 <#else>
                     <td>&nbsp;</td>

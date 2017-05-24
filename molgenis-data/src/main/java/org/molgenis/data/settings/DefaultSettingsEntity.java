@@ -4,25 +4,30 @@ import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.listeners.EntityListener;
 import org.molgenis.data.listeners.EntityListenersService;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.support.StaticEntity;
 import org.molgenis.security.core.runas.RunAsSystemProxy;
 import org.molgenis.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.sql.Date;
-import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ResourceBundle;
 
+import static java.util.Objects.requireNonNull;
+import static org.molgenis.data.meta.model.Package.PACKAGE_SEPARATOR;
 import static org.molgenis.data.settings.SettingsPackage.PACKAGE_SETTINGS;
 
 /**
  * Base class for application and plugin settings entities. Settings are read/written from/to data source.
+ * TODO: Bring this class up to date with 2.0, see http://www.molgenis.org/ticket/4787
  */
-public abstract class DefaultSettingsEntity implements Entity
+public abstract class DefaultSettingsEntity extends StaticEntity implements Entity
 {
 	private static final long serialVersionUID = 1L;
 
-	private final String entityName;
+	private final String entityId;
+	private final String entityTypeId;
 
 	@Autowired
 	private DataService dataService;
@@ -34,16 +39,13 @@ public abstract class DefaultSettingsEntity implements Entity
 
 	public DefaultSettingsEntity(String entityId)
 	{
-		this.entityName = PACKAGE_SETTINGS + '_' + entityId;
+		this.entityId = requireNonNull(entityId);
+		this.entityTypeId = PACKAGE_SETTINGS + PACKAGE_SEPARATOR + entityId;
 	}
 
-	@Override
-	public EntityMetaData getEntityMetaData()
+	public EntityType getEntityType()
 	{
-		return RunAsSystemProxy.runAsSystem(() ->
-		{
-			return dataService.getEntityMetaData(entityName);
-		});
+		return RunAsSystemProxy.runAsSystem(() -> dataService.getEntityType(entityTypeId));
 	}
 
 	@Override
@@ -107,21 +109,15 @@ public abstract class DefaultSettingsEntity implements Entity
 	}
 
 	@Override
-	public Date getDate(String attributeName)
+	public Instant getInstant(String attributeName)
 	{
-		return getEntity().getDate(attributeName);
+		return getEntity().getInstant(attributeName);
 	}
 
 	@Override
-	public java.util.Date getUtilDate(String attributeName)
+	public LocalDate getLocalDate(String attributeName)
 	{
-		return getEntity().getUtilDate(attributeName);
-	}
-
-	@Override
-	public Timestamp getTimestamp(String attributeName)
-	{
-		return getEntity().getTimestamp(attributeName);
+		return getEntity().getLocalDate(attributeName);
 	}
 
 	@Override
@@ -159,9 +155,7 @@ public abstract class DefaultSettingsEntity implements Entity
 	@Override
 	public void set(Entity values)
 	{
-		Entity entity = getEntity();
-		entity.set(values);
-		updateEntity(entity);
+		cachedEntity = values;
 	}
 
 	/**
@@ -173,7 +167,7 @@ public abstract class DefaultSettingsEntity implements Entity
 	{
 		RunAsSystemProxy.runAsSystem(() ->
 		{
-			entityListenersService.addEntityListener(entityName, new EntityListener()
+			entityListenersService.addEntityListener(entityTypeId, new EntityListener()
 			{
 				@Override
 				public void postUpdate(Entity entity)
@@ -184,7 +178,7 @@ public abstract class DefaultSettingsEntity implements Entity
 				@Override
 				public Object getEntityId()
 				{
-					return getEntityMetaData().getSimpleName();
+					return getEntityType().getId();
 				}
 			});
 		});
@@ -199,7 +193,7 @@ public abstract class DefaultSettingsEntity implements Entity
 	{
 		RunAsSystemProxy.runAsSystem(() ->
 		{
-			entityListenersService.removeEntityListener(entityName, new EntityListener()
+			entityListenersService.removeEntityListener(entityTypeId, new EntityListener()
 			{
 
 				@Override
@@ -211,7 +205,7 @@ public abstract class DefaultSettingsEntity implements Entity
 				@Override
 				public Object getEntityId()
 				{
-					return getEntityMetaData().getSimpleName();
+					return getEntityType().getId();
 				}
 			});
 		});
@@ -235,13 +229,12 @@ public abstract class DefaultSettingsEntity implements Entity
 	{
 		if (cachedEntity == null)
 		{
-			String id = getEntityMetaData().getSimpleName();
 			cachedEntity = RunAsSystemProxy.runAsSystem(() ->
 			{
-				Entity entity = dataService.findOneById(entityName, id);
+				Entity entity = dataService.findOneById(entityTypeId, entityId);
 
 				// refresh cache on settings update
-				entityListenersService.addEntityListener(entityName, new EntityListener()
+				entityListenersService.addEntityListener(entityTypeId, new EntityListener()
 				{
 					@Override
 					public void postUpdate(Entity entity)
@@ -252,7 +245,7 @@ public abstract class DefaultSettingsEntity implements Entity
 					@Override
 					public Object getEntityId()
 					{
-						return id;
+						return entityId;
 					}
 				});
 				return entity;
@@ -266,7 +259,7 @@ public abstract class DefaultSettingsEntity implements Entity
 	{
 		RunAsSystemProxy.runAsSystem(() ->
 		{
-			dataService.update(entityName, entity);
+			dataService.update(entityTypeId, entity);
 			ResourceBundle.clearCache();
 
 			// cache refresh is handled via entity listener

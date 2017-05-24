@@ -2,7 +2,7 @@ package org.molgenis.data.semanticsearch.utils;
 
 import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
-import org.molgenis.data.meta.model.AttributeMetaData;
+import org.molgenis.data.meta.model.Attribute;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.utils.Stemmer;
 
@@ -47,7 +47,7 @@ public class SemanticSearchServiceUtils
 	 * @param userQueries
 	 * @return list of queryTerms
 	 */
-	public static Set<String> getQueryTermsFromAttribute(AttributeMetaData targetAttribute, Set<String> userQueries)
+	public static Set<String> getQueryTermsFromAttribute(Attribute targetAttribute, Set<String> userQueries)
 	{
 		Set<String> queryTerms = new HashSet<>();
 		if (userQueries != null && !userQueries.isEmpty())

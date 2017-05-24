@@ -5,26 +5,24 @@ import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
-import org.molgenis.auth.MolgenisGroupMemberFactory;
-import org.molgenis.auth.MolgenisTokenFactory;
-import org.molgenis.auth.MolgenisUserFactory;
+import org.molgenis.auth.GroupMemberFactory;
+import org.molgenis.auth.TokenFactory;
+import org.molgenis.auth.UserFactory;
 import org.molgenis.data.DataService;
 import org.molgenis.data.settings.AppSettings;
 import org.molgenis.security.account.AccountController;
 import org.molgenis.security.core.MolgenisPasswordEncoder;
-import org.molgenis.security.core.MolgenisPermissionService;
 import org.molgenis.security.core.token.TokenService;
 import org.molgenis.security.core.utils.SecurityUtils;
 import org.molgenis.security.google.GoogleAuthenticationProcessingFilter;
-import org.molgenis.security.permission.MolgenisPermissionServiceImpl;
 import org.molgenis.security.session.ApiSessionExpirationFilter;
 import org.molgenis.security.token.DataServiceTokenService;
 import org.molgenis.security.token.TokenAuthenticationFilter;
 import org.molgenis.security.token.TokenAuthenticationProvider;
 import org.molgenis.security.token.TokenGenerator;
 import org.molgenis.security.user.MolgenisUserDetailsChecker;
-import org.molgenis.security.user.MolgenisUserDetailsService;
-import org.molgenis.security.user.MolgenisUserService;
+import org.molgenis.security.user.UserDetailsService;
+import org.molgenis.security.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
@@ -43,7 +41,6 @@ import org.springframework.security.config.annotation.web.configurers.Expression
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper;
 import org.springframework.security.core.userdetails.UserDetailsChecker;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.DefaultRedirectStrategy;
@@ -63,6 +60,7 @@ import javax.servlet.Filter;
 import java.util.List;
 
 import static org.molgenis.framework.ui.ResourcePathPatterns.*;
+import static org.molgenis.security.UriConstants.PATH_SEGMENT_APPS;
 import static org.molgenis.security.google.GoogleAuthenticationProcessingFilter.GOOGLE_AUTHENTICATION_URL;
 
 public abstract class MolgenisWebAppSecurityConfig extends WebSecurityConfigurerAdapter
@@ -73,19 +71,19 @@ public abstract class MolgenisWebAppSecurityConfig extends WebSecurityConfigurer
 	private DataService dataService;
 
 	@Autowired
-	private MolgenisUserService molgenisUserService;
+	private UserService userService;
 
 	@Autowired
 	private AppSettings appSettings;
 
 	@Autowired
-	private MolgenisTokenFactory molgenisTokenFactory;
+	private TokenFactory tokenFactory;
 
 	@Autowired
-	private MolgenisUserFactory molgenisUserFactory;
+	private UserFactory userFactory;
 
 	@Autowired
-	private MolgenisGroupMemberFactory molgenisGroupMemberFactory;
+	private GroupMemberFactory groupMemberFactory;
 
 	@Override
 	protected void configure(HttpSecurity http) throws Exception
@@ -150,6 +148,8 @@ public abstract class MolgenisWebAppSecurityConfig extends WebSecurityConfigurer
 
 				.antMatchers("/api/**").permitAll()
 
+				.antMatchers("/webjars/**").permitAll()
+
 				.antMatchers("/search").permitAll()
 
 				.antMatchers("/captcha").permitAll()
@@ -163,6 +163,8 @@ public abstract class MolgenisWebAppSecurityConfig extends WebSecurityConfigurer
 				.antMatchers("/scripts/**/run").authenticated()
 
 				.antMatchers("/files/**").permitAll()
+
+				.antMatchers('/' + PATH_SEGMENT_APPS + "/**").permitAll()
 
 				.anyRequest().denyAll().and()
 
@@ -225,8 +227,7 @@ public abstract class MolgenisWebAppSecurityConfig extends WebSecurityConfigurer
 	@Bean
 	public TokenService tokenService()
 	{
-		return new DataServiceTokenService(new TokenGenerator(), dataService, userDetailsService(),
-				molgenisTokenFactory);
+		return new DataServiceTokenService(new TokenGenerator(), dataService, userDetailsService(), tokenFactory);
 	}
 
 	@Bean
@@ -253,8 +254,8 @@ public abstract class MolgenisWebAppSecurityConfig extends WebSecurityConfigurer
 	public Filter googleAuthenticationProcessingFilter() throws Exception
 	{
 		GoogleAuthenticationProcessingFilter googleAuthenticationProcessingFilter = new GoogleAuthenticationProcessingFilter(
-				googlePublicKeysManager(), dataService, (MolgenisUserDetailsService) userDetailsService(), appSettings,
-				molgenisUserFactory, molgenisGroupMemberFactory);
+				googlePublicKeysManager(), dataService, (UserDetailsService) userDetailsService(), appSettings,
+				userFactory, groupMemberFactory);
 		googleAuthenticationProcessingFilter.setAuthenticationManager(authenticationManagerBean());
 		return googleAuthenticationProcessingFilter;
 	}
@@ -262,7 +263,7 @@ public abstract class MolgenisWebAppSecurityConfig extends WebSecurityConfigurer
 	@Bean
 	public Filter changePasswordFilter()
 	{
-		return new MolgenisChangePasswordFilter(molgenisUserService, redirectStrategy());
+		return new MolgenisChangePasswordFilter(userService, redirectStrategy());
 	}
 
 	@Bean
@@ -296,14 +297,14 @@ public abstract class MolgenisWebAppSecurityConfig extends WebSecurityConfigurer
 	}
 
 	@Override
-	protected UserDetailsService userDetailsService()
+	protected org.springframework.security.core.userdetails.UserDetailsService userDetailsService()
 	{
-		return new MolgenisUserDetailsService(dataService, roleHierarchyAuthoritiesMapper());
+		return new UserDetailsService(dataService, roleHierarchyAuthoritiesMapper());
 	}
 
 	@Override
 	@Bean
-	public UserDetailsService userDetailsServiceBean() throws Exception
+	public org.springframework.security.core.userdetails.UserDetailsService userDetailsServiceBean() throws Exception
 	{
 		return userDetailsService();
 	}
@@ -338,12 +339,6 @@ public abstract class MolgenisWebAppSecurityConfig extends WebSecurityConfigurer
 	public AuthenticationManager authenticationManagerBean() throws Exception
 	{
 		return super.authenticationManagerBean();
-	}
-
-	@Bean
-	public MolgenisPermissionService molgenisPermissionService()
-	{
-		return new MolgenisPermissionServiceImpl();
 	}
 
 	@Bean

@@ -1,19 +1,17 @@
 package org.molgenis.data.discovery.meta.biobank;
 
 import org.molgenis.data.discovery.meta.BiobankUniversePackage;
-import org.molgenis.data.meta.SystemEntityMetaData;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.SystemEntityType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import static java.util.Objects.requireNonNull;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.SCRIPT;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.XREF;
 import static org.molgenis.data.discovery.meta.BiobankUniversePackage.PACKAGE_UNIVERSE;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.ROLE_ID;
 import static org.molgenis.data.meta.model.Package.PACKAGE_SEPARATOR;
 
 @Component
-public class BiobankUniverseMemberVectorMetaData extends SystemEntityMetaData
+public class BiobankUniverseMemberVectorMetaData extends SystemEntityType
 {
 	public static final String SIMPLE_NAME = "BiobankUniverseMemberVector";
 	public static final String BIOBANK_UNIVERSE_MEMBER_VECTOR = PACKAGE_UNIVERSE + PACKAGE_SEPARATOR + SIMPLE_NAME;
@@ -44,9 +42,9 @@ public class BiobankUniverseMemberVectorMetaData extends SystemEntityMetaData
 	{
 		setLabel("Biobank universe member vector");
 		setPackage(biobankUniversePackage);
-		addAttribute(IDENTIFIER, ROLE_ID);
-		addAttribute(MEMBER).setDataType(XREF).setRefEntity(biobankSampleCollectionMetaData);
-		addAttribute(BIOBANK_UNIVERSE).setDataType(XREF).setRefEntity(biobankUniverseMetaData);
-		addAttribute(VECTOR).setDataType(SCRIPT);
+		addAttribute(IDENTIFIER, AttributeRole.ROLE_ID);
+		addAttribute(MEMBER).setDataType(AttributeType.XREF).setRefEntity(biobankSampleCollectionMetaData);
+		addAttribute(BIOBANK_UNIVERSE).setDataType(AttributeType.XREF).setRefEntity(biobankUniverseMetaData);
+		addAttribute(VECTOR).setDataType(AttributeType.SCRIPT);
 	}
 }

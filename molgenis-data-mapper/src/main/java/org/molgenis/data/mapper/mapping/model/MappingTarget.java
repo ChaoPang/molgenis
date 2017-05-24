@@ -1,7 +1,8 @@
 package org.molgenis.data.mapper.mapping.model;
 
 import org.elasticsearch.common.collect.Lists;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.support.EntityTypeUtils;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -10,7 +11,7 @@ import java.util.Map;
 public class MappingTarget
 {
 	private String identifier;
-	private final EntityMetaData target;
+	private final EntityType target;
 	/**
 	 * Maps source name to entityMapping for that source to the target
 	 */
@@ -19,7 +20,7 @@ public class MappingTarget
 	/**
 	 * Creates a new empty {@link MappingTarget}
 	 */
-	public MappingTarget(EntityMetaData target)
+	public MappingTarget(EntityType target)
 	{
 		this.identifier = null;
 		this.target = target;
@@ -29,7 +30,7 @@ public class MappingTarget
 	/**
 	 * Creates a new instance of MappingTarget.
 	 */
-	public MappingTarget(String identifier, EntityMetaData target, Collection<EntityMapping> entityMappings)
+	public MappingTarget(String identifier, EntityType target, Collection<EntityMapping> entityMappings)
 	{
 		this.identifier = identifier;
 		this.target = target;
@@ -51,7 +52,7 @@ public class MappingTarget
 		entityMappings.values().forEach(EntityMapping::removeIdentifiers);
 	}
 
-	public EntityMetaData getTarget()
+	public EntityType getTarget()
 	{
 		return target;
 	}
@@ -64,17 +65,17 @@ public class MappingTarget
 	/**
 	 * Adds a new {@link EntityMapping} to this target for a certain source.
 	 *
-	 * @param source {@link EntityMetaData} for the source entity that is mapped to this target
+	 * @param source {@link EntityType} for the source entity that is mapped to this target
 	 * @return the newly created empty {@link EntityMapping}
 	 */
-	public EntityMapping addSource(EntityMetaData source)
+	public EntityMapping addSource(EntityType source)
 	{
-		if (entityMappings.containsKey(source.getName()))
+		if (entityMappings.containsKey(source.getId()))
 		{
-			throw new IllegalStateException("Mapping already present for source " + source.getName());
+			throw new IllegalStateException("Mapping already present for source " + source.getId());
 		}
 		EntityMapping result = new EntityMapping(source, target);
-		entityMappings.put(source.getName(), result);
+		entityMappings.put(source.getId(), result);
 		return result;
 	}
 
@@ -128,7 +129,7 @@ public class MappingTarget
 
 	public String getName()
 	{
-		return target.getName();
+		return target.getId();
 	}
 
 	public Collection<EntityMapping> getEntityMappings()
@@ -144,5 +145,10 @@ public class MappingTarget
 	public boolean hasMappingFor(String name)
 	{
 		return entityMappings.containsKey(name);
+	}
+
+	public boolean hasSelfReferences()
+	{
+		return EntityTypeUtils.hasSelfReferences(getTarget());
 	}
 }

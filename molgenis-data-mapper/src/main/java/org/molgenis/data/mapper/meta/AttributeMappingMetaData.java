@@ -1,7 +1,7 @@
 package org.molgenis.data.mapper.meta;
 
 import org.molgenis.data.mapper.mapping.model.AttributeMapping.AlgorithmState;
-import org.molgenis.data.meta.SystemEntityMetaData;
+import org.molgenis.data.meta.SystemEntityType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -10,23 +10,23 @@ import java.util.List;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.ENUM;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.TEXT;
 import static org.molgenis.data.mapper.meta.MapperPackage.PACKAGE_MAPPER;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.ROLE_ID;
+import static org.molgenis.data.meta.AttributeType.ENUM;
+import static org.molgenis.data.meta.AttributeType.TEXT;
+import static org.molgenis.data.meta.model.EntityType.AttributeRole.ROLE_ID;
 import static org.molgenis.data.meta.model.Package.PACKAGE_SEPARATOR;
 
 @Component
-public class AttributeMappingMetaData extends SystemEntityMetaData
+public class AttributeMappingMetaData extends SystemEntityType
 {
 	private static final String SIMPLE_NAME = "AttributeMapping";
 	public static final String ATTRIBUTE_MAPPING = PACKAGE_MAPPER + PACKAGE_SEPARATOR + SIMPLE_NAME;
 
 	public static final String IDENTIFIER = "identifier";
-	public static final String TARGETATTRIBUTEMETADATA = "targetAttributeMetaData";
-	public static final String SOURCEATTRIBUTEMETADATAS = "sourceAttributeMetaDatas";
+	public static final String TARGET_ATTRIBUTE = "targetAttribute";
+	public static final String SOURCE_ATTRIBUTES = "sourceAttributes";
 	public static final String ALGORITHM = "algorithm";
-	public static final String ALGORITHMSTATE = "algorithmState";
+	public static final String ALGORITHM_STATE = "algorithmState";
 
 	private final MapperPackage mapperPackage;
 
@@ -44,10 +44,10 @@ public class AttributeMappingMetaData extends SystemEntityMetaData
 		setPackage(mapperPackage);
 
 		addAttribute(IDENTIFIER, ROLE_ID);
-		addAttribute(TARGETATTRIBUTEMETADATA).setNillable(false);
-		addAttribute(SOURCEATTRIBUTEMETADATAS).setDataType(TEXT);
+		addAttribute(TARGET_ATTRIBUTE).setNillable(false);
+		addAttribute(SOURCE_ATTRIBUTES).setDataType(TEXT);
 		addAttribute(ALGORITHM).setDataType(TEXT);
 		List<String> options = asList(AlgorithmState.values()).stream().map(AlgorithmState::toString).collect(toList());
-		addAttribute(ALGORITHMSTATE).setDataType(ENUM).setEnumOptions(options);
+		addAttribute(ALGORITHM_STATE).setDataType(ENUM).setEnumOptions(options);
 	}
 }

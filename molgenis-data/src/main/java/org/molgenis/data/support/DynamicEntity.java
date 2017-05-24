@@ -1,20 +1,22 @@
 package org.molgenis.data.support;
 
-import org.molgenis.MolgenisFieldTypes;
 import org.molgenis.data.Entity;
 import org.molgenis.data.MolgenisDataException;
 import org.molgenis.data.UnknownAttributeException;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 
-import java.sql.Date;
-import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.Maps.newHashMap;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.StreamSupport.stream;
 
 /**
@@ -29,7 +31,7 @@ public class DynamicEntity implements Entity
 	/**
 	 * Entity meta data
 	 */
-	private final EntityMetaData entityMeta;
+	private final EntityType entityType;
 
 	/**
 	 * Maps attribute names to values. Value class types are determined by attribute data type.
@@ -39,54 +41,52 @@ public class DynamicEntity implements Entity
 	/**
 	 * Constructs an entity with the given entity meta data.
 	 *
-	 * @param entityMeta entity meta
+	 * @param entityType entity meta
 	 */
-	public DynamicEntity(EntityMetaData entityMeta)
+	public DynamicEntity(EntityType entityType)
 	{
-		this.entityMeta = requireNonNull(entityMeta);
+		this.entityType = requireNonNull(entityType);
 		this.values = newHashMap();
 	}
 
 	/**
 	 * Constructs an entity with the given entity meta data and initialized the entity with the given data.
 	 *
-	 * @param entityMeta entity meta
+	 * @param entityType entity meta
 	 * @param values     map with attribute name-value pairs
 	 */
-	public DynamicEntity(EntityMetaData entityMeta, Map<String, Object> values)
+	public DynamicEntity(EntityType entityType, Map<String, Object> values)
 	{
-		this(entityMeta);
+		this(entityType);
 		values.forEach(this::set);
 	}
 
-	@Override
-	public EntityMetaData getEntityMetaData()
+	public EntityType getEntityType()
 	{
-		return entityMeta;
+		return entityType;
 	}
 
 	@Override
 	public Iterable<String> getAttributeNames()
 	{
-		return stream(entityMeta.getAtomicAttributes().spliterator(), false).map(AttributeMetaData::getName)::iterator;
+		return stream(entityType.getAtomicAttributes().spliterator(), false).map(Attribute::getName)::iterator;
 	}
 
 	@Override
 	public Object getIdValue()
 	{
 		// abstract entities might not have an id attribute
-		AttributeMetaData idAttr = entityMeta.getIdAttribute();
+		Attribute idAttr = entityType.getIdAttribute();
 		return idAttr != null ? get(idAttr.getName()) : null;
 	}
 
 	@Override
 	public void setIdValue(Object id)
 	{
-		AttributeMetaData idAttr = entityMeta.getIdAttribute();
+		Attribute idAttr = entityType.getIdAttribute();
 		if (idAttr == null)
 		{
-			throw new IllegalArgumentException(
-					format("Entity [%s] doesn't have an id attribute", entityMeta.getName()));
+			throw new IllegalArgumentException(format("Entity [%s] doesn't have an id attribute", entityType.getId()));
 		}
 		set(idAttr.getName(), id);
 	}
@@ -95,7 +95,7 @@ public class DynamicEntity implements Entity
 	public Object getLabelValue()
 	{
 		// abstract entities might not have an label attribute
-		AttributeMetaData labelAttr = entityMeta.getLabelAttribute();
+		Attribute labelAttr = entityType.getLabelAttribute();
 		return labelAttr != null ? get(labelAttr.getName()) : null;
 	}
 
@@ -136,24 +136,15 @@ public class DynamicEntity implements Entity
 	}
 
 	@Override
-	public Date getDate(String attrName)
+	public Instant getInstant(String attrName)
 	{
-		Object value = get(attrName);
-		return value != null ? new java.sql.Date(((java.util.Date) value).getTime()) : null;
+		return (Instant) get(attrName);
 	}
 
 	@Override
-	public java.util.Date getUtilDate(String attrName)
+	public LocalDate getLocalDate(String attrName)
 	{
-		Object value = get(attrName);
-		return value != null ? new java.util.Date(((java.util.Date) value).getTime()) : null;
-	}
-
-	@Override
-	public Timestamp getTimestamp(String attrName)
-	{
-		Object value = get(attrName);
-		return value != null ? new java.sql.Timestamp(((java.util.Date) value).getTime()) : null;
+		return (LocalDate) get(attrName);
 	}
 
 	@Override
@@ -162,26 +153,26 @@ public class DynamicEntity implements Entity
 		return (Entity) get(attrName);
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public <E extends Entity> E getEntity(String attrName, Class<E> clazz)
 	{
-		//noinspection unchecked
 		return (E) get(attrName);
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public Iterable<Entity> getEntities(String attrName)
 	{
 		Object value = get(attrName);
-		//noinspection unchecked
 		return value != null ? (Iterable<Entity>) value : emptyList();
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public <E extends Entity> Iterable<E> getEntities(String attrName, Class<E> clazz)
 	{
 		Object value = get(attrName);
-		//noinspection unchecked
 		return value != null ? (Iterable<E>) value : emptyList();
 	}
 
@@ -211,22 +202,21 @@ public class DynamicEntity implements Entity
 			return;
 		}
 
-		AttributeMetaData attr = entityMeta.getAttribute(attrName);
+		Attribute attr = entityType.getAttribute(attrName);
 		if (attr == null)
 		{
 			throw new UnknownAttributeException(format("Unknown attribute [%s]", attrName));
 		}
 
-		MolgenisFieldTypes.AttributeType dataType = attr.getDataType();
+		AttributeType dataType = attr.getDataType();
 		switch (dataType)
 		{
-
 			case BOOL:
 				if (!(value instanceof Boolean))
 				{
 					throw new MolgenisDataException(
-							format("Value [%s] is of type [%s] instead of [%s]", value.toString(),
-									value.getClass().getSimpleName(), Boolean.class.getSimpleName()));
+							format("Value [%s] is of type [%s] instead of [%s] for attribute: [%s]", value.toString(),
+									value.getClass().getSimpleName(), Boolean.class.getSimpleName(), attrName));
 				}
 				break;
 			case CATEGORICAL:
@@ -236,36 +226,51 @@ public class DynamicEntity implements Entity
 				if (!(value instanceof Entity))
 				{
 					throw new MolgenisDataException(
-							format("Value [%s] is of type [%s] instead of [%s]", value.toString(),
-									value.getClass().getSimpleName(), Entity.class.getSimpleName()));
+							format("Value [%s] is of type [%s] instead of [%s] for attribute: [%s]", value.toString(),
+									value.getClass().getSimpleName(), Entity.class.getSimpleName(), attrName));
 				}
 				break;
 			case CATEGORICAL_MREF:
 			case MREF:
+			case ONE_TO_MANY:
 				if (!(value instanceof Iterable))
 				{
 					throw new MolgenisDataException(
-							format("Value [%s] is of type [%s] instead of [%s]", value.toString(),
-									value.getClass().getSimpleName(), Iterable.class.getSimpleName()));
+							format("Value [%s] is of type [%s] instead of [%s] for attribute: [%s]", value.toString(),
+									value.getClass().getSimpleName(), Iterable.class.getSimpleName(), attrName));
 				}
 				break;
 			case COMPOUND:
-				throw new IllegalArgumentException(format("Unexpected data type [%s]", dataType.toString()));
+				throw new IllegalArgumentException(
+						format("Unexpected data type [%s] for attribute: [%s]", dataType.toString(), attrName));
 			case DATE:
-			case DATE_TIME:
-				if (!(value instanceof java.util.Date))
+				if (!(value instanceof LocalDate))
 				{
 					throw new MolgenisDataException(
-							format("Value [%s] is of type [%s] instead of [%s]", value.toString(),
-									value.getClass().getSimpleName(), java.util.Date.class.getSimpleName()));
+							format("Value [%s] is of type [%s] instead of [%s] for attribute: [%s]", value.toString(),
+									value.getClass().getSimpleName(), LocalDate.class.getSimpleName(), attrName));
+				}
+				break;
+			case DATE_TIME:
+				if (!(value instanceof Instant))
+				{
+					throw new MolgenisDataException(
+							format("Value [%s] is of type [%s] instead of [%s] for attribute: [%s]", value.toString(),
+									value.getClass().getSimpleName(), Instant.class.getSimpleName(), attrName));
 				}
 				break;
 			case DECIMAL:
 				if (!(value instanceof Double))
 				{
 					throw new MolgenisDataException(
-							format("Value [%s] is of type [%s] instead of [%s]", value.toString(),
-									value.getClass().getSimpleName(), Double.class.getSimpleName()));
+							format("Value [%s] is of type [%s] instead of [%s] for attribute: [%s]", value.toString(),
+									value.getClass().getSimpleName(), Double.class.getSimpleName(), attrName));
+				}
+				if (((Double) value).isNaN())
+				{
+					throw new MolgenisDataException(
+							format("Value [%s] for type [%s] is not allowed for attribute: [%s]", value.toString(),
+									Double.class.getSimpleName(), attrName));
 				}
 				break;
 			case EMAIL:
@@ -278,28 +283,56 @@ public class DynamicEntity implements Entity
 				if (!(value instanceof String))
 				{
 					throw new MolgenisDataException(
-							format("Value [%s] is of type [%s] instead of [%s]", value.toString(),
-									value.getClass().getSimpleName(), String.class.getSimpleName()));
+							format("Value [%s] is of type [%s] instead of [%s] for attribute: [%s]", value.toString(),
+									value.getClass().getSimpleName(), String.class.getSimpleName(), attrName));
 				}
 				break;
 			case INT:
 				if (!(value instanceof Integer))
 				{
 					throw new MolgenisDataException(
-							format("Value [%s] is of type [%s] instead of [%s]", value.toString(),
-									value.getClass().getSimpleName(), Integer.class.getSimpleName()));
+							format("Value [%s] is of type [%s] instead of [%s] for attribute: [%s]", value.toString(),
+									value.getClass().getSimpleName(), Integer.class.getSimpleName(), attrName));
 				}
 				break;
 			case LONG:
 				if (!(value instanceof Long))
 				{
 					throw new MolgenisDataException(
-							format("Value [%s] is of type [%s] instead of [%s]", value.toString(),
-									value.getClass().getSimpleName(), Long.class.getSimpleName()));
+							format("Value [%s] is of type [%s] instead of [%s] for attribute: [%s]", value.toString(),
+									value.getClass().getSimpleName(), Long.class.getSimpleName(), attrName));
 				}
 				break;
 			default:
 				throw new RuntimeException(format("Unknown data type [%s]", dataType.toString()));
 		}
+	}
+
+	@Override
+	public String toString()
+	{
+		StringBuilder strBuilder = new StringBuilder(entityType.getId()).append('{');
+		strBuilder.append(stream(entityType.getAtomicAttributes().spliterator(), false).map(attr ->
+		{
+			StringBuilder attrStrBuilder = new StringBuilder(attr.getName()).append('=');
+			if (EntityTypeUtils.isSingleReferenceType(attr))
+			{
+				Entity refEntity = getEntity(attr.getName());
+				attrStrBuilder.append(refEntity != null ? refEntity.getIdValue() : null);
+			}
+			else if (EntityTypeUtils.isMultipleReferenceType(attr))
+			{
+				attrStrBuilder.append('[')
+						.append(stream(getEntities(attr.getName()).spliterator(), false).map(Entity::getIdValue)
+								.map(Object::toString).collect(joining(","))).append(']');
+			}
+			else
+			{
+				attrStrBuilder.append(get(attr.getName()));
+			}
+			return attrStrBuilder.toString();
+		}).collect(Collectors.joining("&")));
+		strBuilder.append('}');
+		return strBuilder.toString();
 	}
 }

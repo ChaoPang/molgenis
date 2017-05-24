@@ -7,7 +7,6 @@ import org.elasticsearch.action.admin.indices.exists.types.TypesExistsResponse;
 import org.elasticsearch.action.admin.indices.mapping.delete.DeleteMappingResponse;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingResponse;
-import org.elasticsearch.action.admin.indices.optimize.OptimizeResponse;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse;
 import org.elasticsearch.action.deletebyquery.IndexDeleteByQueryResponse;
@@ -29,7 +28,7 @@ import org.molgenis.data.Entity;
 import org.molgenis.data.MolgenisDataException;
 import org.molgenis.data.Query;
 import org.molgenis.data.elasticsearch.request.SearchRequestGenerator;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +39,6 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static org.elasticsearch.client.Requests.refreshRequest;
-import static org.molgenis.data.elasticsearch.util.MapperTypeSanitizer.sanitizeMapperType;
 
 /**
  * Facade in front of the ElasticSearch client.
@@ -51,7 +49,8 @@ public class ElasticsearchUtils
 	private static final TimeValue SCROLL_KEEP_ALIVE = new TimeValue(5, TimeUnit.MINUTES);
 	private static final int SCROLL_SIZE = 1000;
 	private final Client client;
-	private final SearchRequestGenerator generator = new SearchRequestGenerator();
+	private final SearchRequestGenerator generator = new SearchRequestGenerator(
+			new DocumentIdGenerator()); // TODO use ElasticsearchNameGenerator bean instead of creating a new instance
 	private final BulkProcessorFactory bulkProcessorFactory;
 
 	public ElasticsearchUtils(Client client)
@@ -59,7 +58,7 @@ public class ElasticsearchUtils
 		this(client, new BulkProcessorFactory());
 	}
 
-	public ElasticsearchUtils(Client client, BulkProcessorFactory bulkProcessorFactory)
+	private ElasticsearchUtils(Client client, BulkProcessorFactory bulkProcessorFactory)
 	{
 		this.client = client;
 		this.bulkProcessorFactory = bulkProcessorFactory;
@@ -81,7 +80,7 @@ public class ElasticsearchUtils
 		client.admin().indices().refresh(refreshRequest(index)).actionGet();
 	}
 
-	void waitForCompletion(BulkProcessor bulkProcessor)
+	private void waitForCompletion(BulkProcessor bulkProcessor)
 	{
 		LOG.trace("waitForCompletion...");
 		try
@@ -111,17 +110,17 @@ public class ElasticsearchUtils
 		return mappingsResponse.getMappings().get(indexName);
 	}
 
-	public void putMapping(String index, XContentBuilder jsonBuilder, String entityName) throws IOException
+	public void putMapping(String index, XContentBuilder jsonBuilder, String type) throws IOException
 	{
 		if (LOG.isTraceEnabled()) LOG.trace("Creating Elasticsearch mapping [{}] ...", jsonBuilder.string());
 
-		PutMappingResponse response = client.admin().indices().preparePutMapping(index)
-				.setType(sanitizeMapperType(entityName)).setSource(jsonBuilder).get();
+		PutMappingResponse response = client.admin().indices().preparePutMapping(index).setType(type)
+				.setSource(jsonBuilder).get();
 
 		if (!response.isAcknowledged())
 		{
 			throw new ElasticsearchException(
-					"Creation of mapping for documentType [" + entityName + "] failed. Response=" + response);
+					"Creation of mapping for documentType [" + type + "] failed. Response=" + response);
 		}
 		if (LOG.isDebugEnabled()) LOG.debug("Created Elasticsearch mapping [{}]", jsonBuilder.string());
 	}
@@ -133,7 +132,7 @@ public class ElasticsearchUtils
 		LOG.debug("Refreshed Elasticsearch index [{}]", index);
 	}
 
-	public long getCount(Query<Entity> q, EntityMetaData entityMetaData, String type, String indexName)
+	public long getCount(Query<Entity> q, EntityType entityType, String type, String indexName)
 	{
 		if (q != null)
 		{
@@ -144,7 +143,7 @@ public class ElasticsearchUtils
 			LOG.trace("Counting Elasticsearch [{}] docs", type);
 		}
 		SearchRequestBuilder searchRequestBuilder = client.prepareSearch(indexName);
-		generator.buildSearchRequest(searchRequestBuilder, type, SearchType.COUNT, q, null, null, null, entityMetaData);
+		generator.buildSearchRequest(searchRequestBuilder, SearchType.COUNT, entityType, q, null, null, null);
 		SearchResponse searchResponse = searchRequestBuilder.get();
 		if (searchResponse.getFailedShards() > 0)
 		{
@@ -161,18 +160,6 @@ public class ElasticsearchUtils
 			LOG.debug("Counted {} Elasticsearch [{}] docs in {}ms", count, type, ms);
 		}
 		return count;
-	}
-
-	public void optimizeIndex(String indexName)
-	{
-		LOG.trace("Optimizing Elasticsearch index [{}] ...", indexName);
-		// setMaxNumSegments(1) fully optimizes the index
-		OptimizeResponse response = client.admin().indices().prepareOptimize(indexName).setMaxNumSegments(1).get();
-		if (response.getFailedShards() > 0)
-		{
-			throw new ElasticsearchException("Optimize failed. Returned headers:" + response.getHeaders());
-		}
-		LOG.debug("Optimized Elasticsearch index [{}]", indexName);
 	}
 
 	/**
@@ -257,13 +244,12 @@ public class ElasticsearchUtils
 		LOG.debug("Flushed Elasticsearch index [{}]", indexName);
 	}
 
-	public SearchResponse search(SearchType searchType, SearchRequest request, EntityMetaData entityMetaData,
-			String documentType, String indexName)
+	public SearchResponse search(SearchType searchType, SearchRequest request, String indexName)
 	{
 		SearchRequestBuilder builder = client.prepareSearch(indexName);
-		generator
-				.buildSearchRequest(builder, documentType, searchType, request.getQuery(), request.getAggregateField1(),
-						request.getAggregateField2(), request.getAggregateFieldDistinct(), entityMetaData);
+		generator.buildSearchRequest(builder, searchType, request.getEntityType(), request.getQuery(),
+				request.getAggregateAttribute1(), request.getAggregateAttribute2(),
+				request.getAggregateAttributeDistinct());
 		LOG.trace("*** REQUEST\n{}", builder);
 		SearchResponse response = builder.get();
 		LOG.trace("*** RESPONSE\n{}", response);

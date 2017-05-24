@@ -6,7 +6,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
-import org.molgenis.data.meta.model.AttributeMetaData;
+import org.molgenis.data.meta.model.Attribute;
 import org.molgenis.data.semantic.Relation;
 import org.molgenis.data.semanticsearch.service.bean.SearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
@@ -98,11 +98,11 @@ public class QueryExpansionServiceImplTest extends AbstractTestNGSpringContextTe
 	@Test
 	public void testCreateTargetAttributeQueryTerms()
 	{
-		AttributeMetaData targetAttribute_1 = mock(AttributeMetaData.class);
+		Attribute targetAttribute_1 = mock(Attribute.class);
 		when(targetAttribute_1.getName()).thenReturn("targetAttribute 1");
 		when(targetAttribute_1.getDescription()).thenReturn("Height");
 
-		AttributeMetaData targetAttribute_2 = mock(AttributeMetaData.class);
+		Attribute targetAttribute_2 = mock(Attribute.class);
 		when(targetAttribute_2.getName()).thenReturn("targetAttribute 2");
 		when(targetAttribute_2.getLabel()).thenReturn("Height");
 

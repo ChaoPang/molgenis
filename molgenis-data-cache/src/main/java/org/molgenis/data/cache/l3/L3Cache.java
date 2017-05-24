@@ -1,5 +1,7 @@
 package org.molgenis.data.cache.l3;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.guava.CaffeinatedGuava;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import org.molgenis.data.Entity;
@@ -20,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.google.common.cache.CacheBuilder.newBuilder;
 import static com.google.common.collect.Maps.newConcurrentMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -66,19 +67,19 @@ public class L3Cache extends DefaultMolgenisTransactionListener
 
 	private LoadingCache<Query<Entity>, List<Object>> getQueryCache(Repository<Entity> repository)
 	{
-		String name = repository.getName();
-		if (!caches.containsKey(name))
+		String id = repository.getEntityType().getId();
+		if (!caches.containsKey(id))
 		{
-			caches.putIfAbsent(name, createQueryCache(repository));
+			caches.putIfAbsent(id, createQueryCache(repository));
 		}
-		return caches.get(name);
+		return caches.get(id);
 	}
 
 	private LoadingCache<Query<Entity>, List<Object>> createQueryCache(Repository<Entity> repository)
 	{
 		LOG.trace("Creating Query cache for repository {}", repository.getName());
-		return newBuilder().recordStats().maximumSize(MAX_CACHE_SIZE_PER_QUERY).expireAfterAccess(10, MINUTES)
-				.build(createCacheLoader(repository));
+		return CaffeinatedGuava.build(Caffeine.newBuilder().recordStats().maximumSize(MAX_CACHE_SIZE_PER_QUERY)
+				.expireAfterAccess(10, MINUTES), createCacheLoader(repository));
 	}
 
 	/**
@@ -89,7 +90,7 @@ public class L3Cache extends DefaultMolgenisTransactionListener
 	private CacheLoader<Query<Entity>, List<Object>> createCacheLoader(final Repository<Entity> repository)
 	{
 		String repositoryName = repository.getName();
-		Fetch idAttributeFetch = new Fetch().field(repository.getEntityMetaData().getIdAttribute().getName());
+		Fetch idAttributeFetch = new Fetch().field(repository.getEntityType().getIdAttribute().getName());
 		return new CacheLoader<Query<Entity>, List<Object>>()
 		{
 			/**

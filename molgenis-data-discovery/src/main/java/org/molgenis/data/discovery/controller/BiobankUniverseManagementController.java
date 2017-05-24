@@ -7,9 +7,9 @@ import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.i18n.LanguageService;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.populate.IdGenerator;
 import org.molgenis.data.support.DynamicEntity;
 import org.molgenis.file.FileStore;
@@ -47,8 +47,8 @@ public class BiobankUniverseManagementController extends MolgenisPluginControlle
 	private final BiobankUniverseService biobankUniverseService;
 	private final MenuReaderService menuReaderService;
 	private final BiobankSampleAttributeMetaData biobankSampleAttributeMetaData;
-	private final EntityMetaDataFactory entityMetaDataFactory;
-	private final AttributeMetaDataFactory attributeMetaDataFactory;
+	private final EntityTypeFactory entityTypeFactory;
+	private final AttributeFactory attributeFactory;
 
 	public static final String VIEW_NAME = "view-biobank-universe-management";
 	public static final String ID = "biobankuniversemanagement";
@@ -59,8 +59,8 @@ public class BiobankUniverseManagementController extends MolgenisPluginControlle
 	@Autowired
 	public BiobankUniverseManagementController(BiobankUniverseService biobankUniverseService, FileStore fileStore,
 			IdGenerator idGenerator, MenuReaderService menuReaderService, LanguageService languageService,
-			BiobankSampleAttributeMetaData biobankSampleAttributeMetaData, EntityMetaDataFactory entityMetaDataFactory,
-			AttributeMetaDataFactory attributeMetaDataFactory)
+			BiobankSampleAttributeMetaData biobankSampleAttributeMetaData, EntityTypeFactory entityTypeFactory,
+			AttributeFactory attributeFactory)
 	{
 		super(URI);
 		this.biobankUniverseService = requireNonNull(biobankUniverseService);
@@ -68,8 +68,8 @@ public class BiobankUniverseManagementController extends MolgenisPluginControlle
 		this.idGenerator = requireNonNull(idGenerator);
 		this.menuReaderService = requireNonNull(menuReaderService);
 		this.biobankSampleAttributeMetaData = requireNonNull(biobankSampleAttributeMetaData);
-		this.entityMetaDataFactory = requireNonNull(entityMetaDataFactory);
-		this.attributeMetaDataFactory = requireNonNull(attributeMetaDataFactory);
+		this.entityTypeFactory = requireNonNull(entityTypeFactory);
+		this.attributeFactory = requireNonNull(attributeFactory);
 	}
 
 	@RequestMapping(method = GET)
@@ -135,11 +135,11 @@ public class BiobankUniverseManagementController extends MolgenisPluginControlle
 	private void importSample(String sampleName, InputStream inputStream, Character separator) throws IOException
 	{
 		File uploadFile = fileStore.store(inputStream, idGenerator.generateId() + ".csv");
-		CsvRepository csvRepository = new CsvRepository(uploadFile, entityMetaDataFactory, attributeMetaDataFactory,
-				emptyList(), separator);
+		CsvRepository csvRepository = new CsvRepository(uploadFile, entityTypeFactory, attributeFactory, emptyList(),
+				separator);
 
-		List<String> attributeNames = stream(csvRepository.getEntityMetaData().getAtomicAttributes().spliterator(),
-				false).map(AttributeMetaData::getName).collect(toList());
+		List<String> attributeNames = stream(csvRepository.getEntityType().getAtomicAttributes().spliterator(), false)
+				.map(Attribute::getIdentifier).collect(toList());
 
 		if (attributeNames.containsAll(SAMPLE_ATTRIBUTE_HEADERS))
 		{

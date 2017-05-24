@@ -3,8 +3,9 @@ package org.molgenis.data.postgresql;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityManager;
 import org.molgenis.data.Fetch;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,16 +14,23 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.sql.Array;
-import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.Arrays;
 
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static org.molgenis.data.postgresql.PostgreSqlNameGenerator.getColumnName;
+import static org.molgenis.util.MolgenisDateFormat.parseInstant;
+import static org.molgenis.util.MolgenisDateFormat.parseLocalDate;
 
 @Component
-public class PostgreSqlEntityFactory
+class PostgreSqlEntityFactory
 {
 	@SuppressWarnings("unused")
 	private static final Logger LOG = LoggerFactory.getLogger(PostgreSqlEntityFactory.class);
@@ -35,36 +43,36 @@ public class PostgreSqlEntityFactory
 		this.entityManager = requireNonNull(entityManager);
 	}
 
-	RowMapper<Entity> createRowMapper(EntityMetaData entityMeta, Fetch fetch)
+	RowMapper<Entity> createRowMapper(EntityType entityType, Fetch fetch)
 	{
-		return new EntityMapper(entityManager, entityMeta, fetch);
+		return new EntityMapper(entityManager, entityType, fetch);
 	}
 
-	Iterable<Entity> getReferences(EntityMetaData refEntityMeta, Iterable<?> ids)
+	Iterable<Entity> getReferences(EntityType refEntityType, Iterable<?> ids)
 	{
-		return entityManager.getReferences(refEntityMeta, ids);
+		return entityManager.getReferences(refEntityType, ids);
 	}
 
 	private static class EntityMapper implements RowMapper<Entity>
 	{
 		private final EntityManager entityManager;
-		private final EntityMetaData entityMetaData;
+		private final EntityType entityType;
 		private final Fetch fetch;
 
-		private EntityMapper(EntityManager entityManager, EntityMetaData entityMetaData, Fetch fetch)
+		private EntityMapper(EntityManager entityManager, EntityType entityType, Fetch fetch)
 		{
 			this.entityManager = requireNonNull(entityManager);
-			this.entityMetaData = requireNonNull(entityMetaData);
+			this.entityType = requireNonNull(entityType);
 			this.fetch = fetch; // can be null
 		}
 
 		@Override
 		public Entity mapRow(ResultSet resultSet, int i) throws SQLException
 		{
-			Entity e = entityManager.create(entityMetaData, fetch);
+			Entity e = entityManager.createFetch(entityType, fetch);
 
 			// TODO performance, iterate over fetch if available
-			for (AttributeMetaData attr : entityMetaData.getAtomicAttributes())
+			for (Attribute attr : entityType.getAtomicAttributes())
 			{
 				if (fetch == null || fetch.hasField(attr.getName()))
 				{
@@ -88,9 +96,9 @@ public class PostgreSqlEntityFactory
 		 * @return value for the given attribute in the type defined by the attribute type
 		 * @throws SQLException if an error occurs reading from the result set
 		 */
-		private Object mapValue(ResultSet resultSet, AttributeMetaData attr) throws SQLException
+		private Object mapValue(ResultSet resultSet, Attribute attr) throws SQLException
 		{
-			return mapValue(resultSet, attr, attr.getName());
+			return mapValue(resultSet, attr, getColumnName(attr, false));
 		}
 
 		/**
@@ -103,62 +111,107 @@ public class PostgreSqlEntityFactory
 		 * @return value for the given attribute in the type defined by the attribute type
 		 * @throws SQLException if an error occurs reading from the result set
 		 */
-		private Object mapValue(ResultSet resultSet, AttributeMetaData attr, String colName) throws SQLException
+		private Object mapValue(ResultSet resultSet, Attribute attr, String colName) throws SQLException
 		{
-			Object value;
-			switch (attr.getDataType())
+			try
 			{
-				case BOOL:
-					boolean boolValue = resultSet.getBoolean(colName);
-					value = resultSet.wasNull() ? null : boolValue;
-					break;
-				case CATEGORICAL:
-				case FILE:
-				case XREF:
-					EntityMetaData xrefEntityMeta = attr.getRefEntity();
-					Object refIdValue = mapValue(resultSet, xrefEntityMeta.getIdAttribute(), colName);
-					value = refIdValue != null ? entityManager.getReference(xrefEntityMeta, refIdValue) : null;
-					break;
-				case CATEGORICAL_MREF:
-				case MREF:
-					EntityMetaData mrefEntityMeta = attr.getRefEntity();
-					Array arrayValue = resultSet.getArray(colName);
-					value = resultSet.wasNull() ? null : mapValueMref(arrayValue, mrefEntityMeta);
-					break;
-				case COMPOUND:
-					throw new RuntimeException(
-							format("Value mapping not allowed for attribute type [%s]", attr.getDataType().toString()));
-				case DATE:
-					// valid, because java.sql.Date extends required type java.util.Date
-					value = resultSet.getDate(colName);
-					break;
-				case DATE_TIME:
-					// valid, because java.sql.Timestamp extends required type java.util.Date
-					value = resultSet.getTimestamp(colName);
-					break;
-				case DECIMAL:
-					BigDecimal bigDecimalValue = resultSet.getBigDecimal(colName);
-					value = bigDecimalValue != null ? bigDecimalValue.doubleValue() : null;
-					break;
-				case EMAIL:
-				case ENUM:
-				case HTML:
-				case HYPERLINK:
-				case SCRIPT:
-				case STRING:
-				case TEXT:
-					value = resultSet.getString(colName);
-					break;
-				case INT:
-					int intValue = resultSet.getInt(colName);
-					value = resultSet.wasNull() ? null : intValue;
-					break;
-				case LONG:
-					long longValue = resultSet.getLong(colName);
-					value = resultSet.wasNull() ? null : longValue;
-					break;
-				default:
-					throw new RuntimeException(format("Unknown attribute type [%s]", attr.getDataType().toString()));
+				Object value;
+				switch (attr.getDataType())
+				{
+					case BOOL:
+						boolean boolValue = resultSet.getBoolean(colName);
+						value = resultSet.wasNull() ? null : boolValue;
+						break;
+					case CATEGORICAL:
+					case FILE:
+					case XREF:
+						EntityType xrefEntityType = attr.getRefEntity();
+						Object refIdValue = mapValue(resultSet, xrefEntityType.getIdAttribute(), colName);
+						value = refIdValue != null ? entityManager.getReference(xrefEntityType, refIdValue) : null;
+						break;
+					case CATEGORICAL_MREF:
+					case MREF:
+						EntityType mrefEntityMeta = attr.getRefEntity();
+						Array mrefArrayValue = resultSet.getArray(colName);
+						value = resultSet.wasNull() ? null : mapValueMref(mrefArrayValue, mrefEntityMeta);
+						break;
+					case ONE_TO_MANY:
+						Array oneToManyArrayValue = resultSet.getArray(colName);
+						value = resultSet.wasNull() ? null : mapValueOneToMany(oneToManyArrayValue, attr);
+						break;
+					case COMPOUND:
+						throw new RuntimeException(format("Value mapping not allowed for attribute type [%s]",
+								attr.getDataType().toString()));
+					case DATE:
+						value = resultSet.getObject(colName, LocalDate.class);
+						break;
+					case DATE_TIME:
+						OffsetDateTime offsetDateTime = resultSet.getObject(colName, OffsetDateTime.class);
+						value = resultSet.wasNull() ? null : offsetDateTime.toInstant();
+						break;
+					case DECIMAL:
+						BigDecimal bigDecimalValue = resultSet.getBigDecimal(colName);
+						value = bigDecimalValue != null ? bigDecimalValue.doubleValue() : null;
+						break;
+					case EMAIL:
+					case ENUM:
+					case HTML:
+					case HYPERLINK:
+					case SCRIPT:
+					case STRING:
+					case TEXT:
+						value = resultSet.getString(colName);
+						break;
+					case INT:
+						int intValue = resultSet.getInt(colName);
+						value = resultSet.wasNull() ? null : intValue;
+						break;
+					case LONG:
+						long longValue = resultSet.getLong(colName);
+						value = resultSet.wasNull() ? null : longValue;
+						break;
+					default:
+						throw new RuntimeException(
+								format("Unknown attribute type [%s]", attr.getDataType().toString()));
+				}
+				return value;
+			}
+			catch (SQLException e)
+			{
+				throw e;
+			}
+		}
+
+		/**
+		 * Maps a single results set array value to an entity value for one-to-many attributes.
+		 *
+		 * @param arrayValue result set array value
+		 * @param attr       attribute meta data
+		 * @return mapped value
+		 * @throws SQLException if an error occurs while attempting to access the array
+		 */
+		private Object mapValueOneToMany(Array arrayValue, Attribute attr) throws SQLException
+		{
+			EntityType entityType = attr.getRefEntity();
+			Object value;
+			String[] postgreSqlMrefIds = (String[]) arrayValue.getArray();
+			if (postgreSqlMrefIds.length > 0 && postgreSqlMrefIds[0] != null)
+			{
+				Attribute idAttr = entityType.getIdAttribute();
+				Object[] mrefIds = new Object[postgreSqlMrefIds.length];
+				for (int i = 0; i < postgreSqlMrefIds.length; ++i)
+				{
+					String mrefIdStr = postgreSqlMrefIds[i];
+					Object mrefId = mrefIdStr != null ? convertMrefIdValue(mrefIdStr, idAttr) : null;
+					mrefIds[i] = mrefId;
+				}
+
+				// convert ids to (lazy) entities
+				value = entityManager.getReferences(entityType, asList(mrefIds));
+			}
+			else
+			{
+				value = null;
 			}
 			return value;
 		}
@@ -167,11 +220,11 @@ public class PostgreSqlEntityFactory
 		 * Maps a single results set array value to an entity value for mref attributes.
 		 *
 		 * @param arrayValue result set array value
-		 * @param entityMeta entity meta data
+		 * @param entityType entity meta data
 		 * @return mapped value
 		 * @throws SQLException if an error occurs while attempting to access the array
 		 */
-		private Object mapValueMref(Array arrayValue, EntityMetaData entityMeta) throws SQLException
+		private Object mapValueMref(Array arrayValue, EntityType entityType) throws SQLException
 		{
 			// ResultSet contains a two dimensional array for MREF attribute values:
 			// [[<order_nr_as_string>,<mref_id_as_string>],[<order_nr_as_string>,<mref_id_as_string>], ...]
@@ -181,18 +234,20 @@ public class PostgreSqlEntityFactory
 			String[][] mrefIdsAndOrder = (String[][]) arrayValue.getArray();
 			if (mrefIdsAndOrder.length > 0 && mrefIdsAndOrder[0][0] != null)
 			{
-				AttributeMetaData idAttr = entityMeta.getIdAttribute();
+				Arrays.sort(mrefIdsAndOrder, comparing(o -> Integer.valueOf(o[0])));
+
+				Attribute idAttr = entityType.getIdAttribute();
 				Object[] mrefIds = new Object[mrefIdsAndOrder.length];
-				for (String[] mrefIdAndOrder : mrefIdsAndOrder)
+				for (int i = 0; i < mrefIdsAndOrder.length; ++i)
 				{
-					Integer seqNr = Integer.valueOf(mrefIdAndOrder[0]);
+					String[] mrefIdAndOrder = mrefIdsAndOrder[i];
 					String mrefIdStr = mrefIdAndOrder[1];
 					Object mrefId = mrefIdStr != null ? convertMrefIdValue(mrefIdStr, idAttr) : null;
-					mrefIds[seqNr] = mrefId;
+					mrefIds[i] = mrefId;
 				}
 
 				// convert ids to (lazy) entities
-				value = entityManager.getReferences(entityMeta, asList(mrefIds));
+				value = entityManager.getReferences(entityType, asList(mrefIds));
 			}
 			else
 			{
@@ -208,12 +263,13 @@ public class PostgreSqlEntityFactory
 		 * @param idAttr     id attribute
 		 * @return entity value
 		 */
-		private static Object convertMrefIdValue(String idValueStr, AttributeMetaData idAttr)
+		private static Object convertMrefIdValue(String idValueStr, Attribute idAttr)
 		{
 			// use iteration instead of tail recursion
 			while (true)
 			{
-				switch (idAttr.getDataType())
+				AttributeType attrType = idAttr.getDataType();
+				switch (attrType)
 				{
 					case BOOL:
 						return Boolean.valueOf(idValueStr);
@@ -222,14 +278,10 @@ public class PostgreSqlEntityFactory
 					case XREF:
 						idAttr = idAttr.getRefEntity().getIdAttribute();
 						continue;
-					case CATEGORICAL_MREF:
-					case COMPOUND:
-					case MREF:
-						throw new RuntimeException(
-								format("Invalid id attribute type [%s]", idAttr.getDataType().toString()));
 					case DATE:
+						return parseLocalDate(idValueStr);
 					case DATE_TIME:
-						return Date.valueOf(idValueStr);
+						return parseInstant(idValueStr).atOffset(UTC);
 					case DECIMAL:
 						return Double.valueOf(idValueStr);
 					case EMAIL:
@@ -244,9 +296,13 @@ public class PostgreSqlEntityFactory
 						return Integer.valueOf(idValueStr);
 					case LONG:
 						return Long.valueOf(idValueStr);
+					case CATEGORICAL_MREF:
+					case COMPOUND:
+					case MREF:
+					case ONE_TO_MANY:
+						throw new RuntimeException(format("Illegal attribute type [%s]", attrType.toString()));
 					default:
-						throw new RuntimeException(
-								format("Unknown attribute type [%s]", idAttr.getDataType().toString()));
+						throw new RuntimeException(format("Unknown attribute type [%s]", attrType.toString()));
 				}
 			}
 		}

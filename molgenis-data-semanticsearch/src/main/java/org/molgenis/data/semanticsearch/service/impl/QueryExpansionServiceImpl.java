@@ -10,7 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.elasticsearch.common.base.Joiner;
 import org.molgenis.data.QueryRule;
-import org.molgenis.data.meta.model.AttributeMetaDataMetaData;
+import org.molgenis.data.meta.model.AttributeMetadata;
 import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.bean.SearchParam;
 import org.molgenis.data.semanticsearch.service.bean.TagGroup;
@@ -294,8 +294,8 @@ public class QueryExpansionServiceImpl implements QueryExpansionService
 				.map(string -> QueryParser.escape(string).replace(ESCAPED_CARET_CHARACTER, CARET_CHARACTER))
 				.forEach(query ->
 				{
-					rules.add(new QueryRule(AttributeMetaDataMetaData.LABEL, FUZZY_MATCH, query));
-					rules.add(new QueryRule(AttributeMetaDataMetaData.DESCRIPTION, FUZZY_MATCH, query));
+					rules.add(new QueryRule(AttributeMetadata.LABEL, FUZZY_MATCH, query));
+					rules.add(new QueryRule(AttributeMetadata.DESCRIPTION, FUZZY_MATCH, query));
 				});
 
 		QueryRule finalDisMaxQuery = null;

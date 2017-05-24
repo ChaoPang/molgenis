@@ -1,6 +1,6 @@
 package org.molgenis.data.mapper.service.impl;
 
-import org.molgenis.data.meta.model.AttributeMetaData;
+import org.molgenis.data.meta.model.Attribute;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedMatchCandidate;
 
 import java.util.Map;
@@ -15,6 +15,5 @@ public interface AlgorithmTemplateService
 	 * @param relevantAttributes attribute matches returned from {@see SemanticSearchService}.
 	 * @return algorithm templates that can be rendered using the given source and target
 	 */
-	Stream<AlgorithmTemplate> find(
-			Map<AttributeMetaData, ExplainedMatchCandidate<AttributeMetaData>> relevantAttributes);
+	Stream<AlgorithmTemplate> find(Map<Attribute, ExplainedMatchCandidate<Attribute>> relevantAttributes);
 }

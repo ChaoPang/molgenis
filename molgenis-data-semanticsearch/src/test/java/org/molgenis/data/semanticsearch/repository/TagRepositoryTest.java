@@ -1,13 +1,13 @@
 package org.molgenis.data.semanticsearch.repository;
 
+import org.molgenis.data.AbstractMolgenisSpringTest;
 import org.molgenis.data.DataService;
-import org.molgenis.data.populate.IdGenerator;
 import org.molgenis.data.Query;
-import org.molgenis.data.meta.model.AttributeMetaData;
+import org.molgenis.data.meta.model.Attribute;
 import org.molgenis.data.meta.model.Tag;
 import org.molgenis.data.meta.model.TagFactory;
+import org.molgenis.data.populate.IdGenerator;
 import org.molgenis.data.semantic.Relation;
-import org.molgenis.test.data.AbstractMolgenisSpringTest;
 import org.molgenis.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -23,7 +23,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
-import static org.molgenis.data.meta.model.TagMetaData.*;
+import static org.molgenis.data.meta.model.TagMetadata.*;
 import static org.testng.Assert.assertTrue;
 
 @WebAppConfiguration
@@ -54,13 +54,14 @@ public class TagRepositoryTest extends AbstractMolgenisSpringTest
 	public void testGetTagEntityNew()
 	{
 		Tag tag = tagFactory.create();
-		tag.setIdentifier(uuid.toString());
+		tag.setId(uuid.toString());
 		tag.setObjectIri("http://edamontology.org/data_3031");
 		tag.setLabel("Core data");
 		tag.setRelationIri("http://molgenis.org/biobankconnect/instanceOf");
 		tag.setRelationLabel("instanceOf");
 		tag.setCodeSystem("http://edamontology.org");
 
+		@SuppressWarnings("unchecked")
 		Query<Tag> q = mock(Query.class);
 		when(q.eq(anyString(), any())).thenReturn(q);
 		when(q.and()).thenReturn(q);
@@ -78,14 +79,15 @@ public class TagRepositoryTest extends AbstractMolgenisSpringTest
 	public void testGetTagEntityExisting()
 	{
 		Tag tag = tagFactory.create();
-		tag.setIdentifier(uuid.toString());
+		tag.setId(uuid.toString());
 		tag.setObjectIri("http://edamontology.org/data_3031");
 		tag.setLabel("Core data");
 		tag.setRelationIri("http://molgenis.org/biobankconnect/instanceOf");
 		tag.setRelationLabel("instanceOf");
 		tag.setCodeSystem("http://edamontology.org");
 
-		Query q = mock(Query.class);
+		@SuppressWarnings("unchecked")
+		Query<Tag> q = mock(Query.class);
 		when(q.eq(OBJECT_IRI, "http://edamontology.org/data_3031")).thenReturn(q);
 		when(q.and()).thenReturn(q);
 		when(q.eq(RELATION_IRI, "http://molgenis.org/biobankconnect/instanceOf")).thenReturn(q);
@@ -115,9 +117,9 @@ public class TagRepositoryTest extends AbstractMolgenisSpringTest
 		}
 
 		@Bean
-		AttributeMetaData attributeMetaData()
+		Attribute attribute()
 		{
-			return mock(AttributeMetaData.class);
+			return mock(Attribute.class);
 		}
 	}
 }

@@ -1,16 +1,17 @@
 package org.molgenis.data.elasticsearch.converter;
 
-import org.molgenis.MolgenisFieldTypes.AttributeType;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityManager;
 import org.molgenis.data.MolgenisDataException;
 import org.molgenis.data.UnknownAttributeException;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.util.MolgenisDateFormat;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.stream.StreamSupport;
 
@@ -29,17 +30,17 @@ public class SourceToEntityConverter
 		this.entityManager = requireNonNull(entityManager);
 	}
 
-	public Entity convert(Map<String, Object> source, EntityMetaData entityMeta)
+	public Entity convert(Map<String, Object> source, EntityType entityType)
 	{
-		Entity entity = entityManager.create(entityMeta, NO_POPULATE);
+		Entity entity = entityManager.create(entityType, NO_POPULATE);
 		source.entrySet().forEach(entry ->
 		{
 			String attrName = entry.getKey();
-			AttributeMetaData attr = entityMeta.getAttribute(attrName);
+			Attribute attr = entityType.getAttribute(attrName);
 			if (attr == null)
 			{
 				throw new UnknownAttributeException(
-						"Unknown attribute [" + attrName + "] of entity [" + entityMeta.getName());
+						"Unknown attribute [" + attrName + "] of entity [" + entityType.getId());
 			}
 
 			Object sourceValue = entry.getValue();
@@ -68,8 +69,9 @@ public class SourceToEntityConverter
 						// TODO store id for xrefs
 						if (sourceValue instanceof Map<?, ?>)
 						{
-							@SuppressWarnings("unchecked") Map<String, Object> sourceRefEntity = (Map<String, Object>) sourceValue;
-							EntityMetaData refEntity = attr.getRefEntity();
+							@SuppressWarnings("unchecked")
+							Map<String, Object> sourceRefEntity = (Map<String, Object>) sourceValue;
+							EntityType refEntity = attr.getRefEntity();
 							String refIdAttrName = refEntity.getIdAttribute().getName();
 							Object sourceRefEntityId = sourceRefEntity.get(refIdAttrName);
 							entityValue = entityManager.getReference(refEntity, sourceRefEntityId);
@@ -85,8 +87,9 @@ public class SourceToEntityConverter
 						if (sourceValue instanceof Iterable<?>)
 						{
 							// TODO store list of ids for mrefs
-							@SuppressWarnings("unchecked") Iterable<Map<String, Object>> sourceRefEntities = (Iterable<Map<String, Object>>) sourceValue;
-							EntityMetaData refEntity = attr.getRefEntity();
+							@SuppressWarnings("unchecked")
+							Iterable<Map<String, Object>> sourceRefEntities = (Iterable<Map<String, Object>>) sourceValue;
+							EntityType refEntity = attr.getRefEntity();
 							String refIdAttrName = refEntity.getIdAttribute().getName();
 							Iterable<Object> sourceRefEntityIds = () -> StreamSupport
 									.stream(sourceRefEntities.spliterator(), false)
@@ -104,7 +107,7 @@ public class SourceToEntityConverter
 					case DATE:
 						try
 						{
-							entityValue = MolgenisDateFormat.getDateFormat().parse((String) sourceValue);
+							entityValue = LocalDate.parse((String) sourceValue);
 						}
 						catch (Exception e)
 						{
@@ -114,7 +117,7 @@ public class SourceToEntityConverter
 					case DATE_TIME:
 						try
 						{
-							entityValue = MolgenisDateFormat.getDateTimeFormat().parse((String) sourceValue);
+							entityValue = Instant.parse((String) sourceValue);
 						}
 						catch (Exception e)
 						{

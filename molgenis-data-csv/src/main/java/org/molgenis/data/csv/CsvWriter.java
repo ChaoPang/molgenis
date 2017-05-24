@@ -4,21 +4,19 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.molgenis.data.Entity;
 import org.molgenis.data.MolgenisDataException;
-import org.molgenis.data.convert.DateToStringConverter;
-import org.molgenis.data.meta.model.AttributeMetaData;
+import org.molgenis.data.meta.model.Attribute;
 import org.molgenis.data.processor.AbstractCellProcessor;
 import org.molgenis.data.processor.CellProcessor;
 import org.molgenis.data.support.AbstractWritable;
 
 import java.io.*;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 public class CsvWriter extends AbstractWritable
 {
-	public static final Charset DEFAULT_CHARSET = Charset.forName("UTF-8");
-
 	public static final char DEFAULT_SEPARATOR = ',';
 
 	private final au.com.bytecode.opencsv.CSVWriter csvWriter;
@@ -61,27 +59,27 @@ public class CsvWriter extends AbstractWritable
 
 	public CsvWriter(OutputStream os)
 	{
-		this(new OutputStreamWriter(os, DEFAULT_CHARSET));
+		this(new OutputStreamWriter(os, UTF_8));
 	}
 
 	public CsvWriter(OutputStream os, char separator)
 	{
-		this(new OutputStreamWriter(os, DEFAULT_CHARSET), separator);
+		this(new OutputStreamWriter(os, UTF_8), separator);
 	}
 
 	public CsvWriter(OutputStream os, char separator, boolean noQuotes)
 	{
-		this(new OutputStreamWriter(os, DEFAULT_CHARSET), separator, noQuotes);
+		this(new OutputStreamWriter(os, UTF_8), separator, noQuotes);
 	}
 
 	public CsvWriter(File file) throws FileNotFoundException
 	{
-		this(new OutputStreamWriter(new FileOutputStream(file), DEFAULT_CHARSET), DEFAULT_SEPARATOR);
+		this(new OutputStreamWriter(new FileOutputStream(file), UTF_8), DEFAULT_SEPARATOR);
 	}
 
 	public CsvWriter(File file, char separator) throws FileNotFoundException
 	{
-		this(new OutputStreamWriter(new FileOutputStream(file), DEFAULT_CHARSET), separator);
+		this(new OutputStreamWriter(new FileOutputStream(file), UTF_8), separator);
 	}
 
 	public void addCellProcessor(CellProcessor cellProcessor)
@@ -118,12 +116,12 @@ public class CsvWriter extends AbstractWritable
 	 * @param attributes
 	 * @throws IOException
 	 */
-	public void writeAttributes(Iterable<AttributeMetaData> attributes) throws IOException
+	public void writeAttributes(Iterable<Attribute> attributes) throws IOException
 	{
 		List<String> attributeNames = Lists.newArrayList();
 		List<String> attributeLabels = Lists.newArrayList();
 
-		for (AttributeMetaData attr : attributes)
+		for (Attribute attr : attributes)
 		{
 			attributeNames.add(attr.getName());
 			if (attr.getLabel() != null)
@@ -173,10 +171,6 @@ public class CsvWriter extends AbstractWritable
 		if (obj == null)
 		{
 			value = null;
-		}
-		else if (obj instanceof java.util.Date)
-		{
-			value = new DateToStringConverter().convert((java.util.Date) obj);
 		}
 		else if (obj instanceof Entity)
 		{

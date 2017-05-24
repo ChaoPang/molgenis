@@ -5,9 +5,8 @@ import org.molgenis.data.Entity;
 import org.molgenis.data.annotation.core.RepositoryAnnotator;
 import org.molgenis.data.annotation.core.entity.AnnotatorConfig;
 import org.molgenis.data.annotation.core.entity.AnnotatorInfo;
-import org.molgenis.data.annotation.core.entity.AnnotatorInfo.Status;
 import org.molgenis.data.annotation.core.entity.EntityAnnotator;
-import org.molgenis.data.annotation.core.entity.impl.framework.AnnotatorImpl;
+import org.molgenis.data.annotation.core.entity.impl.framework.AbstractAnnotator;
 import org.molgenis.data.annotation.core.entity.impl.framework.RepositoryAnnotatorImpl;
 import org.molgenis.data.annotation.core.filter.MultiAllelicResultFilter;
 import org.molgenis.data.annotation.core.query.LocusQueryCreator;
@@ -18,20 +17,23 @@ import org.molgenis.data.annotation.core.resources.impl.ResourceImpl;
 import org.molgenis.data.annotation.core.resources.impl.SingleResourceConfig;
 import org.molgenis.data.annotation.core.resources.impl.tabix.TabixVcfRepositoryFactory;
 import org.molgenis.data.annotation.web.settings.SingleFileLocationCmdLineAnnotatorSettingsConfigurer;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.vcf.model.VcfAttributes;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
-import static org.molgenis.MolgenisFieldTypes.AttributeType.STRING;
+import static com.google.common.collect.Lists.newArrayList;
+import static java.util.Arrays.asList;
+import static org.molgenis.data.annotation.core.entity.AnnotatorInfo.Status.READY;
+import static org.molgenis.data.annotation.core.entity.AnnotatorInfo.Type.POPULATION_REFERENCE;
 import static org.molgenis.data.annotation.web.settings.ExacAnnotatorSettings.Meta.EXAC_LOCATION;
+import static org.molgenis.data.meta.AttributeType.STRING;
 
 @Configuration
 public class ExacAnnotator implements AnnotatorConfig
@@ -63,10 +65,10 @@ public class ExacAnnotator implements AnnotatorConfig
 	private VcfAttributes vcfAttributes;
 
 	@Autowired
-	private EntityMetaDataFactory entityMetaDataFactory;
+	private EntityTypeFactory entityTypeFactory;
 
 	@Autowired
-	private AttributeMetaDataFactory attributeMetaDataFactory;
+	private AttributeFactory attributeFactory;
 	private RepositoryAnnotatorImpl annotator;
 
 	@Bean
@@ -79,39 +81,36 @@ public class ExacAnnotator implements AnnotatorConfig
 	@Override
 	public void init()
 	{
+		List<Attribute> attributes = createExacOutputAttributes();
 
-		AttributeMetaData outputAttribute_AF = getExacAFAttr(attributeMetaDataFactory);
-		AttributeMetaData outputAttribute_AC_HOM = getExacAcHomAttr(attributeMetaDataFactory);
-		AttributeMetaData outputAttribute_AC_HET = getExacAcHetAttr(attributeMetaDataFactory);
+		List<Attribute> resourceMetaData = new ArrayList<>(asList(new Attribute[] {
+				attributeFactory.create().setName(EXAC_AF_ResourceAttributeName).setDataType(STRING),
+				attributeFactory.create().setName(EXAC_AC_HOM_ResourceAttributeName).setDataType(STRING),
+				attributeFactory.create().setName(EXAC_AC_HET_ResourceAttributeName).setDataType(STRING) }));
 
-		List<AttributeMetaData> outputMetaData = new ArrayList<AttributeMetaData>(Arrays.asList(
-				new AttributeMetaData[] { outputAttribute_AF, outputAttribute_AC_HOM, outputAttribute_AC_HET }));
-
-		List<AttributeMetaData> resourceMetaData = new ArrayList<AttributeMetaData>(Arrays.asList(
-				new AttributeMetaData[] {
-						attributeMetaDataFactory.create().setName(EXAC_AF_ResourceAttributeName).setDataType(STRING),
-						attributeMetaDataFactory.create().setName(EXAC_AC_HOM_ResourceAttributeName).setDataType(
-								STRING),
-						attributeMetaDataFactory.create().setName(EXAC_AC_HET_ResourceAttributeName).setDataType(
-								STRING) }));
-
-		AnnotatorInfo exacInfo = AnnotatorInfo.create(Status.READY, AnnotatorInfo.Type.POPULATION_REFERENCE, "exac",
+		AnnotatorInfo exacInfo = AnnotatorInfo.create(READY, POPULATION_REFERENCE, "exac",
 				" The Exome Aggregation Consortium (ExAC) is a coalition of investigators seeking to aggregate"
 						+ " and harmonize exome sequencing data from a wide variety of large-scale sequencing projects"
 						+ ", and to make summary data available for the wider scientific community.The data set provided"
 						+ " on this website spans 60,706 unrelated individuals sequenced as part of various "
-						+ "disease-specific and population genetic studies. ", outputMetaData);
+						+ "disease-specific and population genetic studies. ", attributes);
 
 		// TODO: properly test multiAllelicFresultFilter
 		LocusQueryCreator locusQueryCreator = new LocusQueryCreator(vcfAttributes);
 		MultiAllelicResultFilter multiAllelicResultFilter = new MultiAllelicResultFilter(resourceMetaData,
 				vcfAttributes);
-		EntityAnnotator entityAnnotator = new AnnotatorImpl(EXAC_TABIX_RESOURCE, exacInfo, locusQueryCreator,
+		EntityAnnotator entityAnnotator = new AbstractAnnotator(EXAC_TABIX_RESOURCE, exacInfo, locusQueryCreator,
 				multiAllelicResultFilter, dataService, resources,
 				new SingleFileLocationCmdLineAnnotatorSettingsConfigurer(EXAC_LOCATION, exacAnnotatorSettings))
 		{
 			@Override
-			protected Object getResourceAttributeValue(AttributeMetaData attr, Entity sourceEntity)
+			public List<Attribute> createAnnotatorAttributes(AttributeFactory attributeFactory)
+			{
+				return createExacOutputAttributes();
+			}
+
+			@Override
+			protected Object getResourceAttributeValue(Attribute attr, Entity sourceEntity)
 			{
 				String attrName = EXAC_AF.equals(attr.getName()) ? EXAC_AF_ResourceAttributeName : EXAC_AC_HOM
 						.equals(attr.getName()) ? EXAC_AC_HOM_ResourceAttributeName : EXAC_AC_HET
@@ -123,21 +122,27 @@ public class ExacAnnotator implements AnnotatorConfig
 		annotator.init(entityAnnotator);
 	}
 
-	public static AttributeMetaData getExacAcHetAttr(AttributeMetaDataFactory attributeMetaDataFactory)
+	public List<Attribute> createExacOutputAttributes()
 	{
-		return attributeMetaDataFactory.create().setName(EXAC_AC_HET).setDataType(STRING)
+		return newArrayList(getExacAFAttr(attributeFactory), getExacAcHomAttr(attributeFactory),
+				getExacAcHetAttr(attributeFactory));
+	}
+
+	public static Attribute getExacAcHetAttr(AttributeFactory attributeFactory)
+	{
+		return attributeFactory.create().setName(EXAC_AC_HET).setDataType(STRING)
 				.setDescription("The ExAC heterozygous genotype count").setLabel(EXAC_AC_HET_LABEL);
 	}
 
-	public static AttributeMetaData getExacAcHomAttr(AttributeMetaDataFactory attributeMetaDataFactory)
+	public static Attribute getExacAcHomAttr(AttributeFactory attributeFactory)
 	{
-		return attributeMetaDataFactory.create().setName(EXAC_AC_HOM).setDataType(STRING)
+		return attributeFactory.create().setName(EXAC_AC_HOM).setDataType(STRING)
 				.setDescription("The ExAC homozygous alternative genotype count").setLabel(EXAC_AC_HOM_LABEL);
 	}
 
-	public static AttributeMetaData getExacAFAttr(AttributeMetaDataFactory attributeMetaDataFactory)
+	public static Attribute getExacAFAttr(AttributeFactory attributeFactory)
 	{
-		return attributeMetaDataFactory.create().setName(EXAC_AF).setDataType(STRING)
+		return attributeFactory.create().setName(EXAC_AF).setDataType(STRING)
 				.setDescription("The ExAC allele frequency").setLabel(EXAC_AF_LABEL);
 	}
 
@@ -150,8 +155,8 @@ public class ExacAnnotator implements AnnotatorConfig
 			@Override
 			public RepositoryFactory getRepositoryFactory()
 			{
-				return new TabixVcfRepositoryFactory(EXAC_TABIX_RESOURCE, vcfAttributes, entityMetaDataFactory,
-						attributeMetaDataFactory);
+				return new TabixVcfRepositoryFactory(EXAC_TABIX_RESOURCE, vcfAttributes, entityTypeFactory,
+						attributeFactory);
 			}
 		};
 

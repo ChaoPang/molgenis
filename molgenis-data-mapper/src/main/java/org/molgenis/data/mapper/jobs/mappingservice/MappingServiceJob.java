@@ -1,10 +1,6 @@
 package org.molgenis.data.mapper.jobs.mappingservice;
 
-import static java.util.Objects.requireNonNull;
-
-import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicInteger;
-
+import com.google.common.collect.Iterables;
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.jobs.Job;
 import org.molgenis.data.jobs.Progress;
@@ -12,26 +8,29 @@ import org.molgenis.data.mapper.mapping.model.EntityMapping;
 import org.molgenis.data.mapper.mapping.model.MappingProject;
 import org.molgenis.data.mapper.repository.EntityMappingRepository;
 import org.molgenis.data.mapper.service.AlgorithmService;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import com.google.common.collect.Iterables;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static java.util.Objects.requireNonNull;
 
 public class MappingServiceJob extends Job<Void>
 {
 	private static final int PROGRESS_UPDATE_BATCH_SIZE = 5;
 
 	private final MappingProject mappingProject;
-	private final EntityMetaData targetEntityMetaData;
-	private final EntityMetaData sourceEntityMetaData;
+	private final EntityType targetEntityMetaData;
+	private final EntityType sourceEntityMetaData;
 	private final AlgorithmService algorithmService;
 	private final AtomicInteger counter;
 	private final EntityMappingRepository entityMappingRepository;
 
-	public MappingServiceJob(MappingProject mappingProject, EntityMetaData targetEntityMetaData,
-			EntityMetaData sourceEntityMetaData, EntityMappingRepository entityMappingRepository,
+	public MappingServiceJob(MappingProject mappingProject, EntityType targetEntityMetaData,
+			EntityType sourceEntityMetaData, EntityMappingRepository entityMappingRepository,
 			AlgorithmService algorithmService, Progress progress, TransactionTemplate transactionTemplate,
 			Authentication authentication)
 	{
@@ -50,10 +49,10 @@ public class MappingServiceJob extends Job<Void>
 		int sizeOfTargetAttributes = Iterables.size(targetEntityMetaData.getAtomicAttributes());
 		progress.setProgressMax(sizeOfTargetAttributes);
 
-		EntityMapping mappingForSource = mappingProject.getMappingTarget(targetEntityMetaData.getName())
-				.getMappingForSource(sourceEntityMetaData.getName());
+		EntityMapping mappingForSource = mappingProject.getMappingTarget(targetEntityMetaData.getId())
+				.getMappingForSource(sourceEntityMetaData.getId());
 
-		for (AttributeMetaData targetAttribute : targetEntityMetaData.getAtomicAttributes())
+		for (Attribute targetAttribute : targetEntityMetaData.getAtomicAttributes())
 		{
 			algorithmService.autoGenerateAlgorithm(sourceEntityMetaData, targetEntityMetaData, mappingForSource,
 					targetAttribute);

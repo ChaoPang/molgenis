@@ -1,8 +1,8 @@
 package org.molgenis.data;
 
 import com.google.common.collect.Lists;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.QueryImpl;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -11,11 +11,12 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 
+import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.molgenis.data.QueryRule.Operator.*;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
 public class QueryUtilsTest
 {
@@ -87,9 +88,10 @@ public class QueryUtilsTest
 	@Test
 	public void notContainsComputedAttributes()
 	{
-		EntityMetaData entityMetaData = mock(EntityMetaData.class);
+		EntityType entityType = mock(EntityType.class);
 
-		@SuppressWarnings("unchecked") Query<Entity> q = mock(Query.class);
+		@SuppressWarnings("unchecked")
+		Query<Entity> q = mock(Query.class);
 		QueryRule qRule1 = mock(QueryRule.class);
 		QueryRule qRule2 = mock(QueryRule.class);
 
@@ -101,23 +103,24 @@ public class QueryUtilsTest
 		when(qRule2.getNestedRules()).thenReturn(Collections.emptyList());
 		when(q.getRules()).thenReturn(Lists.newArrayList(qRule1, qRule2));
 
-		AttributeMetaData attr1 = mock(AttributeMetaData.class);
-		when(entityMetaData.getAttribute("attr1")).thenReturn(attr1);
+		Attribute attr1 = mock(Attribute.class);
+		when(entityType.getAttribute("attr1")).thenReturn(attr1);
 		when(attr1.getExpression()).thenReturn(null);
 
-		AttributeMetaData attr2 = mock(AttributeMetaData.class);
-		when(entityMetaData.getAttribute("attr2")).thenReturn(attr2);
+		Attribute attr2 = mock(Attribute.class);
+		when(entityType.getAttribute("attr2")).thenReturn(attr2);
 		when(attr2.getExpression()).thenReturn(null);
 
-		assertFalse(QueryUtils.containsComputedAttribute(q.getRules(), entityMetaData));
+		assertFalse(QueryUtils.containsComputedAttribute(q.getRules(), entityType));
 	}
 
 	@Test
 	public void containsComputedAttribute()
 	{
-		EntityMetaData entityMetaData = mock(EntityMetaData.class);
+		EntityType entityType = mock(EntityType.class);
 
-		@SuppressWarnings("unchecked") Query<Entity> q = mock(Query.class);
+		@SuppressWarnings("unchecked")
+		Query<Entity> q = mock(Query.class);
 		QueryRule qRule1 = mock(QueryRule.class);
 		QueryRule qRule2 = mock(QueryRule.class);
 
@@ -129,23 +132,43 @@ public class QueryUtilsTest
 		when(qRule2.getNestedRules()).thenReturn(Collections.emptyList());
 		when(q.getRules()).thenReturn(Lists.newArrayList(qRule1, qRule2));
 
-		AttributeMetaData attr1 = mock(AttributeMetaData.class);
-		when(entityMetaData.getAttribute("attr1")).thenReturn(attr1);
+		Attribute attr1 = mock(Attribute.class);
+		when(entityType.getAttribute("attr1")).thenReturn(attr1);
 		when(attr1.hasExpression()).thenReturn(false);
 
-		AttributeMetaData attr2 = mock(AttributeMetaData.class);
-		when(entityMetaData.getAttribute("attr2")).thenReturn(attr2);
+		Attribute attr2 = mock(Attribute.class);
+		when(entityType.getAttribute("attr2")).thenReturn(attr2);
 		when(attr2.hasExpression()).thenReturn(true);
 
-		assertTrue(QueryUtils.containsComputedAttribute(q.getRules(), entityMetaData));
+		assertTrue(QueryUtils.containsComputedAttribute(q.getRules(), entityType));
+	}
+
+	@Test
+	public void containsComputedAttributeNested()
+	{
+		String refAttrName = "refAttr";
+		String attrName = "attr";
+		String queryRuleField = refAttrName + '.' + attrName;
+		QueryRule queryRule = mock(QueryRule.class);
+		when(queryRule.getField()).thenReturn(queryRuleField);
+		EntityType entityType = mock(EntityType.class);
+		Attribute refAttr = mock(Attribute.class);
+		EntityType refEntity = mock(EntityType.class);
+		Attribute attr = mock(Attribute.class);
+		when(attr.hasExpression()).thenReturn(true);
+		when(refEntity.getAttribute(attrName)).thenReturn(attr);
+		when(refAttr.getRefEntity()).thenReturn(refEntity);
+		when(entityType.getAttribute(refAttrName)).thenReturn(refAttr);
+		assertTrue(QueryUtils.containsComputedAttribute(singletonList(queryRule), entityType));
 	}
 
 	@Test
 	public void containsNestedComputedAttributes()
 	{
-		EntityMetaData entityMetaData = mock(EntityMetaData.class);
+		EntityType entityType = mock(EntityType.class);
 
-		@SuppressWarnings("unchecked") Query<Entity> q = mock(Query.class);
+		@SuppressWarnings("unchecked")
+		Query<Entity> q = mock(Query.class);
 		QueryRule qRule1 = mock(QueryRule.class);
 		QueryRule qRule2 = mock(QueryRule.class);
 		QueryRule nestedRule1 = mock(QueryRule.class);
@@ -162,23 +185,110 @@ public class QueryUtilsTest
 		when(qRule2.getNestedRules()).thenReturn(Lists.newArrayList(nestedRule1, nestedRule2));
 		when(q.getRules()).thenReturn(Lists.newArrayList(qRule1, qRule2));
 
-		AttributeMetaData attr1 = mock(AttributeMetaData.class);
-		when(entityMetaData.getAttribute("attr1")).thenReturn(attr1);
+		Attribute attr1 = mock(Attribute.class);
+		when(entityType.getAttribute("attr1")).thenReturn(attr1);
 		when(attr1.hasExpression()).thenReturn(false);
 
-		AttributeMetaData attr2 = mock(AttributeMetaData.class);
-		when(entityMetaData.getAttribute("attr2")).thenReturn(attr2);
+		Attribute attr2 = mock(Attribute.class);
+		when(entityType.getAttribute("attr2")).thenReturn(attr2);
 		when(attr2.hasExpression()).thenReturn(false);
 
-		AttributeMetaData attr3 = mock(AttributeMetaData.class);
-		when(entityMetaData.getAttribute("attr3")).thenReturn(attr3);
+		Attribute attr3 = mock(Attribute.class);
+		when(entityType.getAttribute("attr3")).thenReturn(attr3);
 		when(attr1.hasExpression()).thenReturn(false);
 
-		AttributeMetaData attr4 = mock(AttributeMetaData.class);
-		when(entityMetaData.getAttribute("attr4")).thenReturn(attr4);
+		Attribute attr4 = mock(Attribute.class);
+		when(entityType.getAttribute("attr4")).thenReturn(attr4);
 		when(attr1.hasExpression()).thenReturn(true);
 
-		assertTrue(QueryUtils.containsComputedAttribute(q.getRules(), entityMetaData));
+		assertTrue(QueryUtils.containsComputedAttribute(q.getRules(), entityType));
 	}
 
+	@Test
+	public void testGetQueryRuleAttribute() throws Exception
+	{
+		String attrName = "attr";
+		QueryRule queryRule = mock(QueryRule.class);
+		when(queryRule.getField()).thenReturn(attrName);
+		EntityType entityType = mock(EntityType.class);
+		Attribute attr = mock(Attribute.class);
+		when(entityType.getAttribute(attrName)).thenReturn(attr);
+		assertEquals(QueryUtils.getQueryRuleAttribute(queryRule, entityType), attr);
+	}
+
+	@Test(expectedExceptions = UnknownAttributeException.class)
+	public void testGetQueryRuleAttributeUnknown() throws Exception
+	{
+		String attrName = "unknownAttr";
+		QueryRule queryRule = mock(QueryRule.class);
+		when(queryRule.getField()).thenReturn(attrName);
+		EntityType entityType = mock(EntityType.class);
+		when(entityType.getAttribute(attrName)).thenReturn(null);
+		QueryUtils.getQueryRuleAttribute(queryRule, entityType);
+	}
+
+	@Test
+	public void testGetQueryRuleAttributeNested() throws Exception
+	{
+		String refAttrName = "refAttr";
+		String attrName = "attr";
+		String queryRuleField = refAttrName + '.' + attrName;
+		QueryRule queryRule = mock(QueryRule.class);
+		when(queryRule.getField()).thenReturn(queryRuleField);
+		EntityType entityType = mock(EntityType.class);
+		Attribute refAttr = mock(Attribute.class);
+		EntityType refEntity = mock(EntityType.class);
+		Attribute attr = mock(Attribute.class);
+		when(refEntity.getAttribute(attrName)).thenReturn(attr);
+		when(refAttr.getRefEntity()).thenReturn(refEntity);
+		when(entityType.getAttribute(refAttrName)).thenReturn(refAttr);
+		assertEquals(QueryUtils.getQueryRuleAttribute(queryRule, entityType), attr);
+	}
+
+	@Test(expectedExceptions = UnknownAttributeException.class)
+	public void testGetQueryRuleAttributeNestedUnknown() throws Exception
+	{
+		String refAttrName = "refAttr";
+		String attrName = "unknownAttr";
+		String queryRuleField = refAttrName + '.' + attrName;
+		QueryRule queryRule = mock(QueryRule.class);
+		when(queryRule.getField()).thenReturn(queryRuleField);
+		EntityType entityType = mock(EntityType.class);
+		Attribute refAttr = mock(Attribute.class);
+		EntityType refEntity = mock(EntityType.class);
+		when(refEntity.getAttribute(attrName)).thenReturn(null);
+		when(refAttr.getRefEntity()).thenReturn(refEntity);
+		when(entityType.getAttribute(refAttrName)).thenReturn(refAttr);
+		QueryUtils.getQueryRuleAttribute(queryRule, entityType);
+	}
+
+	@Test
+	public void containsNestedQueryRuleFieldTrue()
+	{
+		@SuppressWarnings("unchecked")
+		Query<Entity> q = mock(Query.class);
+		QueryRule nestedQueryRule0 = mock(QueryRule.class);
+		when(nestedQueryRule0.getField()).thenReturn("refAttr.attr");
+		QueryRule queryRule0 = mock(QueryRule.class);
+		when(queryRule0.getField()).thenReturn("attr");
+		QueryRule queryRule1 = mock(QueryRule.class);
+		when(queryRule1.getNestedRules()).thenReturn(singletonList(nestedQueryRule0));
+		when(q.getRules()).thenReturn(asList(queryRule0, queryRule1));
+		assertTrue(QueryUtils.containsNestedQueryRuleField(q));
+	}
+
+	@Test
+	public void containsNestedQueryRuleFieldFalse()
+	{
+		@SuppressWarnings("unchecked")
+		Query<Entity> q = mock(Query.class);
+		QueryRule nestedQueryRule0 = mock(QueryRule.class);
+		when(nestedQueryRule0.getField()).thenReturn("refAttr");
+		QueryRule queryRule0 = mock(QueryRule.class);
+		when(queryRule0.getField()).thenReturn("attr");
+		QueryRule queryRule1 = mock(QueryRule.class);
+		when(queryRule1.getNestedRules()).thenReturn(singletonList(nestedQueryRule0));
+		when(q.getRules()).thenReturn(asList(queryRule0, queryRule1));
+		assertFalse(QueryUtils.containsNestedQueryRuleField(q));
+	}
 }

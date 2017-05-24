@@ -1,10 +1,10 @@
 package org.molgenis.data.elasticsearch.index;
 
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.molgenis.MolgenisFieldTypes.AttributeType;
-import org.molgenis.data.elasticsearch.util.MapperTypeSanitizer;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.elasticsearch.util.DocumentIdGenerator;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 
 import java.io.IOException;
 
@@ -28,23 +28,25 @@ public class MappingsBuilder
 	/**
 	 * Creates a Elasticsearch mapping for the given entity meta data
 	 *
-	 * @param jsonBuilder    {@link XContentBuilder} to write the mapping to
-	 * @param entityMetaData {@link EntityMetaData} for the entity to map
+	 * @param jsonBuilder {@link XContentBuilder} to write the mapping to
+	 * @param entityType  {@link EntityType} for the entity to map
+	 * @param documentIdGenerator document id generator
 	 * @throws IOException writing to JSON builder
 	 */
-	public static void buildMapping(XContentBuilder jsonBuilder, EntityMetaData entityMetaData, boolean enableNorms,
+	public static void buildMapping(XContentBuilder jsonBuilder, EntityType entityType,
+			DocumentIdGenerator documentIdGenerator, boolean enableNorms,
 			boolean createAllIndex) throws IOException
 	{
-		String documentType = MapperTypeSanitizer.sanitizeMapperType(entityMetaData.getName());
-		jsonBuilder.startObject().startObject(documentType);
+		String docType = documentIdGenerator.generateId(entityType);
+		jsonBuilder.startObject().startObject(docType);
 
 		jsonBuilder.startObject("_source").field("enabled", false).endObject();
 
 		jsonBuilder.startObject("properties");
 
-		for (AttributeMetaData attr : entityMetaData.getAtomicAttributes())
+		for (Attribute attr : entityType.getAtomicAttributes())
 		{
-			createAttributeMapping(attr, enableNorms, createAllIndex, true, true, jsonBuilder);
+			createAttributeMapping(attr, documentIdGenerator, enableNorms, createAllIndex, true, true, jsonBuilder);
 		}
 		jsonBuilder.endObject();
 
@@ -52,18 +54,20 @@ public class MappingsBuilder
 	}
 
 	// TODO discuss: use null_value for nillable attributes?
-	private static void createAttributeMapping(AttributeMetaData attr, boolean enableNorms, boolean createAllIndex,
+	private static void createAttributeMapping(Attribute attr, DocumentIdGenerator documentIdGenerator,
+			boolean enableNorms, boolean createAllIndex,
 			boolean nestRefs, boolean enableNgramAnalyzer, XContentBuilder jsonBuilder) throws IOException
 	{
-		String attrName = attr.getName();
+		String attrName = documentIdGenerator.generateId(attr);
 		jsonBuilder.startObject(attrName);
-		createAttributeMappingContents(attr, enableNorms, createAllIndex, nestRefs, enableNgramAnalyzer, jsonBuilder);
+		createAttributeMappingContents(attr, documentIdGenerator, enableNorms, createAllIndex, nestRefs,
+				enableNgramAnalyzer, jsonBuilder);
 		jsonBuilder.endObject();
 	}
 
-	private static void createAttributeMappingContents(AttributeMetaData attr, boolean enableNorms,
-			boolean createAllIndex, boolean nestRefs, boolean enableNgramAnalyzer, XContentBuilder jsonBuilder)
-			throws IOException
+	private static void createAttributeMappingContents(Attribute attr, DocumentIdGenerator documentIdGenerator,
+			boolean enableNorms, boolean createAllIndex,
+			boolean nestRefs, boolean enableNgramAnalyzer, XContentBuilder jsonBuilder) throws IOException
 	{
 		AttributeType dataType = attr.getDataType();
 		switch (dataType)
@@ -76,24 +80,27 @@ public class MappingsBuilder
 				break;
 			case CATEGORICAL:
 			case CATEGORICAL_MREF:
-			case MREF:
-			case XREF:
 			case FILE:
-				EntityMetaData refEntity = attr.getRefEntity();
+			case MREF:
+			case ONE_TO_MANY:
+			case XREF:
+				EntityType refEntity = attr.getRefEntity();
 				if (nestRefs)
 				{
 					jsonBuilder.field("type", "nested");
 					jsonBuilder.field("norms").startObject().field("enabled", enableNorms).endObject();
 					jsonBuilder.startObject("properties");
-					for (AttributeMetaData refAttr : refEntity.getAtomicAttributes())
+					for (Attribute refAttr : refEntity.getAtomicAttributes())
 					{
-						createAttributeMapping(refAttr, enableNorms, createAllIndex, false, true, jsonBuilder);
+						createAttributeMapping(refAttr, documentIdGenerator, enableNorms, createAllIndex, false, true,
+								jsonBuilder);
 					}
 					jsonBuilder.endObject();
 				}
 				else
 				{
-					createAttributeMappingContents(refEntity.getLabelAttribute(), enableNorms, createAllIndex, false,
+					createAttributeMappingContents(refEntity.getLabelAttribute(), documentIdGenerator, enableNorms,
+							createAllIndex, false,
 							enableNgramAnalyzer, jsonBuilder);
 				}
 				break;

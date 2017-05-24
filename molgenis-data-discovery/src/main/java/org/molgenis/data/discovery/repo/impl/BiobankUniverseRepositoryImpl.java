@@ -2,9 +2,10 @@ package org.molgenis.data.discovery.repo.impl;
 
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;
-import org.molgenis.auth.MolgenisUser;
-import org.molgenis.auth.MolgenisUserMetaData;
+import org.molgenis.auth.User;
+import org.molgenis.auth.UserMetaData;
 import org.molgenis.data.*;
+import org.molgenis.data.aggregation.AggregateResult;
 import org.molgenis.data.discovery.job.BiobankUniverseJobExecutionMetaData;
 import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData;
 import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData.BiobankAttributeDataType;
@@ -22,7 +23,7 @@ import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverseMemberVector;
 import org.molgenis.data.discovery.model.matching.*;
 import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
-import org.molgenis.data.meta.model.AttributeMetaData;
+import org.molgenis.data.meta.model.Attribute;
 import org.molgenis.data.support.AggregateQueryImpl;
 import org.molgenis.data.support.DynamicEntity;
 import org.molgenis.data.support.QueryImpl;
@@ -33,8 +34,8 @@ import org.molgenis.ontology.core.meta.SemanticTypeMetaData;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.SemanticType;
 import org.molgenis.ontology.core.repository.OntologyTermRepository;
-import org.molgenis.security.user.MolgenisUserService;
 import org.molgenis.security.user.UserAccountService;
+import org.molgenis.security.user.UserService;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -64,7 +65,7 @@ import static org.molgenis.data.support.QueryImpl.IN;
 public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 {
 	private final DataService dataService;
-	private final MolgenisUserService molgenisUserService;
+	private final UserService molgenisUserService;
 	private final UserAccountService userAcountService;
 	private final EntityManager entityManager;
 	private final BiobankUniverseMetaData biobankUniverseMetaData;
@@ -79,7 +80,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	private final SemanticTypeMetaData semanticTypeMetaData;
 	private final OntologyTermNodePathMetaData ontologyTermNodePathMetaData;
 
-	public BiobankUniverseRepositoryImpl(DataService dataService, MolgenisUserService molgenisUserService,
+	public BiobankUniverseRepositoryImpl(DataService dataService, UserService molgenisUserService,
 			UserAccountService userAcountService, EntityManager entityManager,
 			BiobankUniverseMetaData biobankUniverseMetaData,
 			BiobankUniverseMemberVectorMetaData biobankUniverseMemberVectorMetaData,
@@ -471,7 +472,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 
 	@Override
 	public Iterable<AttributeMappingCandidate> getCuratedAttributeMatches(BiobankUniverse biobankUniverse,
-			List<BiobankSampleAttribute> targetAttributes, MolgenisUser owner)
+			List<BiobankSampleAttribute> targetAttributes, User owner)
 	{
 		//Get all the AttributeMappingDecisions associated with the current owner and the current biobankUniverse
 		Query<Entity> attributeMappingDecisionQuery = new QueryImpl<>()
@@ -516,11 +517,11 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	public AggregateResult aggregateAttributeMatches(BiobankUniverse biobankUniverse,
 			List<OntologyTerm> ontologyTermTopics, boolean curated)
 	{
-		AttributeMetaData targetCollection = attributeMappingCandidateMetaData
+		Attribute targetCollection = attributeMappingCandidateMetaData
 				.getAttribute(AttributeMappingCandidateMetaData.TARGET_COLLECTION);
-		AttributeMetaData sourceCollection = attributeMappingCandidateMetaData
+		Attribute sourceCollection = attributeMappingCandidateMetaData
 				.getAttribute(AttributeMappingCandidateMetaData.SOURCE_COLLECTION);
-		AttributeMetaData identifier = attributeMappingCandidateMetaData
+		Attribute identifier = attributeMappingCandidateMetaData
 				.getAttribute(AttributeMappingCandidateMetaData.IDENTIFIER);
 
 		Query<Entity> finalQuery = new QueryImpl<>()
@@ -658,7 +659,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 
 	@Override
 	public void updateAttributeMappingCandidateDecisions(
-			List<AttributeMappingCandidate> attributeMappingCandidatesToUpdate, MolgenisUser molgenisUser)
+			List<AttributeMappingCandidate> attributeMappingCandidatesToUpdate, User user)
 	{
 		//FIXME: to prevent the system to reindex the whole AttributeMappingCandidate table. Update the entities individually
 		List<String> attributeMappingCandidateIdentifiers = attributeMappingCandidatesToUpdate.stream()
@@ -715,7 +716,7 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 			entity.set(AttributeMappingCandidateMetaData.EXPLANATION, matchingExplanationEntity);
 			entity.set(AttributeMappingCandidateMetaData.DECISIONS, decisionEntities);
 
-			dataService.update(attributeMappingCandidateMetaData.getName(), entity);
+			dataService.update(attributeMappingCandidateMetaData.getId(), entity);
 		}
 	}
 
@@ -742,11 +743,11 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 
 			if (toAdd)
 			{
-				dataService.add(attributeMappingDecisionMetaData.getName(), attributeMappingDecisionEntity);
+				dataService.add(attributeMappingDecisionMetaData.getId(), attributeMappingDecisionEntity);
 			}
 			else
 			{
-				dataService.update(attributeMappingDecisionMetaData.getName(), attributeMappingDecisionEntity);
+				dataService.update(attributeMappingDecisionMetaData.getId(), attributeMappingDecisionEntity);
 			}
 		}
 	}
@@ -859,8 +860,8 @@ public class BiobankUniverseRepositoryImpl implements BiobankUniverseRepository
 	{
 		String identifier = entity.getString(BiobankUniverseMetaData.IDENTIFIER);
 		String name = entity.getString(BiobankUniverseMetaData.NAME);
-		MolgenisUser owner = molgenisUserService
-				.getUser(entity.getEntity(BiobankUniverseMetaData.OWNER).getString(MolgenisUserMetaData.USERNAME));
+		User owner = molgenisUserService
+				.getUser(entity.getEntity(BiobankUniverseMetaData.OWNER).getString(UserMetaData.USERNAME));
 
 		List<BiobankSampleCollection> members = new ArrayList<>();
 		Iterable<Entity> memberIterable = entity.getEntities(BiobankUniverseMetaData.MEMBERS);

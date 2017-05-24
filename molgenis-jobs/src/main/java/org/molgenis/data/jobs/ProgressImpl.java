@@ -7,12 +7,13 @@ import org.joda.time.format.PeriodFormatterBuilder;
 import org.molgenis.data.jobs.model.JobExecution;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.mail.MailException;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 
-import java.util.Date;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
+import static java.util.Objects.requireNonNull;
 import static org.molgenis.data.jobs.model.JobExecution.Status.*;
 
 /**
@@ -30,9 +31,9 @@ public class ProgressImpl implements Progress
 
 	public ProgressImpl(JobExecution jobExecution, JobExecutionUpdater updater, MailSender mailSender)
 	{
-		this.jobExecution = jobExecution;
-		this.mailSender = mailSender;
-		this.updater = updater;
+		this.jobExecution = requireNonNull(jobExecution);
+		this.mailSender = requireNonNull(mailSender);
+		this.updater = requireNonNull(updater);
 	}
 
 	private void update()
@@ -45,7 +46,7 @@ public class ProgressImpl implements Progress
 	{
 		JobExecutionContext.set(jobExecution);
 		JOB_EXECUTION_LOG.info("Execution started.");
-		jobExecution.setStartDate(new Date());
+		jobExecution.setStartDate(Instant.now());
 		jobExecution.setStatus(RUNNING);
 		update();
 	}
@@ -60,9 +61,16 @@ public class ProgressImpl implements Progress
 	}
 
 	@Override
+	public void increment(int amount)
+	{
+		jobExecution.setProgressInt(jobExecution.getProgressInt() + amount);
+		update();
+	}
+
+	@Override
 	public void success()
 	{
-		jobExecution.setEndDate(new Date());
+		jobExecution.setEndDate(Instant.now());
 		jobExecution.setStatus(SUCCESS);
 		jobExecution.setProgressInt(jobExecution.getProgressMax());
 		Duration yourDuration = Duration.millis(timeRunning());
@@ -76,23 +84,11 @@ public class ProgressImpl implements Progress
 		JobExecutionContext.unset();
 	}
 
-	private void sendEmail(String[] to, String subject, String text) throws MailException
-	{
-		if (to.length > 0)
-		{
-			SimpleMailMessage mailMessage = new SimpleMailMessage();
-			mailMessage.setTo(to);
-			mailMessage.setSubject(subject);
-			mailMessage.setText(text);
-			mailSender.send(mailMessage);
-		}
-	}
-
 	@Override
 	public void failed(Exception ex)
 	{
-		JOB_EXECUTION_LOG.error("Failed", ex);
-		jobExecution.setEndDate(new Date());
+		JOB_EXECUTION_LOG.error("Failed. " + ex.getMessage(), ex);
+		jobExecution.setEndDate(Instant.now());
 		jobExecution.setStatus(FAILED);
 		jobExecution.setProgressMessage(ex.getMessage());
 		sendEmail(jobExecution.getFailureEmail(), jobExecution.getType() + " job failed.", jobExecution.getLog());
@@ -100,11 +96,31 @@ public class ProgressImpl implements Progress
 		JobExecutionContext.unset();
 	}
 
+	private void sendEmail(String[] to, String subject, String text)
+	{
+		if (to.length > 0)
+		{
+			try
+			{
+				SimpleMailMessage mailMessage = new SimpleMailMessage();
+				mailMessage.setTo(to);
+				mailMessage.setSubject(subject);
+				mailMessage.setText(text);
+				mailSender.send(mailMessage);
+			}
+			catch (RuntimeException e)
+			{
+				jobExecution.setProgressMessage(
+						String.format("%s (Mail not sent: %s)", jobExecution.getProgressMessage(), e.getMessage()));
+			}
+		}
+	}
+
 	@Override
 	public void canceled()
 	{
 		JOB_EXECUTION_LOG.warn("Canceled");
-		jobExecution.setEndDate(new Date());
+		jobExecution.setEndDate(Instant.now());
 		jobExecution.setStatus(CANCELED);
 		sendEmail(jobExecution.getFailureEmail(), jobExecution.getType() + " job failed.", jobExecution.getLog());
 		update();
@@ -114,12 +130,12 @@ public class ProgressImpl implements Progress
 	@Override
 	public Long timeRunning()
 	{
-		Date startDate = jobExecution.getStartDate();
+		Instant startDate = jobExecution.getStartDate();
 		if (startDate == null)
 		{
 			return null;
 		}
-		return System.currentTimeMillis() - startDate.getTime();
+		return ChronoUnit.MILLIS.between(startDate, Instant.now());
 	}
 
 	@Override
@@ -143,4 +159,9 @@ public class ProgressImpl implements Progress
 		jobExecution.setResultUrl(string);
 	}
 
+	@Override
+	public JobExecution getJobExecution()
+	{
+		return jobExecution;
+	}
 }

@@ -1,14 +1,6 @@
 package org.molgenis.data.mapper.repository.impl;
 
-import static java.util.Objects.requireNonNull;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
+import com.google.common.collect.Lists;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.mapper.mapping.model.EntityMapping;
@@ -17,11 +9,18 @@ import org.molgenis.data.mapper.meta.MappingProjectMetaData;
 import org.molgenis.data.mapper.meta.MappingTargetMetaData;
 import org.molgenis.data.mapper.repository.EntityMappingRepository;
 import org.molgenis.data.mapper.repository.MappingTargetRepository;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.populate.IdGenerator;
 import org.molgenis.data.support.DynamicEntity;
 
-import com.google.common.collect.Lists;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static java.util.Objects.requireNonNull;
 
 public class MappingTargetRepositoryImpl implements MappingTargetRepository
 {
@@ -53,12 +52,12 @@ public class MappingTargetRepositoryImpl implements MappingTargetRepository
 		{
 			mappingTarget.setIdentifier(idGenerator.generateId());
 			mappingTargetEntity = toMappingTargetEntity(mappingTarget, entityMappingEntities);
-			dataService.add(mappingTargetMetaData.getName(), mappingTargetEntity);
+			dataService.add(mappingTargetMetaData.getId(), mappingTargetEntity);
 		}
 		else
 		{
 			mappingTargetEntity = toMappingTargetEntity(mappingTarget, entityMappingEntities);
-			dataService.update(mappingTargetMetaData.getName(), mappingTargetEntity);
+			dataService.update(mappingTargetMetaData.getId(), mappingTargetEntity);
 		}
 		return mappingTargetEntity;
 	}
@@ -70,7 +69,7 @@ public class MappingTargetRepositoryImpl implements MappingTargetRepository
 	{
 		Entity mappingTargetEntity = new DynamicEntity(mappingTargetMetaData);
 		mappingTargetEntity.set(MappingProjectMetaData.IDENTIFIER, mappingTarget.getIdentifier());
-		mappingTargetEntity.set(MappingTargetMetaData.TARGET, mappingTarget.getTarget().getName());
+		mappingTargetEntity.set(MappingTargetMetaData.TARGET, mappingTarget.getTarget().getId());
 		mappingTargetEntity.set(MappingTargetMetaData.ENTITY_MAPPINGS, entityMappingEntities);
 		return mappingTargetEntity;
 	}
@@ -83,9 +82,8 @@ public class MappingTargetRepositoryImpl implements MappingTargetRepository
 
 	/**
 	 * Creates a fully reconstructed MappingProject from an Entity retrieved from the repository.
-	 * 
-	 * @param mappingTargetEntity
-	 *            Entity with {@link MappingProjectMetaData} metadata
+	 *
+	 * @param mappingTargetEntity Entity with {@link MappingProjectMetaData} metadata
 	 * @return fully reconstructed MappingProject
 	 */
 	private MappingTarget toMappingTarget(Entity mappingTargetEntity)
@@ -98,8 +96,7 @@ public class MappingTargetRepositoryImpl implements MappingTargetRepository
 			return null;
 		}
 
-		EntityMetaData target = dataService
-				.getEntityMetaData(mappingTargetEntity.getString(MappingTargetMetaData.TARGET));
+		EntityType target = dataService.getEntityType(mappingTargetEntity.getString(MappingTargetMetaData.TARGET));
 
 		if (mappingTargetEntity.getEntities(MappingTargetMetaData.ENTITY_MAPPINGS) != null)
 		{
@@ -121,7 +118,7 @@ public class MappingTargetRepositoryImpl implements MappingTargetRepository
 
 			Stream<Entity> stream = mappingTargets.stream()
 					.map(mappingTarget -> toMappingTargetEntity(mappingTarget, Collections.emptyList()));
-			dataService.delete(mappingTargetMetaData.getName(), stream);
+			dataService.delete(mappingTargetMetaData.getId(), stream);
 			entityMappingRepository.delete(entityMappings);
 		}
 	}

@@ -3,7 +3,8 @@ package org.molgenis.data.discovery.meta.biobank;
 import com.google.common.collect.Lists;
 import org.molgenis.data.discovery.meta.BiobankUniversePackage;
 import org.molgenis.data.discovery.meta.matching.TagGroupMetaData;
-import org.molgenis.data.meta.SystemEntityMetaData;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.SystemEntityType;
 import org.molgenis.ontology.core.meta.OntologyTermNodePathMetaData;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -13,15 +14,12 @@ import java.util.Map;
 
 import static com.google.common.collect.Maps.newHashMapWithExpectedSize;
 import static java.util.Objects.requireNonNull;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.*;
 import static org.molgenis.data.discovery.meta.BiobankUniversePackage.PACKAGE_UNIVERSE;
 import static org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData.BiobankAttributeDataType.getEnumValues;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.ROLE_ID;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.ROLE_LABEL;
 import static org.molgenis.data.meta.model.Package.PACKAGE_SEPARATOR;
 
 @Component
-public class BiobankSampleAttributeMetaData extends SystemEntityMetaData
+public class BiobankSampleAttributeMetaData extends SystemEntityType
 {
 	private static final String SIMPLE_NAME = "BiobankSampleAttribute";
 	public static final String BIOBANK_SAMPLE_ATTRIBUTE = PACKAGE_UNIVERSE + PACKAGE_SEPARATOR + SIMPLE_NAME;
@@ -102,13 +100,14 @@ public class BiobankSampleAttributeMetaData extends SystemEntityMetaData
 		setLabel("Biobank sample attribute");
 		setPackage(biobankUniversePackage);
 
-		addAttribute(IDENTIFIER, ROLE_ID);
-		addAttribute(NAME, ROLE_LABEL);
+		addAttribute(IDENTIFIER, AttributeRole.ROLE_ID);
+		addAttribute(NAME, AttributeRole.ROLE_LABEL);
 		addAttribute(LABEL);
-		addAttribute(DESCRIPTION).setDataType(TEXT).setNillable(true);
-		addAttribute(DATA_TYPE).setDataType(ENUM).setNillable(false).setEnumOptions(getEnumValues());
-		addAttribute(COLLECTION).setDataType(XREF).setRefEntity(biobankSampleCollectionMetaData);
-		addAttribute(TAG_GROUPS).setDataType(MREF).setRefEntity(tagGroupMetaData).setNillable(true);
-		addAttribute(ONTOLOGY_TERM_NODE_PATH).setDataType(MREF).setRefEntity(ontologyTermNodePathMetaData);
+		addAttribute(DESCRIPTION).setDataType(AttributeType.TEXT).setNillable(true);
+		addAttribute(DATA_TYPE).setDataType(AttributeType.ENUM).setNillable(false).setEnumOptions(getEnumValues());
+		addAttribute(COLLECTION).setDataType(AttributeType.XREF).setRefEntity(biobankSampleCollectionMetaData);
+		addAttribute(TAG_GROUPS).setDataType(AttributeType.MREF).setRefEntity(tagGroupMetaData).setNillable(true);
+		addAttribute(ONTOLOGY_TERM_NODE_PATH).setDataType(AttributeType.MREF)
+				.setRefEntity(ontologyTermNodePathMetaData);
 	}
 }

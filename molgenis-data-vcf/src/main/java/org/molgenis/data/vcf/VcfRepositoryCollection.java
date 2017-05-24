@@ -4,9 +4,9 @@ import com.google.common.collect.ImmutableSet;
 import org.molgenis.data.Entity;
 import org.molgenis.data.MolgenisDataException;
 import org.molgenis.data.Repository;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.support.FileRepositoryCollection;
 import org.molgenis.data.vcf.model.VcfAttributes;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,13 +31,13 @@ public class VcfRepositoryCollection extends FileRepositoryCollection
 	private VcfAttributes vcfAttributes;
 
 	@Autowired
-	private EntityMetaDataFactory entityMetaFactory;
+	private EntityTypeFactory entityTypeFactory;
 
 	@Autowired
-	private AttributeMetaDataFactory attrMetaFactory;
+	private AttributeFactory attrMetaFactory;
 
 	private final File file;
-	private final String entityName;
+	private final String entityTypeId;
 
 	public VcfRepositoryCollection(File file) throws IOException
 	{
@@ -45,17 +45,17 @@ public class VcfRepositoryCollection extends FileRepositoryCollection
 		this.file = requireNonNull(file);
 
 		String name = file.getName();
-		if (name.endsWith(EXTENSION_VCF))
+		if (name.toLowerCase().endsWith(EXTENSION_VCF))
 		{
-			this.entityName = name.substring(0, name.lastIndexOf('.' + EXTENSION_VCF));
+			this.entityTypeId = name.substring(0, name.toLowerCase().lastIndexOf('.' + EXTENSION_VCF));
 		}
-		else if (name.endsWith(EXTENSION_VCF_GZ))
+		else if (name.toLowerCase().endsWith(EXTENSION_VCF_GZ))
 		{
-			this.entityName = name.substring(0, name.lastIndexOf('.' + EXTENSION_VCF_GZ));
+			this.entityTypeId = name.substring(0, name.toLowerCase().lastIndexOf('.' + EXTENSION_VCF_GZ));
 		}
-		else if (name.endsWith(EXTENSION_VCF_ZIP))
+		else if (name.toLowerCase().endsWith(EXTENSION_VCF_ZIP))
 		{
-			this.entityName = name.substring(0, name.lastIndexOf('.' + EXTENSION_VCF_ZIP));
+			this.entityTypeId = name.substring(0, name.toLowerCase().lastIndexOf('.' + EXTENSION_VCF_ZIP));
 		}
 		else
 		{
@@ -70,18 +70,18 @@ public class VcfRepositoryCollection extends FileRepositoryCollection
 	}
 
 	@Override
-	public Iterable<String> getEntityNames()
+	public Iterable<String> getEntityTypeIds()
 	{
-		return Collections.singleton(entityName);
+		return Collections.singleton(entityTypeId);
 	}
 
 	@Override
 	public Repository<Entity> getRepository(String name)
 	{
-		if (!entityName.equals(name)) throw new MolgenisDataException("Unknown entity name [" + name + "]");
+		if (!entityTypeId.equals(name)) throw new MolgenisDataException("Unknown entity name [" + name + "]");
 		try
 		{
-			return new VcfRepository(file, name, vcfAttributes, entityMetaFactory, attrMetaFactory);
+			return new VcfRepository(file, name, vcfAttributes, entityTypeFactory, attrMetaFactory);
 		}
 		catch (IOException e)
 		{
@@ -100,7 +100,7 @@ public class VcfRepositoryCollection extends FileRepositoryCollection
 	{
 		return new Iterator<Repository<Entity>>()
 		{
-			Iterator<String> it = getEntityNames().iterator();
+			Iterator<String> it = getEntityTypeIds().iterator();
 
 			@Override
 			public boolean hasNext()
@@ -121,17 +121,17 @@ public class VcfRepositoryCollection extends FileRepositoryCollection
 	public boolean hasRepository(String name)
 	{
 		if (null == name) return false;
-		Iterator<String> entityNames = getEntityNames().iterator();
-		while (entityNames.hasNext())
+		Iterator<String> entityTypeIds = getEntityTypeIds().iterator();
+		while (entityTypeIds.hasNext())
 		{
-			if (entityNames.next().equals(name)) return true;
+			if (entityTypeIds.next().equals(name)) return true;
 		}
 		return false;
 	}
 
 	@Override
-	public boolean hasRepository(EntityMetaData entityMeta)
+	public boolean hasRepository(EntityType entityType)
 	{
-		return hasRepository(entityMeta.getName());
+		return hasRepository(entityType.getId());
 	}
 }

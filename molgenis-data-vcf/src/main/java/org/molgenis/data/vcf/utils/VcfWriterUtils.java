@@ -1,18 +1,17 @@
 package org.molgenis.data.vcf.utils;
 
 import com.google.common.collect.Lists;
+import net.sf.samtools.util.BlockCompressedInputStream;
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.Entity;
 import org.molgenis.data.MolgenisDataException;
 import org.molgenis.data.MolgenisInvalidFormatException;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.vcf.VcfRepository;
 import org.molgenis.data.vcf.model.VcfAttributes;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -20,8 +19,10 @@ import java.util.stream.StreamSupport;
 import static com.google.common.base.Joiner.on;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.transform;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.BOOL;
-import static org.molgenis.data.support.EntityMetaDataUtils.isReferenceType;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.joining;
+import static org.molgenis.data.meta.AttributeType.BOOL;
+import static org.molgenis.data.support.EntityTypeUtils.isReferenceType;
 import static org.molgenis.data.vcf.VcfRepository.DEFAULT_ATTRIBUTE_DESCRIPTION;
 import static org.molgenis.data.vcf.model.VcfAttributes.*;
 
@@ -46,7 +47,7 @@ public class VcfWriterUtils
 	 * @throws IOException,MolgenisInvalidFormatException
 	 */
 	public static void writeVcfHeader(File inputVcfFile, BufferedWriter outputVCFWriter,
-			List<AttributeMetaData> addedAttributes) throws MolgenisInvalidFormatException, IOException
+			List<Attribute> addedAttributes) throws MolgenisInvalidFormatException, IOException
 	{
 		writeVcfHeader(inputVcfFile, outputVCFWriter, addedAttributes, Collections.emptyList());
 	}
@@ -57,18 +58,18 @@ public class VcfWriterUtils
 	 * @param inputVcfFile
 	 * @param outputVCFWriter
 	 * @param addedAttributes
-	 * @param attributesToInclude , the AttributeMetaData to write to the VCF file, if empty writes all attributes
+	 * @param attributesToInclude , the Attribute to write to the VCF file, if empty writes all attributes
 	 * @return
 	 * @throws MolgenisInvalidFormatException
 	 * @throws IOException
 	 */
 	public static void writeVcfHeader(File inputVcfFile, BufferedWriter outputVCFWriter,
-			List<AttributeMetaData> addedAttributes, List<String> attributesToInclude)
+			List<Attribute> addedAttributes, List<String> attributesToInclude)
 			throws MolgenisInvalidFormatException, IOException
 	{
 		System.out.println("Detecting VCF column header...");
 
-		Scanner inputVcfFileScanner = new Scanner(inputVcfFile, "UTF-8");
+		Scanner inputVcfFileScanner = createVcfFileScanner(inputVcfFile);
 		String line = inputVcfFileScanner.nextLine();
 
 		Map<String, String> infoHeaderLinesMap = new LinkedHashMap<>();
@@ -90,6 +91,16 @@ public class VcfWriterUtils
 		}
 
 		inputVcfFileScanner.close();
+	}
+
+	private static Scanner createVcfFileScanner(File vcfFile) throws IOException
+	{
+		InputStream inputStream = new FileInputStream(vcfFile);
+		if (vcfFile.getName().endsWith(".gz"))
+		{
+			inputStream = new BlockCompressedInputStream(inputStream);
+		}
+		return new Scanner(inputStream, UTF_8.name());
 	}
 
 	/**
@@ -115,8 +126,8 @@ public class VcfWriterUtils
 	 * @param writer
 	 * @throws IOException,Exception
 	 */
-	public static void writeToVcf(Entity vcfEntity, List<AttributeMetaData> addedAttributes,
-			List<String> attributesToInclude, BufferedWriter writer) throws MolgenisDataException, IOException
+	public static void writeToVcf(Entity vcfEntity, List<Attribute> addedAttributes, List<String> attributesToInclude,
+			BufferedWriter writer) throws MolgenisDataException, IOException
 	{
 		addStandardFieldsToVcf(vcfEntity, writer);
 		writeInfoData(vcfEntity, writer, addedAttributes, attributesToInclude);
@@ -180,19 +191,18 @@ public class VcfWriterUtils
 		outputVCFWriter.newLine();
 	}
 
-	private static void writeInfoHeaders(BufferedWriter outputVCFWriter, List<AttributeMetaData> annotatorAttributes,
+	private static void writeInfoHeaders(BufferedWriter outputVCFWriter, List<Attribute> annotatorAttributes,
 			List<String> attributesToInclude, Map<String, String> infoHeaderLinesMap) throws IOException
 	{
-		Map<String, AttributeMetaData> annotatorAttributesMap = VcfUtils.getAttributesMapFromList(annotatorAttributes);
+		Map<String, Attribute> annotatorAttributesMap = VcfUtils.getAttributesMapFromList(annotatorAttributes);
 		writeExistingInfoHeaders(outputVCFWriter, infoHeaderLinesMap, annotatorAttributesMap);
 		writeAddedInfoHeaders(outputVCFWriter, attributesToInclude, annotatorAttributesMap, infoHeaderLinesMap);
 	}
 
 	private static void writeAddedInfoHeaders(BufferedWriter outputVCFWriter, List<String> attributesToInclude,
-			Map<String, AttributeMetaData> annotatorAttributes, Map<String, String> infoHeaderLinesMap)
-			throws IOException
+			Map<String, Attribute> annotatorAttributes, Map<String, String> infoHeaderLinesMap) throws IOException
 	{
-		for (AttributeMetaData annotatorInfoAttr : annotatorAttributes.values())
+		for (Attribute annotatorInfoAttr : annotatorAttributes.values())
 		{
 			if (attributesToInclude.isEmpty() || attributesToInclude.contains(annotatorInfoAttr.getName())
 					|| isReferenceType(annotatorInfoAttr))
@@ -205,10 +215,10 @@ public class VcfWriterUtils
 		}
 	}
 
-	private static String createInfoStringFromAttribute(AttributeMetaData infoAttributeMetaData,
-			List<String> attributesToInclude, String currentInfoField)
+	private static String createInfoStringFromAttribute(Attribute infoAttribute, List<String> attributesToInclude,
+			String currentInfoField)
 	{
-		String attributeName = infoAttributeMetaData.getName();
+		String attributeName = infoAttribute.getName();
 		StringBuilder sb = new StringBuilder();
 
 		sb.append("##INFO=<ID=");
@@ -216,19 +226,19 @@ public class VcfWriterUtils
 		// FIXME: once we support list of primitives we can calculate based on combination of type and nillable
 		sb.append(",Number=.");
 		sb.append(",Type=");
-		sb.append(VcfUtils.toVcfDataType(infoAttributeMetaData.getDataType()));
+		sb.append(VcfUtils.toVcfDataType(infoAttribute.getDataType()));
 		sb.append(",Description=\"");
 
 		// http://samtools.github.io/hts-specs/VCFv4.1.pdf --> "The Description
 		// value must be surrounded by double-quotes. Double-quote character can be escaped with backslash \ and
 		// backslash as \\."
-		if (StringUtils.isBlank(infoAttributeMetaData.getDescription()))
+		if (StringUtils.isBlank(infoAttribute.getDescription()))
 		{
-			if (isReferenceType(infoAttributeMetaData) && !attributeName.equals(SAMPLES))
+			if (isReferenceType(infoAttribute) && !attributeName.equals(SAMPLES))
 			{
 				String currentAttributesString = currentInfoField != null ? currentInfoField
 						.substring((currentInfoField.indexOf("'") + 1), currentInfoField.lastIndexOf("'")) : "";
-				writeRefAttributePartsToInfoDescription(infoAttributeMetaData, attributesToInclude, attributeName, sb,
+				writeRefAttributePartsToInfoDescription(infoAttribute, attributesToInclude, attributeName, sb,
 						currentAttributesString);
 			}
 			else
@@ -238,16 +248,16 @@ public class VcfWriterUtils
 		}
 		else
 		{
-			sb.append(infoAttributeMetaData.getDescription().replace("\"", "\\\"").replace("\n", " "));
+			sb.append(infoAttribute.getDescription().replace("\"", "\\\"").replace("\n", " "));
 		}
 		sb.append("\">");
 		return sb.toString();
 	}
 
-	private static void writeRefAttributePartsToInfoDescription(AttributeMetaData infoAttributeMetaData,
+	private static void writeRefAttributePartsToInfoDescription(Attribute infoAttribute,
 			List<String> attributesToInclude, String attributeName, StringBuilder sb, String existingAttributes)
 	{
-		Iterable<AttributeMetaData> atomicAttributes = infoAttributeMetaData.getRefEntity().getAtomicAttributes();
+		Iterable<Attribute> atomicAttributes = infoAttribute.getRefEntity().getAtomicAttributes();
 		sb.append(attributeName);
 		sb.append(" annotations: '");
 		if (!existingAttributes.isEmpty())
@@ -261,17 +271,16 @@ public class VcfWriterUtils
 		sb.append("'");
 	}
 
-	private static String refAttributesToString(Iterable<AttributeMetaData> atomicAttributes,
-			List<String> attributesToInclude)
+	private static String refAttributesToString(Iterable<Attribute> atomicAttributes, List<String> attributesToInclude)
 	{
-		Iterable<AttributeMetaData> attributes = StreamSupport.stream(atomicAttributes.spliterator(), false)
-				.filter(attributeMetaData -> (attributeMetaData.isVisible() && isOutputAttribute(attributeMetaData,
+		Iterable<Attribute> attributes = StreamSupport.stream(atomicAttributes.spliterator(), false)
+				.filter(attribute -> (attribute.isVisible() && isOutputAttribute(attribute,
 						Lists.newArrayList(atomicAttributes), attributesToInclude))).collect(Collectors.toList());
-		return on(SPACE_PIPE_SEPERATOR).join(transform(attributes, AttributeMetaData::getName));
+		return on(SPACE_PIPE_SEPERATOR).join(transform(attributes, Attribute::getName));
 	}
 
 	private static void writeExistingInfoHeaders(BufferedWriter outputVCFWriter, Map<String, String> infoHeaderLinesMap,
-			Map<String, AttributeMetaData> annotatorAttributes) throws IOException
+			Map<String, Attribute> annotatorAttributes) throws IOException
 	{
 		for (String infoHeaderFieldKey : infoHeaderLinesMap.keySet())
 		{
@@ -300,26 +309,37 @@ public class VcfWriterUtils
 		}
 	}
 
-	private static void writeInfoData(Entity vcfEntity, BufferedWriter writer,
-			List<AttributeMetaData> annotatorAttributes, List<String> attributesToInclude) throws IOException
+	private static void writeInfoData(Entity vcfEntity, BufferedWriter writer, List<Attribute> annotatorAttributes,
+			List<String> attributesToInclude) throws IOException
 	{
 		boolean hasInfoFields = false;
 
-		for (AttributeMetaData attributeMetaData : StreamSupport
-				.stream(vcfEntity.getEntityMetaData().getAllAttributes().spliterator(), false)
+		List<Attribute> attributes = StreamSupport
+				.stream(vcfEntity.getEntityType().getAllAttributes().spliterator(), false)
 				.filter(attr -> !(VCF_ATTRIBUTE_NAMES.contains(attr.getName()) || attr.getName().equals(INFO)))
-				.collect(Collectors.toList()))
+				.filter(attr -> isOutputAttribute(attr, annotatorAttributes, attributesToInclude))
+				.collect(Collectors.toList());
+
+		List<String> infoFieldStrs = new ArrayList<>();
+		for (Attribute attribute : attributes)
 		{
-			if (isOutputAttribute(attributeMetaData, annotatorAttributes, attributesToInclude))
+			String infoFieldStr = getInfoFieldString(vcfEntity, attribute);
+			if (infoFieldStr != null)
 			{
-				hasInfoFields = writeSingleInfoField(vcfEntity, writer, hasInfoFields, attributeMetaData);
+				infoFieldStrs.add(infoFieldStr);
 			}
 		}
+		hasInfoFields = !infoFieldStrs.isEmpty();
+		writer.append(infoFieldStrs.stream().collect(joining(String.valueOf(ANNOTATION_FIELD_SEPARATOR))));
 
 		String refEntityAttributesInfoFields = parseRefAttributesToDataString(vcfEntity, annotatorAttributes,
 				attributesToInclude);
 		if (!isNullOrEmpty(refEntityAttributesInfoFields))
 		{
+			if (hasInfoFields)
+			{
+				writer.append(ANNOTATION_FIELD_SEPARATOR);
+			}
 			writer.append(refEntityAttributesInfoFields);
 			hasInfoFields = true;
 		}
@@ -329,12 +349,12 @@ public class VcfWriterUtils
 		}
 	}
 
-	private static String parseRefAttributesToDataString(Entity vcfEntity, List<AttributeMetaData> annotatorAttributes,
+	private static String parseRefAttributesToDataString(Entity vcfEntity, List<Attribute> annotatorAttributes,
 			List<String> attributesToInclude)
 	{
-		Iterable<AttributeMetaData> attributes = vcfEntity.getEntityMetaData().getAllAttributes();
+		Iterable<Attribute> attributes = vcfEntity.getEntityType().getAllAttributes();
 		StringBuilder refEntityInfoFields = new StringBuilder();
-		for (AttributeMetaData attribute : attributes)
+		for (Attribute attribute : attributes)
 		{
 			String attributeName = attribute.getName();
 			if (isReferenceType(attribute) && !attributeName.equals(SAMPLES))
@@ -350,50 +370,50 @@ public class VcfWriterUtils
 			}
 
 		}
+		if (refEntityInfoFields.length() > 0
+				&& refEntityInfoFields.charAt(refEntityInfoFields.length() - 1) == ANNOTATION_FIELD_SEPARATOR)
+		{
+			refEntityInfoFields.setLength(refEntityInfoFields.length() - 1);
+		}
 		return refEntityInfoFields.toString();
 	}
 
-	private static boolean writeSingleInfoField(Entity vcfEntity, BufferedWriter writer, boolean hasInfoFields,
-			AttributeMetaData attributeMetaData) throws IOException
+	private static String getInfoFieldString(Entity vcfEntity, Attribute attribute) throws IOException
 	{
-		String infoAttrName = attributeMetaData.getName();
-		if (attributeMetaData.getDataType() == BOOL)
+		String infoFieldValue = null;
+
+		String infoAttrName = attribute.getName();
+		if (attribute.getDataType() == BOOL)
 		{
 			Boolean infoAttrBoolValue = vcfEntity.getBoolean(infoAttrName);
 			if (infoAttrBoolValue != null && infoAttrBoolValue)
 			{
-				writer.append(infoAttrName);
-				writer.append(ANNOTATION_FIELD_SEPARATOR);
-				hasInfoFields = true;
+				infoFieldValue = infoAttrName;
 			}
 		}
-		else if (!isReferenceType(attributeMetaData))
+		else if (!isReferenceType(attribute))
 		{
 
 			Object infoAttrStringValue = vcfEntity.get(infoAttrName);
 			if (infoAttrStringValue != null)
 			{
-				writer.append(infoAttrName);
-				writer.append('=');
-				writer.append(infoAttrStringValue.toString());
-				writer.append(ANNOTATION_FIELD_SEPARATOR);
-				hasInfoFields = true;
+				infoFieldValue = infoAttrName + '=' + infoAttrStringValue.toString();
 			}
 		}
-		return hasInfoFields;
+
+		return infoFieldValue;
 	}
 
 	/**
 	 * Create a INFO field annotation and add values
 	 */
-	private static void parseRefFieldsToInfoField(Iterable<Entity> refEntities, AttributeMetaData attribute,
-			StringBuilder refEntityInfoFields, List<AttributeMetaData> annotatorAttributes,
-			List<String> attributesToInclude)
+	private static void parseRefFieldsToInfoField(Iterable<Entity> refEntities, Attribute attribute,
+			StringBuilder refEntityInfoFields, List<Attribute> annotatorAttributes, List<String> attributesToInclude)
 	{
 		boolean secondValuePresent = false;
 		for (Entity refEntity : refEntities)
 		{
-			Iterable<AttributeMetaData> refAttributes = refEntity.getEntityMetaData().getAttributes();
+			Iterable<Attribute> refAttributes = refEntity.getEntityType().getAttributes();
 			if (!secondValuePresent)
 			{
 				refEntityInfoFields.append(attribute.getName());
@@ -416,11 +436,10 @@ public class VcfWriterUtils
 	 * Add the values of each EFFECT entity to the info field
 	 */
 	private static void addEntityValuesToRefEntityInfoField(StringBuilder refEntityInfoFields, Entity refEntity,
-			Iterable<AttributeMetaData> refAttributes, List<AttributeMetaData> annotatorAttributes,
-			List<String> attributesToInclude)
+			Iterable<Attribute> refAttributes, List<Attribute> annotatorAttributes, List<String> attributesToInclude)
 	{
 		boolean previousValuePresent = false;
-		for (AttributeMetaData refAttribute : refAttributes)
+		for (Attribute refAttribute : refAttributes)
 		{
 			if (refAttribute.isVisible() && !isReferenceType(refAttribute) && isOutputAttribute(refAttribute,
 					annotatorAttributes, attributesToInclude))
@@ -457,7 +476,7 @@ public class VcfWriterUtils
 	private static void writeSampleData(BufferedWriter writer, Entity sample) throws IOException
 	{
 		StringBuilder sampleColumn = new StringBuilder();
-		if (sample.getEntityMetaData().getAttribute(FORMAT_GT) != null)
+		if (sample.getEntityType().getAttribute(FORMAT_GT) != null)
 		{
 			String sampleAttrValue = sample.getString(FORMAT_GT);
 			if (sampleAttrValue != null)
@@ -470,16 +489,15 @@ public class VcfWriterUtils
 			}
 
 		}
-
-		EntityMetaData entityMetadata = sample.getEntityMetaData();
-		for (AttributeMetaData sampleAttribute : entityMetadata.getAttributes())
+		EntityType entityType = sample.getEntityType();
+		for (Attribute sampleAttribute : entityType.getAttributes())
 		{
 			String sampleAttributeName = sampleAttribute.getName();
 			if (!sampleAttributeName.equals(FORMAT_GT) && !sampleAttributeName.equals(VcfRepository.ORIGINAL_NAME))
 			{
 				// skip the field that were generated for the use of the entity within molgenis
-				if (!sampleAttribute.equals(entityMetadata.getIdAttribute()) && !sampleAttribute
-						.equals(entityMetadata.getLabelAttribute()))
+				if (!sampleAttribute.equals(entityType.getIdAttribute()) && !sampleAttribute
+						.equals(entityType.getLabelAttribute()))
 				{
 					if (sampleColumn.length() != 0) sampleColumn.append(":");
 					Object sampleAttrValue = sample.get(sampleAttributeName);
@@ -501,19 +519,19 @@ public class VcfWriterUtils
 	{
 		StringBuilder formatColumn = new StringBuilder();
 		// write GT first if available
-		if (sample.getEntityMetaData().getAttribute(FORMAT_GT) != null)
+		if (sample.getEntityType().getAttribute(FORMAT_GT) != null)
 		{
 			formatColumn.append(FORMAT_GT);
 		}
-		EntityMetaData entityMetadata = sample.getEntityMetaData();
-		for (AttributeMetaData sampleAttribute : entityMetadata.getAttributes())
+		EntityType entityType = sample.getEntityType();
+		for (Attribute sampleAttribute : entityType.getAttributes())
 		{
 			String sampleAttributeName = sampleAttribute.getName();
 			if (!sampleAttributeName.equals(FORMAT_GT) && !sampleAttributeName.equals(VcfRepository.ORIGINAL_NAME))
 			{
 				// skip the field that were generated for the use of the entity within molgenis
-				if (!sampleAttribute.equals(entityMetadata.getIdAttribute()) && !sampleAttribute
-						.equals(entityMetadata.getLabelAttribute()))
+				if (!sampleAttribute.equals(entityType.getIdAttribute()) && !sampleAttribute
+						.equals(entityType.getLabelAttribute()))
 				{
 					if (formatColumn.length() != 0) formatColumn.append(':');
 					formatColumn.append(sampleAttributeName);
@@ -535,18 +553,18 @@ public class VcfWriterUtils
 	// * Utility functions *
 	// *********************
 
-	private static boolean isOutputAttribute(AttributeMetaData attribute, List<AttributeMetaData> addedAttributes,
+	private static boolean isOutputAttribute(Attribute attribute, List<Attribute> addedAttributes,
 			List<String> attributesToInclude)
 	{
-		List<AttributeMetaData> expandedAddedAttributes = new ArrayList<>();
-		for (AttributeMetaData annotatorAttr : addedAttributes)
+		List<Attribute> expandedAddedAttributes = new ArrayList<>();
+		for (Attribute annotatorAttr : addedAttributes)
 		{
 			if (isReferenceType(annotatorAttr))
 				expandedAddedAttributes.addAll(Lists.newArrayList(annotatorAttr.getRefEntity().getAtomicAttributes()));
 			else expandedAddedAttributes.add(annotatorAttr);
 		}
 
-		List<String> annotatorAttributeNames = expandedAddedAttributes.stream().map(AttributeMetaData::getName)
+		List<String> annotatorAttributeNames = expandedAddedAttributes.stream().map(Attribute::getName)
 				.collect(Collectors.toList());
 		// always write all fields that were not added by this annotation run.
 		// else write the field if it was specified or if nothing was sepcified at all.

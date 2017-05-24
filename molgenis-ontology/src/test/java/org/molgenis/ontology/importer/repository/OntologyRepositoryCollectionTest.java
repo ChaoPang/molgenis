@@ -1,20 +1,19 @@
 package org.molgenis.ontology.importer.repository;
 
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
+import org.molgenis.data.AbstractMolgenisSpringTest;
 import org.molgenis.data.Entity;
 import org.molgenis.data.Repository;
 import org.molgenis.data.populate.IdGenerator;
+import org.molgenis.ontology.core.config.OntologyTestConfig;
 import org.molgenis.ontology.core.meta.*;
-import org.molgenis.test.data.AbstractMolgenisSpringTest;
 import org.molgenis.util.ResourceUtils;
 import org.semanticweb.owlapi.model.OWLOntologyCreationException;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ContextConfiguration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -23,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -364,24 +364,15 @@ public class OntologyRepositoryCollectionTest extends AbstractMolgenisSpringTest
 	}
 
 	@Configuration
-	@ComponentScan({ "org.molgenis.ontology.core.meta", "org.molgenis.ontology.core.model" })
+	@Import(OntologyTestConfig.class)
 	public static class Config
 	{
 		@Bean
 		public IdGenerator idGenerator()
 		{
 			IdGenerator idGenerator = mock(IdGenerator.class);
-			when(idGenerator.generateId()).thenAnswer(new GenerateIdAnswer());
+			when(idGenerator.generateId()).thenAnswer((invocation) -> UUID.randomUUID().toString());
 			return idGenerator;
-		}
-
-		private static class GenerateIdAnswer implements Answer<String>
-		{
-			@Override
-			public String answer(InvocationOnMock invocation) throws Throwable
-			{
-				return String.valueOf(System.nanoTime());
-			}
 		}
 	}
 }

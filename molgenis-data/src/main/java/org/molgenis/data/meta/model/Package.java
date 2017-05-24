@@ -1,17 +1,15 @@
 package org.molgenis.data.meta.model;
 
-import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
-import org.molgenis.data.Query;
 import org.molgenis.data.support.StaticEntity;
-import org.molgenis.util.ApplicationContextProvider;
 
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.removeAll;
+import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
-import static org.molgenis.data.meta.model.EntityMetaDataMetaData.ENTITY_META_DATA;
+import static org.molgenis.data.meta.model.PackageMetadata.*;
 
 /**
  * Package defines the structure and attributes of a Package. Attributes are unique. Other software components can use
@@ -30,36 +28,35 @@ public class Package extends StaticEntity
 	/**
 	 * Constructs a package with the given meta data
 	 *
-	 * @param entityMeta package meta data
+	 * @param entityType package meta data
 	 */
-	public Package(EntityMetaData entityMeta)
+	public Package(EntityType entityType)
 	{
-		super(entityMeta);
+		super(entityType);
 	}
 
 	/**
 	 * Constructs a package with the given type code and meta data
 	 *
 	 * @param packageId  package identifier (fully qualified package name)
-	 * @param entityMeta language meta data
+	 * @param entityType language meta data
 	 */
-	public Package(String packageId, EntityMetaData entityMeta)
+	public Package(String packageId, EntityType entityType)
 	{
-		super(entityMeta);
-		setSimpleName(packageId);
+		super(entityType);
+		setId(packageId);
 	}
 
 	/**
-	 * Copy-factory (instead of copy-constructor to avoid accidental method overloading to {@link #Package(EntityMetaData)})
+	 * Copy-factory (instead of copy-constructor to avoid accidental method overloading to {@link #Package(EntityType)})
 	 *
 	 * @param package_ package
 	 * @return deep copy of package
 	 */
 	public static Package newInstance(Package package_)
 	{
-		Package packageCopy = new Package(package_.getEntityMetaData());
-		packageCopy.setName(package_.getName());
-		packageCopy.setSimpleName(package_.getSimpleName());
+		Package packageCopy = new Package(package_.getEntityType());
+		packageCopy.setId(package_.getId());
 		packageCopy.setLabel(package_.getLabel());
 		packageCopy.setDescription(package_.getDescription());
 		Package parent = package_.getParent();
@@ -69,20 +66,14 @@ public class Package extends StaticEntity
 		return packageCopy;
 	}
 
-	/**
-	 * Gets the name of the package without the trailing parent packages
-	 *
-	 * @return package name
-	 */
-	public String getSimpleName()
+	public String getId()
 	{
-		return getString(PackageMetaData.SIMPLE_NAME);
+		return getString(ID);
 	}
 
-	public Package setSimpleName(String simpleName)
+	public Package setId(String id)
 	{
-		set(PackageMetaData.SIMPLE_NAME, simpleName);
-		updateFullName();
+		set(ID, id);
 		return this;
 	}
 
@@ -93,30 +84,23 @@ public class Package extends StaticEntity
 	 */
 	public Package getParent()
 	{
-		return getEntity(PackageMetaData.PARENT, Package.class);
+		return getEntity(PackageMetadata.PARENT, Package.class);
 	}
 
 	public Package setParent(Package parentPackage)
 	{
-		set(PackageMetaData.PARENT, parentPackage);
-		updateFullName();
+		set(PackageMetadata.PARENT, parentPackage);
 		return this;
 	}
 
 	/**
-	 * Gets the fully qualified name of this package
+	 * Gets the subpackages of this package or an empty list if this package doesn't have any subpackages.
 	 *
-	 * @return fully qualified package name
+	 * @return sub-packages
 	 */
-	public String getName()
+	public Iterable<Package> getChildren()
 	{
-		return getString(PackageMetaData.FULL_NAME);
-	}
-
-	public Package setName(String fullName)
-	{
-		set(PackageMetaData.FULL_NAME, fullName);
-		return this;
+		return getEntities(CHILDREN, Package.class);
 	}
 
 	/**
@@ -126,12 +110,12 @@ public class Package extends StaticEntity
 	 */
 	public String getLabel()
 	{
-		return getString(PackageMetaData.LABEL);
+		return getString(PackageMetadata.LABEL);
 	}
 
 	public Package setLabel(String label)
 	{
-		set(PackageMetaData.LABEL, label);
+		set(PackageMetadata.LABEL, label);
 		return this;
 	}
 
@@ -142,12 +126,12 @@ public class Package extends StaticEntity
 	 */
 	public String getDescription()
 	{
-		return getString(PackageMetaData.DESCRIPTION);
+		return getString(PackageMetadata.DESCRIPTION);
 	}
 
 	public Package setDescription(String description)
 	{
-		set(PackageMetaData.DESCRIPTION, description);
+		set(PackageMetadata.DESCRIPTION, description);
 		return this;
 	}
 
@@ -158,7 +142,7 @@ public class Package extends StaticEntity
 	 */
 	public Iterable<Tag> getTags()
 	{
-		return getEntities(PackageMetaData.TAGS, Tag.class);
+		return getEntities(PackageMetadata.TAGS, Tag.class);
 	}
 
 	/**
@@ -169,7 +153,7 @@ public class Package extends StaticEntity
 	 */
 	public Package setTags(Iterable<Tag> tags)
 	{
-		set(PackageMetaData.TAGS, tags);
+		set(PackageMetadata.TAGS, tags);
 		return this;
 	}
 
@@ -180,7 +164,7 @@ public class Package extends StaticEntity
 	 */
 	public void addTag(Tag tag)
 	{
-		set(PackageMetaData.TAGS, concat(getTags(), singletonList(tag)));
+		set(PackageMetadata.TAGS, concat(getTags(), singletonList(tag)));
 	}
 
 	/**
@@ -192,7 +176,7 @@ public class Package extends StaticEntity
 	{
 		Iterable<Tag> tags = getTags();
 		removeAll(tags, singletonList(tag));
-		set(PackageMetaData.TAGS, tag);
+		set(PackageMetadata.TAGS, tag);
 	}
 
 	/**
@@ -200,27 +184,9 @@ public class Package extends StaticEntity
 	 *
 	 * @return package entities
 	 */
-	public Iterable<EntityMetaData> getEntityMetaDatas()
+	public Iterable<EntityType> getEntityTypes()
 	{
-		// TODO Use one-to-many relationship for EntityMetaData.package
-		DataService dataService = ApplicationContextProvider.getApplicationContext().getBean(DataService.class);
-		Query<EntityMetaData> query = dataService.query(ENTITY_META_DATA, EntityMetaData.class)
-				.eq(EntityMetaDataMetaData.PACKAGE, getName());
-		return () -> query.findAll().iterator();
-	}
-
-	/**
-	 * Gets the subpackages of this package or an empty list if this package doesn't have any subpackages.
-	 *
-	 * @return sub-packages
-	 */
-	public Iterable<Package> getSubPackages()
-	{
-		// TODO use one-to-many relationship for Package.parent
-		DataService dataService = ApplicationContextProvider.getApplicationContext().getBean(DataService.class);
-		Query<Package> query = dataService.query(PackageMetaData.PACKAGE, Package.class)
-				.eq(PackageMetaData.PARENT, this);
-		return () -> query.findAll().iterator();
+		return getEntities(ENTITY_TYPES, EntityType.class);
 	}
 
 	/**
@@ -238,28 +204,67 @@ public class Package extends StaticEntity
 		return package_;
 	}
 
-	private void updateFullName()
+	/**
+	 * Based on generated AutoValue class:
+	 * <pre><code>
+	 * {@literal @}AutoValue
+	 * public abstract class Package
+	 * {
+	 *     public abstract String getId();
+	 *     public abstract String getName();
+	 *    {@literal @}Nullable public abstract String getLabel();
+	 *    {@literal @}Nullable public abstract String getDescription();
+	 *    {@literal @}Nullable public abstract Package getParent();
+	 *     public abstract List<Tag> getTags();
+	 * }
+	 * </code></pre>
+	 *
+	 * @param o
+	 * @return
+	 */
+	@Override
+	public boolean equals(Object o)
 	{
-		String simpleName = getSimpleName();
-		if (simpleName != null)
+		if (o == this)
 		{
-			String fullName;
-			Package parentPackage = getParent();
-			if (parentPackage != null)
-			{
-				fullName = parentPackage.getName() + PACKAGE_SEPARATOR + simpleName;
-			}
-			else
-			{
-				fullName = simpleName;
-			}
-			set(PackageMetaData.FULL_NAME, fullName);
+			return true;
 		}
+		if (o instanceof Package)
+		{
+			Package that = (Package) o;
+			return (this.getId().equals(that.getId())) && ((this.getLabel() == null) ? (that.getLabel() == null) : this
+					.getLabel().equals(that.getLabel())) && ((this.getDescription() == null) ? (that.getDescription()
+					== null) : this.getDescription().equals(that.getDescription())) && ((this.getParent() == null) ? (
+					that.getParent() == null) : this.getParent().equals(that.getParent())) && (newArrayList(
+					this.getTags()).equals(newArrayList(that.getTags())));
+		}
+		return false;
+	}
+
+	/**
+	 * Based on generated AutoValue class:
+	 * <pre><code>
+	 * {@literal @}AutoValue
+	 * public abstract class Package
+	 * {
+	 *     public abstract String getId();
+	 * }
+	 * </code></pre>
+	 *
+	 * @return
+	 */
+	@Override
+	public int hashCode()
+	{
+		int h = 1;
+		h *= 1000003;
+		h ^= this.getId().hashCode();
+		return h;
 	}
 
 	@Override
 	public String toString()
 	{
-		return "Package{" + "name=" + getName() + '}';
+		return "Package{" + "name=" + getId() + '}';
 	}
 }

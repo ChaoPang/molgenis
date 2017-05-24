@@ -4,11 +4,14 @@ import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchType;
 import org.molgenis.data.Entity;
 import org.molgenis.data.Query;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.elasticsearch.util.DocumentIdGenerator;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 
 import java.util.Arrays;
 import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * Builds a ElasticSearch search request
@@ -17,36 +20,37 @@ import java.util.List;
  */
 public class SearchRequestGenerator
 {
-	private final List<? extends QueryPartGenerator> queryGenerators;
+	private final DocumentIdGenerator documentIdGenerator;
 	private final AggregateQueryGenerator aggregateQueryGenerator;
+	private final List<? extends QueryPartGenerator> queryGenerators;
 
-	public SearchRequestGenerator()
+	public SearchRequestGenerator(DocumentIdGenerator documentIdGenerator)
 	{
-		aggregateQueryGenerator = new AggregateQueryGenerator();
-		queryGenerators = Arrays.asList(new QueryGenerator(), new SortGenerator(), new LimitOffsetGenerator());
+		this.documentIdGenerator = requireNonNull(documentIdGenerator);
+		aggregateQueryGenerator = new AggregateQueryGenerator(documentIdGenerator);
+		queryGenerators = Arrays.asList(new QueryGenerator(documentIdGenerator), new SortGenerator(documentIdGenerator),
+				new LimitOffsetGenerator());
 	}
 
 	/**
 	 * Writes a query to a {@link SearchRequestBuilder}.
-	 *
-	 * @param searchRequestBuilder
-	 * @param entityName
+	 *  @param searchRequestBuilder
 	 * @param searchType
-	 * @param query
+	 * @param entityType
 	 * @param aggAttr1             First Field to aggregate on
 	 * @param aggAttr2             Second Field to aggregate on
-	 * @param entityMetaData
 	 */
-	public void buildSearchRequest(SearchRequestBuilder searchRequestBuilder, String entityName, SearchType searchType,
-			Query<Entity> query, AttributeMetaData aggAttr1, AttributeMetaData aggAttr2,
-			AttributeMetaData aggAttrDistinct, EntityMetaData entityMetaData)
+	public void buildSearchRequest(SearchRequestBuilder searchRequestBuilder, SearchType searchType,
+			EntityType entityType, Query<Entity> query, Attribute aggAttr1, Attribute aggAttr2,
+			Attribute aggAttrDistinct)
 	{
 		searchRequestBuilder.setSearchType(searchType);
 
 		// Document type
-		if (entityName != null)
+		if (entityType != null)
 		{
-			searchRequestBuilder.setTypes(entityName);
+			String documentType = documentIdGenerator.generateId(entityType);
+			searchRequestBuilder.setTypes(documentType);
 		}
 
 		// Generate query
@@ -54,7 +58,7 @@ public class SearchRequestGenerator
 		{
 			for (QueryPartGenerator generator : queryGenerators)
 			{
-				generator.generate(searchRequestBuilder, query, entityMetaData);
+				generator.generate(searchRequestBuilder, query, entityType);
 			}
 		}
 
@@ -63,6 +67,5 @@ public class SearchRequestGenerator
 		{
 			aggregateQueryGenerator.generate(searchRequestBuilder, aggAttr1, aggAttr2, aggAttrDistinct);
 		}
-
 	}
 }

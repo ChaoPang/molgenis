@@ -2,13 +2,16 @@ package org.molgenis.file.ingest;
 
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
-import org.molgenis.auth.MolgenisUser;
-import org.molgenis.auth.MolgenisUserFactory;
-import org.molgenis.auth.MolgenisUserMetaData;
+import org.molgenis.auth.User;
+import org.molgenis.auth.UserFactory;
+import org.molgenis.auth.UserMetaData;
+import org.molgenis.data.AbstractMolgenisSpringTest;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Query;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.config.UserTestConfig;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.meta.model.EntityTypeFactory;
+import org.molgenis.file.ingest.config.FileIngestTestConfig;
 import org.molgenis.file.ingest.execution.FileIngestJob;
 import org.molgenis.file.ingest.execution.FileIngestJobFactory;
 import org.molgenis.file.ingest.meta.FileIngest;
@@ -16,18 +19,18 @@ import org.molgenis.file.ingest.meta.FileIngestFactory;
 import org.molgenis.file.ingest.meta.FileIngestJobExecution;
 import org.molgenis.file.ingest.meta.FileIngestMetaData;
 import org.molgenis.file.model.FileMeta;
-import org.molgenis.test.data.AbstractMolgenisSpringTest;
 import org.quartz.JobDataMap;
 import org.quartz.JobExecutionContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ContextConfiguration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 @ContextConfiguration(classes = { FileIngesterQuartzJobTest.Config.class })
@@ -43,13 +46,13 @@ public class FileIngesterQuartzJobTest extends AbstractMolgenisSpringTest
 	private FileIngestJobFactory fileIngestJobFactory;
 
 	@Autowired
-	private EntityMetaDataFactory entityMetaDataFactory;
+	private EntityTypeFactory entityTypeFactory;
 
 	@Autowired
 	private FileIngestFactory fileIngestFactory;
 
 	@Autowired
-	private MolgenisUserFactory molgenisUserFactory;
+	private UserFactory userFactory;
 
 	private JobExecutionContext contextMock;
 
@@ -66,19 +69,19 @@ public class FileIngesterQuartzJobTest extends AbstractMolgenisSpringTest
 		jobDataMap.put(FileIngesterQuartzJob.ENTITY_KEY, "abcde");
 		when(contextMock.getMergedJobDataMap()).thenReturn(jobDataMap);
 
-		EntityMetaData targetEntity = entityMetaDataFactory.create();
-		targetEntity.setName("org_molgenis_test_TypeTest");
+		EntityType targetEntity = entityTypeFactory.create("TypeTest");
 
 		FileIngest fileIngest = fileIngestFactory.create();
 		fileIngest.setFailureEmail("x@y.z");
 		fileIngest.setTargetEntity(targetEntity);
 		when(dataService.findOneById(FileIngestMetaData.FILE_INGEST, "abcde", FileIngest.class)).thenReturn(fileIngest);
 
-		Query<MolgenisUser> queryMock = Mockito.mock(Query.class);
-		MolgenisUser admin = molgenisUserFactory.create();
+		@SuppressWarnings("unchecked")
+		Query<User> queryMock = Mockito.mock(Query.class);
+		User admin = userFactory.create();
 		admin.setUsername("admin");
-		when(dataService.query(MolgenisUserMetaData.MOLGENIS_USER, MolgenisUser.class)).thenReturn(queryMock);
-		when(queryMock.eq(MolgenisUserMetaData.USERNAME, "admin")).thenReturn(queryMock);
+		when(dataService.query(UserMetaData.USER, User.class)).thenReturn(queryMock);
+		when(queryMock.eq(UserMetaData.USERNAME, "admin")).thenReturn(queryMock);
 		when(queryMock.findOne()).thenReturn(admin);
 
 		ArgumentCaptor<FileIngestJobExecution> captor = ArgumentCaptor.forClass(FileIngestJobExecution.class);
@@ -94,12 +97,10 @@ public class FileIngesterQuartzJobTest extends AbstractMolgenisSpringTest
 		FileIngestJobExecution jobExecution = captor.getValue();
 		assertEquals(jobExecution.getFailureEmail(), new String[] { "x@y.z" });
 		assertEquals(jobExecution.getFileIngest(), fileIngest);
-		verify(dataService).add("sys_FileMeta", fileMeta);
 	}
 
 	@Configuration
-	@ComponentScan({ "org.molgenis.file.ingest.meta", "org.molgenis.security.owned", "org.molgenis.file.model",
-			"org.molgenis.data.jobs.model", "org.molgenis.auth" })
+	@Import({ UserTestConfig.class, FileIngestTestConfig.class })
 	public static class Config
 	{
 		@Bean
@@ -112,12 +113,6 @@ public class FileIngesterQuartzJobTest extends AbstractMolgenisSpringTest
 		public FileIngestJobFactory fileIngestJobFactory()
 		{
 			return mock(FileIngestJobFactory.class);
-		}
-
-		@Bean
-		public DataService dataService()
-		{
-			return mock(DataService.class);
 		}
 	}
 }

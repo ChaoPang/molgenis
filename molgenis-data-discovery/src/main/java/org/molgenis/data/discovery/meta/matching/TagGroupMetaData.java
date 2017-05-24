@@ -1,21 +1,19 @@
 package org.molgenis.data.discovery.meta.matching;
 
 import org.molgenis.data.discovery.meta.BiobankUniversePackage;
-import org.molgenis.data.meta.SystemEntityMetaData;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.SystemEntityType;
 import org.molgenis.ontology.core.meta.OntologyTermMetaData;
 import org.molgenis.ontology.core.meta.SemanticTypeMetaData;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import static java.util.Objects.requireNonNull;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.DECIMAL;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.MREF;
 import static org.molgenis.data.discovery.meta.BiobankUniversePackage.PACKAGE_UNIVERSE;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.ROLE_ID;
 import static org.molgenis.data.meta.model.Package.PACKAGE_SEPARATOR;
 
 @Component
-public class TagGroupMetaData extends SystemEntityMetaData
+public class TagGroupMetaData extends SystemEntityType
 {
 	public static final String SIMPLE_NAME = "TagGroup";
 	public static final String TAG_GROUP = PACKAGE_UNIVERSE + PACKAGE_SEPARATOR + SIMPLE_NAME;
@@ -46,10 +44,10 @@ public class TagGroupMetaData extends SystemEntityMetaData
 		setLabel("Tag group");
 		setPackage(biobankUniversePackage);
 
-		addAttribute(IDENTIFIER, ROLE_ID);
-		addAttribute(ONTOLOGY_TERMS).setDataType(MREF).setRefEntity(ontologyTermMetaData);
-		addAttribute(SEMANTIC_TYPES).setDataType(MREF).setRefEntity(semanticTypeMetaData);
+		addAttribute(IDENTIFIER, AttributeRole.ROLE_ID);
+		addAttribute(ONTOLOGY_TERMS).setDataType(AttributeType.MREF).setRefEntity(ontologyTermMetaData);
+		addAttribute(SEMANTIC_TYPES).setDataType(AttributeType.MREF).setRefEntity(semanticTypeMetaData);
 		addAttribute(MATCHED_WORDS);
-		addAttribute(NGRAM_SCORE).setDataType(DECIMAL);
+		addAttribute(NGRAM_SCORE).setDataType(AttributeType.DECIMAL);
 	}
 }

@@ -2,7 +2,7 @@ package org.molgenis.ui;
 
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
-import org.molgenis.data.settings.DefaultSettingsEntityMetaData;
+import org.molgenis.data.settings.DefaultSettingsEntityType;
 import org.molgenis.framework.ui.MolgenisPlugin;
 import org.molgenis.framework.ui.MolgenisPluginFactory;
 import org.molgenis.framework.ui.MolgenisPluginRegistry;
@@ -72,13 +72,13 @@ public abstract class MolgenisPluginController
 	 */
 	public Entity getPluginSettings()
 	{
-		String entityName = DefaultSettingsEntityMetaData.getSettingsEntityName(getId());
-		return RunAsSystemProxy.runAsSystem(() -> getPluginSettings(entityName));
+		String entityTypeId = DefaultSettingsEntityType.getSettingsEntityName(getId());
+		return RunAsSystemProxy.runAsSystem(() -> getPluginSettings(entityTypeId));
 	}
 
-	private Entity getPluginSettings(String entityName)
+	private Entity getPluginSettings(String entityTypeId)
 	{
-		return dataService.hasRepository(entityName) ? dataService.findOneById(entityName, getId()) : null;
+		return dataService.hasRepository(entityTypeId) ? dataService.findOneById(entityTypeId, getId()) : null;
 	}
 
 	@PostConstruct

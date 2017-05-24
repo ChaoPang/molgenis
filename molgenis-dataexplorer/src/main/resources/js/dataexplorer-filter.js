@@ -16,6 +16,7 @@
         switch (attribute.fieldType) {
             case 'BOOL':
             case 'CATEGORICAL':
+            case 'CATEGORICAL_MREF':
                 return self.createSimpleFilter(attribute, filter, wizard, false);
             case 'XREF':
             case 'FILE':
@@ -33,11 +34,9 @@
             case 'TEXT':
             case 'SCRIPT':
                 return self.createComplexFilter(attribute, filter, wizard, 'OR');
-                break;
-            case 'CATEGORICAL_MREF':
             case 'MREF':
+            case 'ONE_TO_MANY':
                 return self.createComplexFilter(attribute, filter, wizard, null);
-                break;
             case 'COMPOUND' :
                 throw 'Unsupported data type: ' + attribute.fieldType;
             default:
@@ -69,15 +68,13 @@
 
     /**
      * Create the filter
-     *
      */
     self.createFilterQueryUserReadableList = function (attributeFilters) {
         var items = [];
         $.each(attributeFilters, function (attributeUri, filter) {
             var attributeLabel = molgenis.getAttributeLabel(filter.attribute);
-
             items.push('<p><a class="feature-filter-edit" data-href="' + attributeUri + '" href="#">'
-                + attributeLabel + ': ' + self.createFilterQueyUserReadable(filter)
+                + attributeLabel + ': ' + self.createFilterQueryUserReadable(filter)
                 + '</a><a class="feature-filter-remove" data-href="' + attributeUri + '" href="#" title="Remove '
                 + attributeLabel + ' filter" ><span class="glyphicon glyphicon-remove"></span></a></p>');
         });
@@ -88,7 +85,7 @@
     /**
      * Create the user simple representation of the query
      */
-    self.createFilterQueyUserReadable = function (filter) {
+    self.createFilterQueryUserReadable = function (filter) {
         if (filter.isType('complex')) {
             var complexFilterElements = filter.getComplexFilterElements();
             var addBracket = true;
@@ -126,7 +123,6 @@
                     addBracket = false;
                 }
             }
-
             if (addBracket) {
                 return '(' + items.join('') + ')';
             } else {
@@ -172,6 +168,7 @@
             case 'MREF':
             case 'XREF':
             case 'FILE':
+            case 'ONE_TO_MANY':
                 var operator = (filter.operator ? filter.operator.toLocaleLowerCase() : 'or');
                 var array = [];
                 $.each(filter.getLabels(), function (key, value) {
@@ -448,6 +445,7 @@
                 $controls.append($('<div class="filter-radio-inline-container">').append(inputTrue.addClass('radio-inline')).append(inputFalse.addClass('radio-inline')));
                 break;
             case 'CATEGORICAL':
+            case 'CATEGORICAL_MREF':
                 var restApi = new molgenis.RestClient();
                 var entityMeta = restApi.get(attribute.refEntity.href);
                 var entitiesUri = entityMeta.href.replace(new RegExp('/meta[^/]*$'), ''); // TODO do not manipulate uri
@@ -524,12 +522,15 @@
             case 'TEXT':
             case 'ENUM':
             case 'SCRIPT':
-                $controls.append(createInput(attribute, {'name': name, 'id': name}, values ? values[0] : undefined));
+                $controls.append(createInput(attribute, {
+                    'name': name,
+                    'id': name
+                }, values ? values[0] : undefined));
                 break;
             case 'XREF':
             case 'MREF':
-            case 'CATEGORICAL_MREF':
             case 'FILE':
+            case 'ONE_TO_MANY':
                 var operator = simpleFilter ? simpleFilter.operator : 'OR';
                 var container = $('<div class="xrefmrefsearch">');
                 $controls.append(container);
@@ -552,7 +553,7 @@
     }
 
     /**
-     * JavaScript filter representaion as an interface for filters
+     * JavaScript filter representation as an interface for filters
      */
     self.Filter = function () {
         this.operators = {'OR': 'OR', 'AND': 'AND'};
@@ -638,8 +639,8 @@
 
                 if (value) {
                     // Add values
-                    if (attribute.fieldType === 'MREF' || attribute.fieldType === 'CATEGORICAL_MREF' ||
-                        attribute.fieldType === 'XREF' || attribute.fieldType === 'FILE') {
+                    if (attribute.fieldType === 'MREF' ||
+                        attribute.fieldType === 'XREF' || attribute.fieldType === 'FILE' || attribute.fieldType == 'ONE_TO_MANY') {
                         var mrefValues = value.split(',');
                         $(mrefValues).each(function (i) {
                             values.push(mrefValues[i]);
@@ -647,7 +648,7 @@
 
                         labels = $(this).data('labels');
                     }
-                    else if (attribute.fieldType == 'CATEGORICAL') {
+                    else if (attribute.fieldType == 'CATEGORICAL' || attribute.fieldType === 'CATEGORICAL_MREF') {
                         labels.push($(this).parent().text());
                         values[values.length] = value;
                     }
@@ -756,6 +757,7 @@
                         case 'LONG':
                         case 'MREF':
                         case 'XREF':
+                        case 'ONE_TO_MANY':
                         case 'FILE':
                             attrOperator = 'EQUALS';
                             break;
@@ -811,7 +813,7 @@
     self.SimpleFilter.prototype = new self.Filter();
 
     /**
-     * JavaScript representation of een elementin a complex filter
+     * JavaScript representation of een element in a complex filter
      */
     self.ComplexFilterElement = function (attribute) {
         this.simpleFilter = null;

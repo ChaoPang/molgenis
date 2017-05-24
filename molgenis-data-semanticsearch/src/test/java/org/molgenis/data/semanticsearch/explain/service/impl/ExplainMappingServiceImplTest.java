@@ -73,10 +73,10 @@ public class ExplainMappingServiceImplTest extends AbstractTestNGSpringContextTe
 
 		//TODO: Add a test that actually uses a match to a child ontology term
 		when(ontologyService.getChildren(heightOntologyTerm, DEFAULT_EXPANSION_LEVEL))
-				.thenReturn(Collections.emptyList());
+				.thenReturn(singleton(heightOntologyTerm));
 
 		when(ontologyService.getChildren(weightOntologyTerm, DEFAULT_EXPANSION_LEVEL))
-				.thenReturn(Collections.emptyList());
+				.thenReturn(singleton(weightOntologyTerm));
 
 		when(ontologyService.findOntologyTerms(singletonList("1"), heightCandidateWords, 2,
 				newHashSet(heightOntologyTerm, weightOntologyTerm))).thenReturn(singletonList(heightOntologyTerm));

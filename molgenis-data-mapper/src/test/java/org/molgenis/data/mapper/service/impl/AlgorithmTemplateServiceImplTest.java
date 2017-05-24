@@ -1,24 +1,25 @@
 package org.molgenis.data.mapper.service.impl;
 
 import com.google.common.collect.Maps;
+import org.molgenis.data.AbstractMolgenisSpringTest;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Query;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedMatchCandidate;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedQueryString;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.file.FileStore;
 import org.molgenis.js.magma.JsMagmaScriptRunner;
 import org.molgenis.script.*;
+import org.molgenis.script.config.ScriptTestConfig;
 import org.molgenis.security.core.token.TokenService;
-import org.molgenis.test.data.AbstractMolgenisSpringTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ContextConfiguration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -46,10 +47,10 @@ public class AlgorithmTemplateServiceImplTest extends AbstractMolgenisSpringTest
 	private ScriptParameterFactory scriptParameterFactory;
 
 	@Autowired
-	private EntityMetaDataFactory entityMetaFactory;
+	private EntityTypeFactory entityTypeFactory;
 
 	@Autowired
-	private AttributeMetaDataFactory attrMetaFactory;
+	private AttributeFactory attrMetaFactory;
 
 	@Autowired
 	private AlgorithmTemplateServiceImpl algorithmTemplateServiceImpl;
@@ -85,15 +86,15 @@ public class AlgorithmTemplateServiceImplTest extends AbstractMolgenisSpringTest
 	{
 		String sourceAttr0Name = "sourceAttr0";
 		String sourceAttr1Name = "sourceAttr1";
-		EntityMetaData sourceEntityMeta = entityMetaFactory.create("source");
-		AttributeMetaData sourceAttr0 = attrMetaFactory.create().setName(sourceAttr0Name);
-		AttributeMetaData sourceAttr1 = attrMetaFactory.create().setName(sourceAttr1Name);
+		EntityType sourceEntityMeta = entityTypeFactory.create("source");
+		Attribute sourceAttr0 = attrMetaFactory.create().setName(sourceAttr0Name);
+		Attribute sourceAttr1 = attrMetaFactory.create().setName(sourceAttr1Name);
 		sourceEntityMeta.addAttribute(sourceAttr0);
 		sourceEntityMeta.addAttribute(sourceAttr1);
 
 		ExplainedQueryString sourceAttr0Explain = ExplainedQueryString.create("b", param0Name, "tag1", 1.0f);
 		ExplainedQueryString sourceAttr1Explain = ExplainedQueryString.create("b", param1Name, "tag2", 0.5f);
-		Map<AttributeMetaData, ExplainedMatchCandidate<AttributeMetaData>> attrResults = Maps.newHashMap();
+		Map<Attribute, ExplainedMatchCandidate<Attribute>> attrResults = Maps.newHashMap();
 		attrResults.put(sourceAttr0,
 				ExplainedMatchCandidate.create(sourceAttr0, singletonList(sourceAttr0Explain), false));
 		attrResults.put(sourceAttr1,
@@ -110,9 +111,12 @@ public class AlgorithmTemplateServiceImplTest extends AbstractMolgenisSpringTest
 	}
 
 	@Configuration
-	@ComponentScan({ "org.molgenis.script" })
+	@Import(ScriptTestConfig.class)
 	public static class Config
 	{
+		@Autowired
+		private DataService dataService;
+
 		@Bean
 		public FileStore fileStore()
 		{
@@ -128,13 +132,7 @@ public class AlgorithmTemplateServiceImplTest extends AbstractMolgenisSpringTest
 		@Bean
 		public AlgorithmTemplateServiceImpl algorithmTemplateServiceImpl()
 		{
-			return new AlgorithmTemplateServiceImpl(dataService());
-		}
-
-		@Bean
-		public DataService dataService()
-		{
-			return mock(DataService.class);
+			return new AlgorithmTemplateServiceImpl(dataService);
 		}
 	}
 }

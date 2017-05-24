@@ -1,7 +1,7 @@
 package org.molgenis.data.index.meta;
 
 import org.molgenis.data.Entity;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.StaticEntity;
 
 import static org.molgenis.data.index.meta.IndexActionMetaData.*;
@@ -13,14 +13,14 @@ public class IndexAction extends StaticEntity
 		super(entity);
 	}
 
-	public IndexAction(EntityMetaData entityMeta)
+	public IndexAction(EntityType entityType)
 	{
-		super(entityMeta);
+		super(entityType);
 	}
 
-	public IndexAction(String id, EntityMetaData entityMeta)
+	public IndexAction(String id, EntityType entityType)
 	{
-		super(entityMeta);
+		super(entityType);
 		set(ID, id);
 	}
 
@@ -57,14 +57,14 @@ public class IndexAction extends StaticEntity
 		return this;
 	}
 
-	public String getEntityFullName()
+	public String getEntityTypeId()
 	{
-		return getString(ENTITY_FULL_NAME);
+		return getString(ENTITY_TYPE_ID);
 	}
 
-	public IndexAction setEntityFullName(String entityFullName)
+	public IndexAction setEntityTypeId(String entityTypeId)
 	{
-		set(ENTITY_FULL_NAME, entityFullName);
+		set(ENTITY_TYPE_ID, entityTypeId);
 		return this;
 	}
 
@@ -107,8 +107,8 @@ public class IndexAction extends StaticEntity
 
 		if (getEntityId() != null ? !getEntityId().equals(that.getEntityId()) : that.getEntityId() != null)
 			return false;
-		return getEntityFullName() != null ? getEntityFullName().equals(that.getEntityFullName()) :
-				that.getEntityFullName() == null;
+		return getEntityTypeId() != null ? getEntityTypeId().equals(that.getEntityTypeId()) :
+				that.getEntityTypeId() == null;
 
 	}
 
@@ -121,7 +121,7 @@ public class IndexAction extends StaticEntity
 	public int hashCode()
 	{
 		int result = getEntityId() != null ? getEntityId().hashCode() : 0;
-		result = 31 * result + (getEntityFullName() != null ? getEntityFullName().hashCode() : 0);
+		result = 31 * result + (getEntityTypeId() != null ? getEntityTypeId().hashCode() : 0);
 		return result;
 	}
 }

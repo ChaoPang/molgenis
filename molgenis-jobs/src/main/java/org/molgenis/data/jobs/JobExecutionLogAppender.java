@@ -15,7 +15,7 @@ public class JobExecutionLogAppender extends AppenderBase<ILoggingEvent>
 	private void createLayout()
 	{
 		layout = new PatternLayout();
-		layout.setPattern("%d{HH:mm:ss.SSS} %-5level - %msg%n");
+		layout.setPattern("%d{HH:mm:ss.SSS} - %msg%n%nopex");
 		layout.setContext(getContext());
 		layout.start();
 	}
@@ -32,9 +32,7 @@ public class JobExecutionLogAppender extends AppenderBase<ILoggingEvent>
 	{
 		String formattedMessage = layout.doLayout(eventObject);
 		JobExecution jobExecution = JobExecutionContext.get();
-		String oldLog = jobExecution.getLog();
-		String newLog = oldLog == null ? formattedMessage : oldLog + formattedMessage;
-		jobExecution.setLog(newLog);
+		jobExecution.appendLog(formattedMessage);
 	}
 
 }

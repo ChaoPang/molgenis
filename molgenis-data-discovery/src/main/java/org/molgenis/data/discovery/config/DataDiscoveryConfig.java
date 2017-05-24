@@ -27,8 +27,8 @@ import org.molgenis.ontology.core.meta.OntologyTermMetaData;
 import org.molgenis.ontology.core.meta.OntologyTermNodePathMetaData;
 import org.molgenis.ontology.core.meta.SemanticTypeMetaData;
 import org.molgenis.ontology.core.service.OntologyService;
-import org.molgenis.security.user.MolgenisUserService;
 import org.molgenis.security.user.UserAccountService;
+import org.molgenis.security.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -48,7 +48,7 @@ public class DataDiscoveryConfig
 	OntologyService ontologyService;
 
 	@Autowired
-	MolgenisUserService molgenisUserService;
+	UserService molgenisUserService;
 
 	@Autowired
 	IdGenerator idGenerator;

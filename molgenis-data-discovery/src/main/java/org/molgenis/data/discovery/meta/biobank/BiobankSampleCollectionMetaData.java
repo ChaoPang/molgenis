@@ -1,18 +1,16 @@
 package org.molgenis.data.discovery.meta.biobank;
 
 import org.molgenis.data.discovery.meta.BiobankUniversePackage;
-import org.molgenis.data.meta.SystemEntityMetaData;
+import org.molgenis.data.meta.SystemEntityType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import static java.util.Objects.requireNonNull;
 import static org.molgenis.data.discovery.meta.BiobankUniversePackage.PACKAGE_UNIVERSE;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.ROLE_ID;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.ROLE_LABEL;
 import static org.molgenis.data.meta.model.Package.PACKAGE_SEPARATOR;
 
 @Component
-public class BiobankSampleCollectionMetaData extends SystemEntityMetaData
+public class BiobankSampleCollectionMetaData extends SystemEntityType
 {
 	public static final String SIMPLE_NAME = "BiobankSampleCollection";
 	public static final String BIOBANK_SAMPLE_COLLECTION = PACKAGE_UNIVERSE + PACKAGE_SEPARATOR + SIMPLE_NAME;
@@ -32,6 +30,6 @@ public class BiobankSampleCollectionMetaData extends SystemEntityMetaData
 	{
 		setLabel("Biobank sample collection");
 		setPackage(biobankUniversePackage);
-		addAttribute(NAME, ROLE_ID, ROLE_LABEL).setUnique(true);
+		addAttribute(NAME, AttributeRole.ROLE_ID, AttributeRole.ROLE_LABEL).setUnique(true);
 	}
 }

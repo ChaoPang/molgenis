@@ -1,20 +1,18 @@
 package org.molgenis.data.discovery.meta.matching;
 
 import org.molgenis.data.discovery.meta.BiobankUniversePackage;
-import org.molgenis.data.meta.SystemEntityMetaData;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.SystemEntityType;
 import org.molgenis.ontology.core.meta.OntologyTermMetaData;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import static java.util.Objects.requireNonNull;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.DECIMAL;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.MREF;
 import static org.molgenis.data.discovery.meta.BiobankUniversePackage.PACKAGE_UNIVERSE;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.ROLE_ID;
 import static org.molgenis.data.meta.model.Package.PACKAGE_SEPARATOR;
 
 @Component
-public class MatchingExplanationMetaData extends SystemEntityMetaData
+public class MatchingExplanationMetaData extends SystemEntityType
 {
 	public static final String SIMPLE_NAME = "MatchingExplanation";
 	public static final String MATCHING_EXPLANATION = PACKAGE_UNIVERSE + PACKAGE_SEPARATOR + SIMPLE_NAME;
@@ -46,14 +44,14 @@ public class MatchingExplanationMetaData extends SystemEntityMetaData
 		setLabel("Matching explanation");
 		setPackage(biobankUniversePackage);
 
-		addAttribute(IDENTIFIER, ROLE_ID);
-		addAttribute(TARGET_ONTOLOGY_TERMS).setDataType(MREF).setRefEntity(ontologyTermMetaData);
-		addAttribute(SOURCE_ONTOLOGY_TERMS).setDataType(MREF).setRefEntity(ontologyTermMetaData);
+		addAttribute(IDENTIFIER, AttributeRole.ROLE_ID);
+		addAttribute(TARGET_ONTOLOGY_TERMS).setDataType(AttributeType.MREF).setRefEntity(ontologyTermMetaData);
+		addAttribute(SOURCE_ONTOLOGY_TERMS).setDataType(AttributeType.MREF).setRefEntity(ontologyTermMetaData);
 		addAttribute(MATCHED_QUERY_STRING);
 		addAttribute(MATCHED_TARGET_WORDS);
 		addAttribute(MATCHED_SOURCE_WORDS);
-		addAttribute(VSM_SCORE).setDataType(DECIMAL);
-		addAttribute(N_GRAM_SCORE).setDataType(DECIMAL);
+		addAttribute(VSM_SCORE).setDataType(AttributeType.DECIMAL);
+		addAttribute(N_GRAM_SCORE).setDataType(AttributeType.DECIMAL);
 
 	}
 }

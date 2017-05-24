@@ -7,7 +7,7 @@ import org.molgenis.data.annotation.core.entity.AnnotatorConfig;
 import org.molgenis.data.annotation.core.entity.AnnotatorInfo;
 import org.molgenis.data.annotation.core.entity.AnnotatorInfo.Status;
 import org.molgenis.data.annotation.core.entity.EntityAnnotator;
-import org.molgenis.data.annotation.core.entity.impl.framework.AnnotatorImpl;
+import org.molgenis.data.annotation.core.entity.impl.framework.AbstractAnnotator;
 import org.molgenis.data.annotation.core.entity.impl.framework.RepositoryAnnotatorImpl;
 import org.molgenis.data.annotation.core.filter.MultiAllelicResultFilter;
 import org.molgenis.data.annotation.core.query.LocusQueryCreator;
@@ -18,24 +18,25 @@ import org.molgenis.data.annotation.core.resources.impl.MultiFileResource;
 import org.molgenis.data.annotation.core.resources.impl.MultiResourceConfigImpl;
 import org.molgenis.data.annotation.core.resources.impl.RepositoryFactory;
 import org.molgenis.data.annotation.core.resources.impl.tabix.TabixVcfRepositoryFactory;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.vcf.model.VcfAttributes;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.Collections;
+import java.util.List;
 
-import static org.molgenis.MolgenisFieldTypes.AttributeType.DECIMAL;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.STRING;
+import static java.util.Collections.singletonList;
 import static org.molgenis.data.annotation.web.settings.ThousendGenomesAnnotatorSettings.Meta.*;
+import static org.molgenis.data.meta.AttributeType.DECIMAL;
+import static org.molgenis.data.meta.AttributeType.STRING;
 
 @Configuration
 public class ThousandGenomesAnnotator implements AnnotatorConfig
 {
-	public static final String NAME = "thousand_genomes";
+	public static final String NAME = "thousandgenomes";
 
 	public static final String THOUSAND_GENOME_AF = "Thousand_Genomes_AF";
 	public static final String THOUSAND_GENOME_AF_LABEL = "Thousand genome allele frequency";
@@ -55,10 +56,11 @@ public class ThousandGenomesAnnotator implements AnnotatorConfig
 	private VcfAttributes vcfAttributes;
 
 	@Autowired
-	private EntityMetaDataFactory entityMetaDataFactory;
+	private EntityTypeFactory entityTypeFactory;
 
 	@Autowired
-	private AttributeMetaDataFactory attributeMetaDataFactory;
+	private AttributeFactory attributeFactory;
+
 	private RepositoryAnnotatorImpl annotator;
 
 	@Bean
@@ -71,10 +73,7 @@ public class ThousandGenomesAnnotator implements AnnotatorConfig
 	@Override
 	public void init()
 	{
-		AttributeMetaData outputAttribute = attributeMetaDataFactory.create().setName(THOUSAND_GENOME_AF)
-				.setDataType(STRING).setDescription(
-						"The allele frequency for variants seen in the population used for the thousand genomes project")
-				.setLabel(THOUSAND_GENOME_AF_LABEL);
+		List<Attribute> attributes = createThousandGenomesOutputAttributes();
 
 		AnnotatorInfo thousandGenomeInfo = AnnotatorInfo
 				.create(Status.READY, AnnotatorInfo.Type.POPULATION_REFERENCE, NAME,
@@ -87,15 +86,15 @@ public class ThousandGenomesAnnotator implements AnnotatorConfig
 								+ "The results of the study will be freely and publicly accessible to researchers worldwide. "
 								+ "Further information about the project is available in the About tab. Information about downloading, "
 								+ "browsing or using the 1000 Genomes data is available at: http://www.1000genomes.org/ ",
-						Collections.singletonList(outputAttribute));
+						attributes);
 
 		LocusQueryCreator locusQueryCreator = new LocusQueryCreator(vcfAttributes);
 
-		MultiAllelicResultFilter multiAllelicResultFilter = new MultiAllelicResultFilter(Collections.singletonList(
-				attributeMetaDataFactory.create().setName(THOUSAND_GENOME_AF_RESOURCE_ATTRIBUTE_NAME)
-						.setDataType(DECIMAL)), vcfAttributes);
+		MultiAllelicResultFilter multiAllelicResultFilter = new MultiAllelicResultFilter(singletonList(
+				attributeFactory.create().setName(THOUSAND_GENOME_AF_RESOURCE_ATTRIBUTE_NAME).setDataType(DECIMAL)),
+				vcfAttributes);
 
-		EntityAnnotator entityAnnotator = new AnnotatorImpl(THOUSAND_GENOME_MULTI_FILE_RESOURCE, thousandGenomeInfo,
+		EntityAnnotator entityAnnotator = new AbstractAnnotator(THOUSAND_GENOME_MULTI_FILE_RESOURCE, thousandGenomeInfo,
 				locusQueryCreator, multiAllelicResultFilter, dataService, resources, (annotationSourceFileName) ->
 		{
 			thousendGenomesAnnotatorSettings.set(ROOT_DIRECTORY, annotationSourceFileName);
@@ -106,15 +105,28 @@ public class ThousandGenomesAnnotator implements AnnotatorConfig
 		})
 		{
 			@Override
-			protected Object getResourceAttributeValue(AttributeMetaData attr, Entity entityMetaData)
+			public List<Attribute> createAnnotatorAttributes(AttributeFactory attributeFactory)
+			{
+				return createThousandGenomesOutputAttributes();
+			}
+
+			@Override
+			protected Object getResourceAttributeValue(Attribute attr, Entity entityType)
 			{
 				String attrName = THOUSAND_GENOME_AF
 						.equals(attr.getName()) ? THOUSAND_GENOME_AF_RESOURCE_ATTRIBUTE_NAME : attr.getName();
-				return entityMetaData.get(attrName);
+				return entityType.get(attrName);
 			}
 		};
 
 		annotator.init(entityAnnotator);
+	}
+
+	private List<Attribute> createThousandGenomesOutputAttributes()
+	{
+		return singletonList(attributeFactory.create().setName(THOUSAND_GENOME_AF).setDataType(STRING).setDescription(
+				"The allele frequency for variants seen in the population used for the thousand genomes project")
+				.setLabel(THOUSAND_GENOME_AF_LABEL));
 	}
 
 	@Bean
@@ -129,7 +141,7 @@ public class ThousandGenomesAnnotator implements AnnotatorConfig
 			public RepositoryFactory getRepositoryFactory()
 			{
 				return new TabixVcfRepositoryFactory(THOUSAND_GENOME_MULTI_FILE_RESOURCE, vcfAttributes,
-						entityMetaDataFactory, attributeMetaDataFactory);
+						entityTypeFactory, attributeFactory);
 			}
 		};
 	}

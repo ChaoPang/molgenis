@@ -1,18 +1,15 @@
 package org.molgenis.ontology.controller;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.Entity;
 import org.molgenis.data.Repository;
 import org.molgenis.data.csv.CsvWriter;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.support.DynamicEntity;
 import org.molgenis.file.FileStore;
 import org.molgenis.ontology.core.meta.OntologyTermMetaData;
@@ -42,6 +39,9 @@ import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+import static com.google.common.collect.ImmutableMap.of;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.StreamSupport.stream;
 import static org.molgenis.ontology.controller.SortaServiceAnonymousController.URI;
 import static org.molgenis.ontology.sorta.service.impl.SortaServiceImpl.COMBINED_SCORE;
 import static org.molgenis.ontology.sorta.service.impl.SortaServiceImpl.SCORE;
@@ -62,9 +62,11 @@ public class SortaServiceAnonymousController extends MolgenisPluginController
 	@Autowired
 	private FileStore fileStore;
 	@Autowired
-	private EntityMetaDataFactory entityMetaFactory;
+
+	private EntityTypeFactory entityTypeFactory;
+
 	@Autowired
-	private AttributeMetaDataFactory attrMetaFactory;
+	private AttributeFactory attrMetaFactory;
 
 	public SortaServiceAnonymousController()
 	{
@@ -117,7 +119,7 @@ public class SortaServiceAnonymousController extends MolgenisPluginController
 		{
 			File uploadFile = new File(filePath.toString());
 			SortaCsvRepository csvRepository = new SortaCsvRepository(uploadFile.getName(), uploadFile.getName(),
-					uploadFile, entityMetaFactory, attrMetaFactory);
+					uploadFile, entityTypeFactory, attrMetaFactory);
 
 			if (validateUserInputHeader(csvRepository) && validateUserInputContent(csvRepository))
 			{
@@ -147,7 +149,7 @@ public class SortaServiceAnonymousController extends MolgenisPluginController
 
 				String ontologyIri = ontologyIriObject.toString();
 				File uploadFile = new File(filePath.toString());
-				SortaCsvRepository csvRepository = new SortaCsvRepository(uploadFile, entityMetaFactory,
+				SortaCsvRepository csvRepository = new SortaCsvRepository(uploadFile, entityTypeFactory,
 						attrMetaFactory);
 
 				List<String> columnHeaders = createDownloadTableHeaders(csvRepository);
@@ -194,14 +196,9 @@ public class SortaServiceAnonymousController extends MolgenisPluginController
 
 	private List<String> createDownloadTableHeaders(SortaCsvRepository csvRepository)
 	{
-		List<String> inputAttributeNames = FluentIterable.from(csvRepository.getEntityMetaData().getAtomicAttributes())
-				.transform(new Function<AttributeMetaData, String>()
-				{
-					public String apply(AttributeMetaData attributeMetaData)
-					{
-						return attributeMetaData.getName();
-					}
-				}).filter(attrName -> !StringUtils.equalsIgnoreCase(attrName, SortaCsvRepository.ALLOWED_IDENTIFIER))
+		List<String> inputAttributeNames = FluentIterable.from(csvRepository.getEntityType().getAtomicAttributes())
+				.transform(Attribute::getName)
+				.filter(attrName -> !StringUtils.equalsIgnoreCase(attrName, SortaCsvRepository.ALLOWED_IDENTIFIER))
 				.toList();
 
 		List<String> columnHeaders = new ArrayList<String>(inputAttributeNames);
@@ -213,23 +210,20 @@ public class SortaServiceAnonymousController extends MolgenisPluginController
 
 	private List<Map<String, Object>> matchInputWithOntologyTerm(Repository<Entity> repository, String ontologyIri)
 	{
-		return FluentIterable.from(repository).transform(new Function<Entity, Map<String, Object>>()
+		return stream(repository.spliterator(), false).map(inputEntity ->
 		{
-			public Map<String, Object> apply(Entity inputEntity)
-			{
-				List<SortaHit> findOntologyTermEntities = sortaService
-						.findOntologyTermEntities(ontologyIri, inputEntity);
+			List<SortaHit> findOntologyTermEntities = sortaService.findOntologyTermEntities(ontologyIri, inputEntity);
 
-				return ImmutableMap.of("inputTerm", SortaServiceUtil.getEntityAsMap(inputEntity), "ontologyTerm",
-						findOntologyTermEntities);
-			}
-		}).toList();
+			return of("inputTerm", SortaServiceUtil.getEntityAsMap(inputEntity), "ontologyTerm",
+					findOntologyTermEntities);
+
+		}).collect(toList());
 	}
 
 	private void validateSortaInput(String ontologyIri, File uploadFile, HttpServletRequest httpServletRequest,
 			Model model)
 	{
-		SortaCsvRepository csvRepository = new SortaCsvRepository(uploadFile, entityMetaFactory, attrMetaFactory);
+		SortaCsvRepository csvRepository = new SortaCsvRepository(uploadFile, entityTypeFactory, attrMetaFactory);
 
 		HttpSession session = httpServletRequest.getSession();
 		session.setAttribute("filePath", uploadFile.getAbsoluteFile());
@@ -254,14 +248,9 @@ public class SortaServiceAnonymousController extends MolgenisPluginController
 
 	private boolean validateUserInputHeader(Repository<Entity> repository)
 	{
-		return Iterables.any(repository.getEntityMetaData().getAtomicAttributes(), new Predicate<AttributeMetaData>()
-		{
-			public boolean apply(AttributeMetaData attr)
-			{
-				return StringUtils.isNotEmpty(attr.getName()) && StringUtils
-						.equalsIgnoreCase(attr.getName(), SortaServiceImpl.DEFAULT_MATCHING_NAME_FIELD);
-			}
-		});
+		return Iterables.any(repository.getEntityType().getAtomicAttributes(),
+				attr -> StringUtils.isNotEmpty(attr.getName()) && StringUtils
+						.equalsIgnoreCase(attr.getName(), SortaServiceImpl.DEFAULT_MATCHING_NAME_FIELD));
 	}
 
 	private boolean validateUserInputContent(SortaCsvRepository csvRepository)

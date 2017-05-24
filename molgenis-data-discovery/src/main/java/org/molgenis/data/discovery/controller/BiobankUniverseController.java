@@ -6,8 +6,8 @@ import com.google.common.collect.Table;
 import com.google.common.collect.Table.Cell;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.molgenis.auth.MolgenisUser;
-import org.molgenis.auth.MolgenisUserMetaData;
+import org.molgenis.auth.User;
+import org.molgenis.auth.UserMetaData;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityManager;
@@ -32,10 +32,10 @@ import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.discovery.service.BiobankUniverseService.AttributeMatchStatus;
 import org.molgenis.data.i18n.LanguageService;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.populate.IdGenerator;
 import org.molgenis.data.semanticsearch.service.QueryExpansionService;
 import org.molgenis.data.semanticsearch.service.TagGroupGenerator;
@@ -95,8 +95,8 @@ public class BiobankUniverseController extends MolgenisPluginController
 	private final UserAccountService userAccountService;
 	private final FileStore fileStore;
 	private final EntityManager entityManager;
-	private final EntityMetaDataFactory entityMetaDataFactory;
-	private final AttributeMetaDataFactory attributeMetaDataFactory;
+	private final EntityTypeFactory entityTypeFactory;
+	private final AttributeFactory attributeFactory;
 	private final IdGenerator idGenerator;
 	private final BiobankUniverseJobExecutionMetaData biobankUniverseJobExecutionMetaData;
 	private final BiobankUniverseMetaData biobankUniverseMetaData;
@@ -117,11 +117,10 @@ public class BiobankUniverseController extends MolgenisPluginController
 			OntologyService ontologyService, ExecutorService taskExecutor, UserAccountService userAccountService,
 			DataService dataService, FileStore fileStore, QueryExpansionService queryExpansionService,
 			BiobankUniverseRepository biobankUniverseRepository, LanguageService languageService,
-			EntityManager entityManager, EntityMetaDataFactory entityMetaDataFactory,
-			AttributeMetaDataFactory attributeMetaDataFactory, IdGenerator idGenerator,
-			BiobankUniverseJobExecutionMetaData biobankUniverseJobExecutionMetaData,
+			EntityManager entityManager, EntityTypeFactory entityTypeFactory, AttributeFactory attributeFactory,
+			IdGenerator idGenerator, BiobankUniverseJobExecutionMetaData biobankUniverseJobExecutionMetaData,
 			BiobankUniverseMetaData biobankUniverseMetaData,
-			BiobankSampleCollectionMetaData biobankSampleCollectionMetaData, MolgenisUserMetaData molgenisUserMetaData,
+			BiobankSampleCollectionMetaData biobankSampleCollectionMetaData, UserMetaData userMetaData,
 			MenuReaderService menuReaderService)
 	{
 		super(URI);
@@ -134,8 +133,8 @@ public class BiobankUniverseController extends MolgenisPluginController
 		this.fileStore = requireNonNull(fileStore);
 		this.userAccountService = requireNonNull(userAccountService);
 		this.entityManager = requireNonNull(entityManager);
-		this.entityMetaDataFactory = requireNonNull(entityMetaDataFactory);
-		this.attributeMetaDataFactory = requireNonNull(attributeMetaDataFactory);
+		this.entityTypeFactory = requireNonNull(entityTypeFactory);
+		this.attributeFactory = requireNonNull(attributeFactory);
 		this.idGenerator = requireNonNull(idGenerator);
 		this.biobankUniverseJobExecutionMetaData = requireNonNull(biobankUniverseJobExecutionMetaData);
 		this.biobankUniverseMetaData = requireNonNull(biobankUniverseMetaData);
@@ -177,7 +176,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 				BiobankSampleCollection sourceSampleCollection = biobankUniverseService
 						.getBiobankSampleCollection(sourceSampleCollectionName);
 
-				MolgenisUser currentUser = userAccountService.getCurrentUser();
+				User currentUser = userAccountService.getCurrentUser();
 
 				biobankUniverseService
 						.curateAttributeMappingCandidates(biobankUniverse, targetAttrinute, sourceSampleAttributes,
@@ -226,7 +225,7 @@ public class BiobankUniverseController extends MolgenisPluginController
 							.collect(toList());
 					csvWriter.writeAttributeNames(columnHeaders);
 
-					EntityMetaData entityMetaData = createDynamicEntityMetaData(columnHeaders);
+					EntityType entityMetaData = createDynamicEntityMetaData(columnHeaders);
 
 					for (Entry<BiobankSampleAttribute, Map<BiobankSampleCollection, List<AttributeMappingCandidate>>> rowMapEntry : candidateMappingCandidates
 							.rowMap().entrySet())
@@ -522,14 +521,14 @@ public class BiobankUniverseController extends MolgenisPluginController
 		taskExecutor.submit(biobankUniverseJobImpl);
 	}
 
-	private EntityMetaData createDynamicEntityMetaData(List<String> columnHeaders)
+	private EntityType createDynamicEntityMetaData(List<String> columnHeaders)
 	{
-		EntityMetaData entityMetaData = entityMetaDataFactory.create();
-		entityMetaData.setName("DownloadAttributeMapping");
+		EntityType entityMetaData = entityTypeFactory.create();
+		entityMetaData.setId("DownloadAttributeMapping");
 		for (String columnHeader : columnHeaders)
 		{
-			AttributeMetaData attributeMetaData = attributeMetaDataFactory.create();
-			attributeMetaData.setName(columnHeader);
+			Attribute attributeMetaData = attributeFactory.create();
+			attributeMetaData.setIdentifier(columnHeader);
 			entityMetaData.addAttribute(attributeMetaData);
 		}
 		return entityMetaData;

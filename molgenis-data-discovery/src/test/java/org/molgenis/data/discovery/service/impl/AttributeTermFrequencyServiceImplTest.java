@@ -3,8 +3,8 @@ package org.molgenis.data.discovery.service.impl;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.QueryImpl;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -27,11 +27,11 @@ public class AttributeTermFrequencyServiceImplTest
 
 		attributeTermFrequencyServiceImpl = new AttributeTermFrequencyServiceImpl(dataService);
 
-		EntityMetaData biobankSampleAttributeMetaData = mock(EntityMetaData.class);
+		EntityType biobankSampleAttributeMetaData = mock(EntityType.class);
 
-		AttributeMetaData identifier = mock(AttributeMetaData.class);
-		AttributeMetaData name = mock(AttributeMetaData.class);
-		AttributeMetaData label = mock(AttributeMetaData.class);
+		Attribute identifier = mock(Attribute.class);
+		Attribute name = mock(Attribute.class);
+		Attribute label = mock(Attribute.class);
 
 		when(biobankSampleAttributeMetaData.getAttribute(BiobankSampleAttributeMetaData.IDENTIFIER))
 				.thenReturn(identifier);

@@ -12,8 +12,9 @@ import ReactLayeredComponentMixin from "./mixin/ReactLayeredComponentMixin";
 import Modal from "./Modal";
 import Form from "./Form";
 import Dialog from "./Dialog";
-import {isRefAttr, isXrefAttr, isMrefAttr, isCompoundAttr} from "rest-client/AttributeFunctions";
+import {isCompoundAttr, isMrefAttr, isRefAttr, isXrefAttr} from "rest-client/AttributeFunctions";
 import "./css/Table.css";
+import moment from "moment";
 
 var div = React.DOM.div, table = React.DOM.table, thead = React.DOM.thead, tbody = React.DOM.tbody, tr = React.DOM.tr, th = React.DOM.th, td = React.DOM.td, a = React.DOM.a, span = React.DOM.span, em = React.DOM.em, br = React.DOM.br, label = React.DOM.label;
 
@@ -165,11 +166,13 @@ var Table = React.createClass({
                             label(null, "Rows per page: " + String.fromCharCode(160)),
                             SelectBox({
                                 options: [
+                                    {value: 10, text: 10},
                                     {value: 20, text: 20},
                                     {value: 30, text: 30},
                                     {value: 50, text: 50},
                                     {value: 100, text: 100}
                                 ],
+                                value: 20,
                                 onChange: this._handleRowsPerPageChange
                             })
                         )
@@ -557,6 +560,18 @@ var TableBody = React.createClass({
         }
         return result;
     },
+    /**
+     * Recursively creates the data rows for the data table body
+     *
+     * @param item One entire entity row for all columns (Object)
+     * @param entity Metadata of the entity (Object)
+     * @param attrs All attributes selected in the filter tree (array)
+     * @param selectedAttrs All attributes selected in the filter tree (object)
+     * @param Cols Array of React components
+     * @param path Array of strings containing the names of attribute columns being created recursively at the moment
+     * @param expanded boolean for reference types that are expanded or not
+     * @param behindMref True if attribute is an MREF
+     */
     _createColsRec: function (item, entity, attrs, selectedAttrs, Cols, path, expanded, behindMref) {
         if (_.size(selectedAttrs) > 0) {
             for (var j = 0; j < attrs.length; ++j) {
@@ -565,9 +580,10 @@ var TableBody = React.createClass({
                     if (attr.visible === true) {
                         var attrPath = path.concat(attr.name);
                         if (isCompoundAttr(attr)) {
-                            this._createColsRec(item, entity, attr.attributes, {'*': null}, Cols, path, expanded, behindMref);
+                            var expandedSelectedAttrs = $.extend({'*': null}, selectedAttrs)
+                            this._createColsRec(item, entity, attr.attributes, expandedSelectedAttrs, Cols, path, expanded, behindMref);
                         } else {
-                            behindMref |= attr.fieldType === 'MREF' || attr.fieldType === 'CATEGORICAL_MREF';
+                            behindMref |= attr.fieldType === 'MREF' || attr.fieldType === 'CATEGORICAL_MREF' || attr.fieldType === 'ONE_TO_MANY';
                             if (this._isExpandedAttr(attr, selectedAttrs)) {
                                 Cols.push(td({className: 'expanded-left', key: attrPath.join()}));
                                 this._createColsRec(this._getAttributeValues(item, attr.name), attr.refEntity, attr.refEntity.attributes, selectedAttrs[attr.name], Cols, attrPath, true, behindMref);
@@ -773,6 +789,7 @@ var TableCellContent = React.createClass({
                     break;
                 case 'CATEGORICAL_MREF':
                 case 'MREF':
+                case 'ONE_TO_MANY':
                     CellContent = (
                         span(null,
                             _.flatten(_.map(value, function (item, i) {
@@ -792,6 +809,12 @@ var TableCellContent = React.createClass({
                             }.bind(this)))
                         )
                     );
+                    break;
+                case 'DATE':
+                    CellContent = span(null, moment(value).format('ll'));
+                    break;
+                case 'DATE_TIME':
+                    CellContent = span(null, moment(value).format('lll'));
                     break;
                 case 'EMAIL':
                     CellContent = a({href: 'mailto:' + value}, value);

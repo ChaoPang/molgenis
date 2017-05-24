@@ -7,9 +7,9 @@ import org.molgenis.data.EntityCollection;
 import org.molgenis.data.Query;
 import org.molgenis.data.elasticsearch.request.SearchRequestGenerator;
 import org.molgenis.data.elasticsearch.util.ElasticsearchUtils;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.BatchingQueryResult;
-import org.molgenis.data.support.EntityMetaDataUtils;
+import org.molgenis.data.support.EntityTypeUtils;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -17,7 +17,6 @@ import java.util.function.Consumer;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.molgenis.data.DataConverter.convert;
-import static org.molgenis.data.elasticsearch.util.MapperTypeSanitizer.sanitizeMapperType;
 
 /**
  * Retrieve search results in batches. Note: We do not use Elasticsearch scan & scroll, because scrolling is not
@@ -28,43 +27,40 @@ class ElasticsearchEntityIterable extends BatchingQueryResult<Entity> implements
 {
 	private static final int BATCH_SIZE = 1000;
 
-	private final EntityMetaData entityMeta;
+	private final EntityType entityType;
+	private final ElasticsearchUtils elasticsearchFacade;
 	private final ElasticsearchEntityFactory elasticsearchEntityFactory;
 	private final SearchRequestGenerator searchRequestGenerator;
 	private final String indexName;
+	private final String documentType;
 
-	private final String type;
-	private final ElasticsearchUtils elasticsearchFacade;
-
-	ElasticsearchEntityIterable(Query<Entity> q, EntityMetaData entityMetaData, ElasticsearchUtils elasticsearchFacade,
+	ElasticsearchEntityIterable(Query<Entity> q, EntityType entityType, ElasticsearchUtils elasticsearchFacade,
 			ElasticsearchEntityFactory elasticsearchEntityFactory, SearchRequestGenerator searchRequestGenerator,
-			String indexName)
+			String indexName, String documentType)
 	{
 		super(BATCH_SIZE, q);
-		this.entityMeta = requireNonNull(entityMetaData);
+		this.entityType = requireNonNull(entityType);
 		this.elasticsearchFacade = requireNonNull(elasticsearchFacade);
 		this.elasticsearchEntityFactory = requireNonNull(elasticsearchEntityFactory);
 		this.searchRequestGenerator = requireNonNull(searchRequestGenerator);
 		this.indexName = requireNonNull(indexName);
-
-		this.type = sanitizeMapperType(entityMetaData.getName());
+		this.documentType = requireNonNull(documentType);
 	}
 
 	@Override
 	protected List<Entity> getBatch(Query<Entity> q)
 	{
 		Consumer<SearchRequestBuilder> searchRequestBuilderConsumer = searchRequestBuilder -> searchRequestGenerator
-				.buildSearchRequest(searchRequestBuilder, type, SearchType.QUERY_AND_FETCH, q, null, null, null,
-						entityMeta);
-		return elasticsearchFacade.searchForIds(searchRequestBuilderConsumer, q.toString(), type, indexName)
-				.map(idString -> convert(idString, entityMeta.getIdAttribute()))
-				.map(idObject -> elasticsearchEntityFactory.getReference(entityMeta, idObject)).collect(toList());
+				.buildSearchRequest(searchRequestBuilder, SearchType.QUERY_AND_FETCH, entityType, q, null, null, null);
+		return elasticsearchFacade.searchForIds(searchRequestBuilderConsumer, q.toString(), documentType, indexName)
+				.map(idString -> convert(idString, entityType.getIdAttribute()))
+				.map(idObject -> elasticsearchEntityFactory.getReference(entityType, idObject)).collect(toList());
 	}
 
 	@Override
 	public Iterable<String> getAttributeNames()
 	{
-		return EntityMetaDataUtils.getAttributeNames(entityMeta.getAtomicAttributes());
+		return EntityTypeUtils.getAttributeNames(entityType.getAtomicAttributes());
 	}
 
 	@Override

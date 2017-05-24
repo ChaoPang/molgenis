@@ -4,17 +4,18 @@ import com.google.common.collect.Iterables;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentGenerator;
-import org.molgenis.MolgenisFieldTypes.AttributeType;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityManager;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.util.MolgenisDateFormat;
+import org.molgenis.data.elasticsearch.util.DocumentIdGenerator;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.sql.Date;
+import java.time.Instant;
+import java.time.LocalDate;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -29,11 +30,13 @@ public class ElasticsearchEntityFactory
 	private static final int MAX_INDEXING_DEPTH = 1;
 
 	private final EntityManager entityManager;
+	private final DocumentIdGenerator documentIdGenerator;
 
 	@Autowired
-	public ElasticsearchEntityFactory(EntityManager entityManager)
+	public ElasticsearchEntityFactory(EntityManager entityManager, DocumentIdGenerator documentIdGenerator)
 	{
 		this.entityManager = requireNonNull(entityManager);
+		this.documentIdGenerator = requireNonNull(documentIdGenerator);
 	}
 
 	/**
@@ -62,14 +65,14 @@ public class ElasticsearchEntityFactory
 
 	private void createRec(Entity entity, XContentGenerator generator, int depth, int maxDepth) throws IOException
 	{
-		for (AttributeMetaData attr : entity.getEntityMetaData().getAtomicAttributes())
+		for (Attribute attr : entity.getEntityType().getAtomicAttributes())
 		{
-			generator.writeFieldName(attr.getName());
+			generator.writeFieldName(documentIdGenerator.generateId(attr));
 			createRec(entity, attr, generator, depth, maxDepth);
 		}
 	}
 
-	private void createRec(Entity entity, AttributeMetaData attr, XContentGenerator generator, int depth, int maxDepth)
+	private void createRec(Entity entity, Attribute attr, XContentGenerator generator, int depth, int maxDepth)
 			throws IOException
 	{
 		String attrName = attr.getName();
@@ -139,11 +142,10 @@ public class ElasticsearchEntityFactory
 				}
 				break;
 			case DATE:
-				Date date = entity.getDate(attrName);
+				LocalDate date = entity.getLocalDate(attrName);
 				if (date != null)
 				{
-					String dateValue = MolgenisDateFormat.getDateFormat().format(date);
-					generator.writeString(dateValue);
+					generator.writeString(date.toString());
 				}
 				else
 				{
@@ -151,11 +153,10 @@ public class ElasticsearchEntityFactory
 				}
 				break;
 			case DATE_TIME:
-				Date dateTime = entity.getDate(attrName);
+				Instant dateTime = entity.getInstant(attrName);
 				if (dateTime != null)
 				{
-					String dateTimeValue = MolgenisDateFormat.getDateTimeFormat().format(dateTime);
-					generator.writeString(dateTimeValue);
+					generator.writeString(dateTime.toString());
 				}
 				else
 				{
@@ -177,7 +178,7 @@ public class ElasticsearchEntityFactory
 					}
 					else
 					{
-						AttributeMetaData xrefIdAttr = xrefEntity.getEntityMetaData().getIdAttribute();
+						Attribute xrefIdAttr = xrefEntity.getEntityType().getIdAttribute();
 						createRec(xrefEntity, xrefIdAttr, generator, depth + 1, maxDepth);
 					}
 				}
@@ -189,6 +190,7 @@ public class ElasticsearchEntityFactory
 			}
 			case CATEGORICAL_MREF:
 			case MREF:
+			case ONE_TO_MANY:
 			{
 				Iterable<Entity> mrefEntities = entity.getEntities(attrName);
 				if (!Iterables.isEmpty(mrefEntities))
@@ -204,7 +206,7 @@ public class ElasticsearchEntityFactory
 						}
 						else
 						{
-							AttributeMetaData mrefIdAttr = mrefEntity.getEntityMetaData().getIdAttribute();
+							Attribute mrefIdAttr = mrefEntity.getEntityType().getIdAttribute();
 							createRec(mrefEntity, mrefIdAttr, generator, depth + 1, maxDepth);
 						}
 					}
@@ -223,8 +225,8 @@ public class ElasticsearchEntityFactory
 		}
 	}
 
-	Entity getReference(EntityMetaData entityMeta, Object idObject)
+	Entity getReference(EntityType entityType, Object idObject)
 	{
-		return entityManager.getReference(entityMeta, idObject);
+		return entityManager.getReference(entityType, idObject);
 	}
 }

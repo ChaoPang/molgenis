@@ -1,7 +1,7 @@
 package org.molgenis.data.discovery.meta;
 
 import org.molgenis.data.meta.SystemPackage;
-import org.molgenis.data.meta.model.PackageMetaData;
+import org.molgenis.data.meta.model.PackageMetadata;
 import org.molgenis.data.system.model.RootSystemPackage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -18,7 +18,7 @@ public class BiobankUniversePackage extends SystemPackage
 	private final RootSystemPackage rootSystemPackage;
 
 	@Autowired
-	public BiobankUniversePackage(PackageMetaData packageMetaData, RootSystemPackage rootSystemPackage)
+	public BiobankUniversePackage(PackageMetadata packageMetaData, RootSystemPackage rootSystemPackage)
 	{
 		super(SIMPLE_NAME, packageMetaData);
 		this.rootSystemPackage = requireNonNull(rootSystemPackage);

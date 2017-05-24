@@ -7,8 +7,8 @@ import org.molgenis.data.Query;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
 import org.molgenis.data.RepositoryCapability;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.vcf.VcfReaderFactory;
 import org.molgenis.data.vcf.VcfRepository;
 import org.molgenis.data.vcf.model.VcfAttributes;
@@ -31,18 +31,17 @@ public class TabixVcfRepository extends VcfRepository
 	private static final Logger LOG = LoggerFactory.getLogger(TabixVcfRepository.class);
 	private final TabixReader tabixReader;
 
-	public TabixVcfRepository(File file, String entityName, VcfAttributes vcfAttributes,
-			EntityMetaDataFactory entityMetaFactory, AttributeMetaDataFactory attrMetaFactory) throws IOException
+	public TabixVcfRepository(File file, String entityTypeId, VcfAttributes vcfAttributes,
+			EntityTypeFactory entityTypeFactory, AttributeFactory attrMetaFactory) throws IOException
 	{
-		super(file, entityName, vcfAttributes, entityMetaFactory, attrMetaFactory);
+		super(file, entityTypeId, vcfAttributes, entityTypeFactory, attrMetaFactory);
 		tabixReader = new TabixReader(file.getCanonicalPath());
 	}
 
-	TabixVcfRepository(VcfReaderFactory readerFactory, TabixReader tabixReader, String entityName,
-			VcfAttributes vcfAttributes, EntityMetaDataFactory entityMetaFactory,
-			AttributeMetaDataFactory attrMetaFactory)
+	TabixVcfRepository(VcfReaderFactory readerFactory, TabixReader tabixReader, String entityTypeId,
+			VcfAttributes vcfAttributes, EntityTypeFactory entityTypeFactory, AttributeFactory attrMetaFactory)
 	{
-		super(readerFactory, entityName, vcfAttributes, entityMetaFactory, attrMetaFactory);
+		super(readerFactory, entityTypeId, vcfAttributes, entityTypeFactory, attrMetaFactory);
 		this.tabixReader = tabixReader;
 	}
 
@@ -103,13 +102,15 @@ public class TabixVcfRepository extends VcfRepository
 		}
 		catch (NullPointerException e)
 		{
-			LOG.warn("Unable to read from tabix resource for query: " + queryString
+			//FIXME: group the occurances of this exception and log once per annotation run
+			LOG.trace("Unable to read from tabix resource for query: " + queryString
 					+ " (Position not present in resource file?)");
 			LOG.debug("", e);
 		}
 		catch (ArrayIndexOutOfBoundsException e)
 		{
-			LOG.warn("Unable to read from tabix resource for query: " + queryString
+			//FIXME: group the occurances of this exception and log once per annotation run
+			LOG.trace("Unable to read from tabix resource for query: " + queryString
 					+ " (Chromosome not present in resource file?)");
 			LOG.debug("", e);
 		}

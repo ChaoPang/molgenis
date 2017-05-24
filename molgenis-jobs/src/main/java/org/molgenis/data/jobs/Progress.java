@@ -1,5 +1,7 @@
 package org.molgenis.data.jobs;
 
+import org.molgenis.data.jobs.model.JobExecution;
+
 public interface Progress
 {
 	void start();
@@ -7,6 +9,8 @@ public interface Progress
 	void setProgressMax(int max);
 
 	void progress(int progress, String message);
+
+	void increment(int amount);
 
 	void status(String message);
 
@@ -19,4 +23,6 @@ public interface Progress
 	Long timeRunning();
 
 	void setResultUrl(String string);
+
+	JobExecution getJobExecution();
 }

@@ -1,9 +1,10 @@
 package org.molgenis.data;
 
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 
 import java.io.Serializable;
-import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * Entity is a data record which can contain a hash of attribute values. Attribute names are unique. Synonyms are
@@ -17,12 +18,12 @@ public interface Entity extends Serializable
 	 *
 	 * @return entity meta data, never null
 	 */
-	EntityMetaData getEntityMetaData();
+	EntityType getEntityType();
 
 	/**
 	 * Get all attribute names
 	 * <p>
-	 * TODO remove, use getEntityMetaData to retrieve entity meta data
+	 * TODO remove, use getEntityType to retrieve entity meta data
 	 */
 	Iterable<String> getAttributeNames();
 
@@ -76,19 +77,14 @@ public interface Entity extends Serializable
 	Double getDouble(String attributeName);
 
 	/**
-	 * Retrieves the value of the designated column as {@link java.sql.Date}.
+	 * Retrieves the value of the designated column as {@link java.time.Instant}.
 	 */
-	java.sql.Date getDate(String attributeName);
+	Instant getInstant(String attributeName);
 
 	/**
-	 * Retrieves the value of the designated column as {@link java.util.Date}.
+	 * Retrieves the value of the designated column as {@link java.time.LocalDate}.
 	 */
-	java.util.Date getUtilDate(String attributeName);
-
-	/**
-	 * Retrieves the value of the designated column as {@link java.sql.Timestamp}.
-	 */
-	Timestamp getTimestamp(String attributeName);
+	LocalDate getLocalDate(String attributeName);
 
 	/**
 	 * Retrieves the value of the designated column as entity

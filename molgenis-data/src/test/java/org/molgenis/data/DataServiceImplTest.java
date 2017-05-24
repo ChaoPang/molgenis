@@ -3,7 +3,7 @@ package org.molgenis.data;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.molgenis.data.meta.MetaDataService;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.DataServiceImpl;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.security.core.utils.SecurityUtils;
@@ -28,13 +28,14 @@ import static org.testng.Assert.assertNull;
 
 public class DataServiceImplTest
 {
-	private final List<String> entityNames = asList("Entity1", "Entity2", "Entity3");
+	private final List<String> entityTypeIds = asList("Entity1", "Entity2", "Entity3");
 	private Repository<Entity> repo1;
 	private Repository<Entity> repo2;
 	private Repository<Entity> repoToRemove;
 	private DataServiceImpl dataService;
 	private MetaDataService metaDataService;
 
+	@SuppressWarnings("unchecked")
 	@BeforeMethod
 	public void beforeMethod()
 	{
@@ -65,16 +66,16 @@ public class DataServiceImplTest
 		when(metaDataService.getRepository("Entity1")).thenReturn(repo1);
 		when(metaDataService.getRepository("Entity2")).thenReturn(repo2);
 		when(metaDataService.getRepository("Entity3")).thenReturn(repoToRemove);
-		EntityMetaData entityMeta1 = when(mock(EntityMetaData.class).getName()).thenReturn("Entity1").getMock();
-		EntityMetaData entityMeta2 = when(mock(EntityMetaData.class).getName()).thenReturn("Entity2").getMock();
-		EntityMetaData entityMeta3 = when(mock(EntityMetaData.class).getName()).thenReturn("Entity3").getMock();
+		EntityType entityType1 = when(mock(EntityType.class).getId()).thenReturn("Entity1").getMock();
+		EntityType entityType2 = when(mock(EntityType.class).getId()).thenReturn("Entity2").getMock();
+		EntityType entityType3 = when(mock(EntityType.class).getId()).thenReturn("Entity3").getMock();
 
-		when(metaDataService.getEntityMetaDatas()).thenAnswer(new Answer<Stream<EntityMetaData>>()
+		when(metaDataService.getEntityTypes()).thenAnswer(new Answer<Stream<EntityType>>()
 		{
 			@Override
-			public Stream<EntityMetaData> answer(InvocationOnMock invocation) throws Throwable
+			public Stream<EntityType> answer(InvocationOnMock invocation) throws Throwable
 			{
-				return asList(entityMeta1, entityMeta2, entityMeta3).stream();
+				return asList(entityType1, entityType2, entityType3).stream();
 			}
 		});
 		dataService.setMetaDataService(metaDataService);
@@ -115,7 +116,7 @@ public class DataServiceImplTest
 	@Test
 	public void getEntityNames()
 	{
-		assertEquals(dataService.getEntityNames().collect(toList()), asList("Entity1", "Entity2", "Entity3"));
+		assertEquals(dataService.getEntityTypeIds().collect(toList()), asList("Entity1", "Entity2", "Entity3"));
 	}
 
 	@Test
@@ -241,6 +242,7 @@ public class DataServiceImplTest
 	public void findAllStreamStringQuery()
 	{
 		Entity entity0 = mock(Entity.class);
+		@SuppressWarnings("unchecked")
 		Query<Entity> query = mock(Query.class);
 		when(repo1.findAll(query)).thenReturn(Stream.of(entity0));
 		Stream<Entity> entities = dataService.findAll("Entity1", query);
@@ -252,6 +254,7 @@ public class DataServiceImplTest
 	{
 		Class<Entity> clazz = Entity.class;
 		Entity entity0 = mock(Entity.class);
+		@SuppressWarnings("unchecked")
 		Query<Entity> query = mock(Query.class);
 		when(repo1.findAll(query)).thenReturn(Stream.of(entity0));
 		Stream<Entity> entities = dataService.findAll("Entity1", query, clazz);

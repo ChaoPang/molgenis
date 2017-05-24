@@ -1,11 +1,12 @@
 package org.molgenis.data.csv;
 
 import au.com.bytecode.opencsv.CSVReader;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.molgenis.data.Entity;
 import org.molgenis.data.MolgenisDataException;
 import org.molgenis.data.UnknownEntityException;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.processor.AbstractCellProcessor;
 import org.molgenis.data.processor.CellProcessor;
 import org.molgenis.data.support.DynamicEntity;
@@ -14,16 +15,17 @@ import org.molgenis.util.CloseableIterator;
 import org.springframework.util.StringUtils;
 
 import java.io.*;
-import java.nio.charset.Charset;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.molgenis.data.csv.CsvRepositoryCollection.MAC_ZIP;
+
 public class CsvIterator implements CloseableIterator<Entity>
 {
-	private static final Charset CHARSET = Charset.forName("UTF-8");
 	private final String repositoryName;
-	private final EntityMetaData entityMeta;
+	private final EntityType entityType;
 	private ZipFile zipFile;
 	private CSVReader csvReader;
 	private final List<CellProcessor> cellProcessors;
@@ -32,21 +34,22 @@ public class CsvIterator implements CloseableIterator<Entity>
 	private boolean getNext = true;
 	private Character separator = null;
 
-	public CsvIterator(File file, String repositoryName, List<CellProcessor> cellProcessors, Character separator)
+	CsvIterator(File file, String repositoryName, List<CellProcessor> cellProcessors, Character separator)
 	{
 		this(file, repositoryName, cellProcessors, separator, null);
 	}
 
-	public CsvIterator(File file, String repositoryName, List<CellProcessor> cellProcessors, Character separator,
-			EntityMetaData entityMeta)
+	CsvIterator(File file, String repositoryName, List<CellProcessor> cellProcessors, Character separator,
+			EntityType entityType)
 	{
 		this.repositoryName = repositoryName;
 		this.cellProcessors = cellProcessors;
 		this.separator = separator;
-		this.entityMeta = entityMeta;
+		this.entityType = entityType;
 
 		try
 		{
+
 			if (StringUtils.getFilenameExtension(file.getName())
 					.equalsIgnoreCase(GenericImporterExtensions.ZIP.toString()))
 			{
@@ -54,13 +57,16 @@ public class CsvIterator implements CloseableIterator<Entity>
 				for (Enumeration<? extends ZipEntry> e = zipFile.entries(); e.hasMoreElements(); )
 				{
 					ZipEntry entry = e.nextElement();
-					if (StringUtils.stripFilenameExtension(entry.getName()).equalsIgnoreCase(repositoryName))
+					if (!entry.getName().contains(MAC_ZIP) && !entry.isDirectory())
 					{
-						csvReader = createCSVReader(entry.getName(), zipFile.getInputStream(entry));
-						break;
+						String fileRepositoryName = FilenameUtils.getBaseName(entry.getName());
+						if (fileRepositoryName.equalsIgnoreCase(repositoryName))
+						{
+							csvReader = createCSVReader(entry.getName(), zipFile.getInputStream(entry));
+							break;
+						}
 					}
 				}
-
 			}
 			else if (file.getName().toLowerCase().startsWith(repositoryName.toLowerCase()))
 			{
@@ -80,7 +86,7 @@ public class CsvIterator implements CloseableIterator<Entity>
 		}
 	}
 
-	public Map<String, Integer> getColNamesMap()
+	Map<String, Integer> getColNamesMap()
 	{
 		return colNamesMap;
 	}
@@ -125,7 +131,7 @@ public class CsvIterator implements CloseableIterator<Entity>
 						values[i] = processCell(value, false);
 					}
 
-					next = new DynamicEntity(entityMeta);
+					next = new DynamicEntity(entityType);
 
 					for (String name : colNamesMap.keySet())
 					{
@@ -167,7 +173,7 @@ public class CsvIterator implements CloseableIterator<Entity>
 
 	private CSVReader createCSVReader(String fileName, InputStream in)
 	{
-		Reader reader = new InputStreamReader(in, CHARSET);
+		Reader reader = new InputStreamReader(in, UTF_8);
 
 		if (null == separator)
 		{

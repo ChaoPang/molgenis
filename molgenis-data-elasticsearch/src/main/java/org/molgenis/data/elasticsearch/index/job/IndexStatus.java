@@ -1,8 +1,8 @@
 package org.molgenis.data.elasticsearch.index.job;
 
 import com.google.common.util.concurrent.AtomicLongMap;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,9 +39,9 @@ public class IndexStatus
 		{
 			for (Map.Entry<String, Long> addedForEntity : actionsRegistered.entrySet())
 			{
-				final String entityName = addedForEntity.getKey();
+				final String entityTypeId = addedForEntity.getKey();
 				final Long numberOfActions = addedForEntity.getValue();
-				actionCountsPerEntity.addAndGet(entityName, numberOfActions);
+				actionCountsPerEntity.addAndGet(entityTypeId, numberOfActions);
 			}
 		}
 		finally
@@ -58,12 +58,12 @@ public class IndexStatus
 		{
 			for (Map.Entry<String, Long> actionsPerEntity : actionsPerformed.entrySet())
 			{
-				final String entityName = actionsPerEntity.getKey();
+				final String entityTypeId = actionsPerEntity.getKey();
 				Long numberOfActions = actionsPerEntity.getValue();
-				if (actionCountsPerEntity.addAndGet(entityName, -numberOfActions) == 0)
+				if (actionCountsPerEntity.addAndGet(entityTypeId, -numberOfActions) == 0)
 				{
 					actionCountsPerEntity.removeAllZeros();
-					LOG.debug("Entity {} is stable.", entityName);
+					LOG.debug("Entity {} is stable.", entityTypeId);
 					singleEntityStable.signalAll();
 				}
 			}
@@ -95,20 +95,19 @@ public class IndexStatus
 		}
 	}
 
-	private boolean isIndexStableIncludingReferences(EntityMetaData emd)
+	private boolean isIndexStableIncludingReferences(EntityType emd)
 	{
 		if (isAllIndicesStable())
 		{
 			return true;
 		}
-		Set<String> referencedEntityNames = stream(emd.getAtomicAttributes().spliterator(), false)
-				.map(AttributeMetaData::getRefEntity).filter(e -> e != null).map(EntityMetaData::getName)
-				.collect(toSet());
-		referencedEntityNames.add(emd.getName());
-		return referencedEntityNames.stream().noneMatch(actionCountsPerEntity::containsKey);
+		Set<String> referencedEntityIds = stream(emd.getAtomicAttributes().spliterator(), false)
+				.map(Attribute::getRefEntity).filter(e -> e != null).map(EntityType::getId).collect(toSet());
+		referencedEntityIds.add(emd.getId());
+		return referencedEntityIds.stream().noneMatch(actionCountsPerEntity::containsKey);
 	}
 
-	void waitForIndexToBeStableIncludingReferences(EntityMetaData emd) throws InterruptedException
+	void waitForIndexToBeStableIncludingReferences(EntityType emd) throws InterruptedException
 	{
 		lock.lock();
 		try

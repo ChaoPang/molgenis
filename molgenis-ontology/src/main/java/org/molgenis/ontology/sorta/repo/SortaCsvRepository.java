@@ -3,10 +3,10 @@ package org.molgenis.ontology.sorta.repo;
 import org.molgenis.data.Entity;
 import org.molgenis.data.RepositoryCapability;
 import org.molgenis.data.csv.CsvRepository;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.processor.CellProcessor;
 import org.molgenis.data.processor.LowerCaseProcessor;
 import org.molgenis.data.processor.TrimProcessor;
@@ -19,57 +19,56 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.commons.lang3.StringUtils.isEmpty;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeCopyMode.DEEP_COPY_ATTRS;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.ROLE_ID;
+import static org.molgenis.data.meta.model.EntityType.AttributeCopyMode.DEEP_COPY_ATTRS;
+import static org.molgenis.data.meta.model.EntityType.AttributeRole.ROLE_ID;
 import static org.molgenis.util.ApplicationContextProvider.getApplicationContext;
 
 public class SortaCsvRepository extends AbstractRepository
 {
-	private EntityMetaData entityMetaData = null;
+	private EntityType entityType = null;
 	private final CsvRepository csvRepository;
-	private final String entityName;
+	private final String entityTypeId;
 	private final String entityLabel;
 	public final static String ALLOWED_IDENTIFIER = "Identifier";
 	private final static List<CellProcessor> LOWERCASE_AND_TRIM = Arrays
 			.asList(new LowerCaseProcessor(), new TrimProcessor());
 
-	public SortaCsvRepository(File file, EntityMetaDataFactory entityMetaFactory,
-			AttributeMetaDataFactory attrMetaFactory)
+	public SortaCsvRepository(File file, EntityTypeFactory entityTypeFactory, AttributeFactory attrMetaFactory)
 	{
-		this.csvRepository = new CsvRepository(file, entityMetaFactory, attrMetaFactory, LOWERCASE_AND_TRIM,
+		this.csvRepository = new CsvRepository(file, entityTypeFactory, attrMetaFactory, LOWERCASE_AND_TRIM,
 				SortaServiceImpl.DEFAULT_SEPARATOR);
-		this.entityName = file.getName();
+		this.entityTypeId = file.getName();
 		this.entityLabel = file.getName();
 	}
 
-	public SortaCsvRepository(String entityName, String entityLabel, File uploadedFile,
-			EntityMetaDataFactory entityMetaFactory, AttributeMetaDataFactory attrMetaFactory)
+	public SortaCsvRepository(String entityTypeId, String entityLabel, File uploadedFile,
+			EntityTypeFactory entityTypeFactory, AttributeFactory attrMetaFactory)
 	{
-		this.csvRepository = new CsvRepository(uploadedFile, entityMetaFactory, attrMetaFactory, LOWERCASE_AND_TRIM,
+		this.csvRepository = new CsvRepository(uploadedFile, entityTypeFactory, attrMetaFactory, LOWERCASE_AND_TRIM,
 				SortaServiceImpl.DEFAULT_SEPARATOR);
-		this.entityName = entityName;
+		this.entityTypeId = entityTypeId;
 		this.entityLabel = entityLabel;
 	}
 
-	@Override
-	public EntityMetaData getEntityMetaData()
+	public EntityType getEntityType()
 	{
-		if (entityMetaData == null)
+		if (entityType == null)
 		{
-			AttributeMetaDataFactory attrMetaFactory = getApplicationContext().getBean(AttributeMetaDataFactory.class);
+			AttributeFactory attrMetaFactory = getApplicationContext()
+					.getBean(AttributeFactory.class); // FIXME do not use application context
 
-			entityMetaData = EntityMetaData.newInstance(csvRepository.getEntityMetaData(), DEEP_COPY_ATTRS);
-			entityMetaData.setName(entityName);
-			entityMetaData.setLabel(entityLabel);
-			entityMetaData
-					.addAttribute(attrMetaFactory.create().setName(ALLOWED_IDENTIFIER).setNillable(false), ROLE_ID);
-			AttributeMetaData nameAttribute = entityMetaData.getAttribute(SortaServiceImpl.DEFAULT_MATCHING_NAME_FIELD);
+			entityType = EntityType.newInstance(csvRepository.getEntityType(), DEEP_COPY_ATTRS, attrMetaFactory);
+			entityType.setId(entityTypeId);
+			entityType.setLabel(entityLabel);
+			entityType.setBackend("PostgreSQL"); // FIXME do not hardcode backend name
+			entityType.addAttribute(attrMetaFactory.create().setName(ALLOWED_IDENTIFIER).setNillable(false), ROLE_ID);
+			Attribute nameAttribute = entityType.getAttribute(SortaServiceImpl.DEFAULT_MATCHING_NAME_FIELD);
 			if (nameAttribute != null)
 			{
-				entityMetaData.setLabelAttribute(nameAttribute);
+				nameAttribute.setLabelAttribute(true);
 			}
 		}
-		return entityMetaData;
+		return entityType;
 	}
 
 	@Override
@@ -91,11 +90,10 @@ public class SortaCsvRepository extends AbstractRepository
 				Entity entity = iterator.next();
 				if (isEmpty(entity.getString(ALLOWED_IDENTIFIER)))
 				{
-					DynamicEntity dynamicEntity = new DynamicEntity(
-							null); // FIXME pass entity meta data instead of null
+					DynamicEntity dynamicEntity = new DynamicEntity(getEntityType());
 					dynamicEntity.set(entity);
 					entity = dynamicEntity;
-					entity.set(ALLOWED_IDENTIFIER, count.incrementAndGet());
+					entity.set(ALLOWED_IDENTIFIER, String.valueOf(count.incrementAndGet()));
 				}
 				return entity;
 			}

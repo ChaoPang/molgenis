@@ -10,9 +10,8 @@ import org.molgenis.data.mapper.data.request.AddTagRequest;
 import org.molgenis.data.mapper.data.request.AutoTagRequest;
 import org.molgenis.data.mapper.data.request.GetOntologyTermRequest;
 import org.molgenis.data.mapper.data.request.RemoveTagRequest;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.data.meta.model.EntityMetaDataMetaData;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.semantic.Relation;
 import org.molgenis.data.semanticsearch.semantic.Hit;
 import org.molgenis.data.semanticsearch.semantic.OntologyTag;
@@ -42,13 +41,13 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.elasticsearch.common.collect.ImmutableSet.of;
 import static org.molgenis.data.mapper.controller.TagWizardController.URI;
-import static org.molgenis.data.meta.model.EntityMetaDataMetaData.ENTITY_META_DATA;
+import static org.molgenis.data.meta.model.EntityTypeMetadata.ENTITY_TYPE_META_DATA;
 
 @Controller
 @RequestMapping(URI)
 public class TagWizardController extends MolgenisPluginController
 {
-	private static final Logger LOG = LoggerFactory.getLogger(MappingServiceController.class);
+	private static final Logger LOG = LoggerFactory.getLogger(TagWizardController.class);
 
 	public static final String ID = "tagwizard";
 	public static final String URI = MolgenisPluginController.PLUGIN_URI_PREFIX + ID;
@@ -82,12 +81,12 @@ public class TagWizardController extends MolgenisPluginController
 	@RequestMapping
 	public String viewTagWizard(@RequestParam(required = false, value = "selectedTarget") String target, Model model)
 	{
-		List<String> entityNames = dataService.findAll(ENTITY_META_DATA)
-				.map(e -> e.getString(EntityMetaDataMetaData.FULL_NAME)).collect(toList());
+		List<String> entityTypeIds = dataService.findAll(ENTITY_TYPE_META_DATA, EntityType.class)
+				.map(entityType -> entityType.getId()).collect(toList());
 
 		if (StringUtils.isEmpty(target))
 		{
-			Optional<String> findFirst = entityNames.stream().findFirst();
+			Optional<String> findFirst = entityTypeIds.stream().findFirst();
 			if (findFirst.isPresent())
 			{
 				target = findFirst.get();
@@ -100,16 +99,17 @@ public class TagWizardController extends MolgenisPluginController
 		}
 
 		List<Ontology> ontologies = ontologyService.getOntologies();
-		EntityMetaData emd = dataService.getEntityMetaData(target);
-		List<AttributeMetaData> attributes = newArrayList(emd.getAttributes());
-		Map<String, Multimap<Relation, OntologyTagObject>> taggedAttributeMetaDatas = attributes.stream()
+
+		EntityType emd = dataService.getEntityType(target);
+		List<Attribute> attributes = newArrayList(emd.getAttributes());
+		Map<String, Multimap<Relation, OntologyTagObject>> taggedAttributes = attributes.stream()
 				.collect(toMap((x -> x.getName()), (x -> ontologyTagService.getTagsForAttribute(emd, x))));
 
 		model.addAttribute("entity", emd);
-		model.addAttribute("entityNames", entityNames);
+		model.addAttribute("entityTypeIds", entityTypeIds);
 		model.addAttribute("attributes", attributes);
 		model.addAttribute("ontologies", ontologies);
-		model.addAttribute("taggedAttributeMetaDatas", taggedAttributeMetaDatas);
+		model.addAttribute("taggedAttributes", taggedAttributes);
 		model.addAttribute("relations", Relation.values());
 
 		return VIEW_TAG_WIZARD;
@@ -118,7 +118,7 @@ public class TagWizardController extends MolgenisPluginController
 	/**
 	 * Add a tag for a single attribute
 	 *
-	 * @param request the {@link AddTagRequest} containing the entityName, attributeName, relationIRI and ontologyTermIRIs
+	 * @param request the {@link AddTagRequest} containing the entityTypeId, attributeName, relationIRI and ontologyTermIRIs
 	 */
 	@RequestMapping(method = RequestMethod.POST, value = "/tagattribute")
 	public
@@ -133,7 +133,7 @@ public class TagWizardController extends MolgenisPluginController
 	/**
 	 * Delete a single tag
 	 *
-	 * @param request the {@link RemoveTagRequest} containing entityName, attributeName, relationIRI and ontologyTermIRI
+	 * @param request the {@link RemoveTagRequest} containing entityTypeId, attributeName, relationIRI and ontologyTermIRI
 	 */
 	@RequestMapping(method = RequestMethod.POST, value = "/deletesingletag")
 	public
@@ -148,29 +148,29 @@ public class TagWizardController extends MolgenisPluginController
 	/**
 	 * Clears all tags from every attribute in the current target entity
 	 *
-	 * @param entityName The name of the {@link Entity}
+	 * @param entityTypeId The name of the {@link Entity}
 	 */
 	@RequestMapping(method = RequestMethod.POST, value = "/clearalltags")
 	public
 	@ResponseBody
-	void clearAllTags(@RequestParam String entityName)
+	void clearAllTags(@RequestParam String entityTypeId)
 	{
-		ontologyTagService.removeAllTagsFromEntity(entityName);
+		ontologyTagService.removeAllTagsFromEntity(entityTypeId);
 	}
 
 	/**
 	 * Automatically tags all attributes in the current entity using Lucene lexical matching. Stores the tags in the
 	 * OntologyTag Repository.
 	 *
-	 * @param request containing the entityName and selected ontology identifiers
-	 * @return A {@link Map} containing AttributeMetaData name and a Map of Tag iri and label
+	 * @param request containing the entityTypeId and selected ontology identifiers
+	 * @return A {@link Map} containing Attribute name and a Map of Tag iri and label
 	 */
 	@RequestMapping(method = RequestMethod.POST, value = "/autotagattributes")
 	public
 	@ResponseBody
 	Map<String, OntologyTag> autoTagAttributes(@Valid @RequestBody AutoTagRequest request)
 	{
-		Map<AttributeMetaData, Hit<OntologyTagObject>> autoGeneratedTags = semanticSearchService
+		Map<Attribute, Hit<OntologyTagObject>> autoGeneratedTags = semanticSearchService
 				.findTags(request.getEntityName(), request.getOntologyIds());
 
 		return ontologyTagService.tagAttributesInEntity(request.getEntityName(),

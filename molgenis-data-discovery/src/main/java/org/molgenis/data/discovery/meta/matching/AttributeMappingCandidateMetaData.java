@@ -3,18 +3,17 @@ package org.molgenis.data.discovery.meta.matching;
 import org.molgenis.data.discovery.meta.BiobankUniversePackage;
 import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData;
 import org.molgenis.data.discovery.meta.biobank.BiobankUniverseMetaData;
-import org.molgenis.data.meta.SystemEntityMetaData;
+import org.molgenis.data.meta.SystemEntityType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import static java.util.Objects.requireNonNull;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.*;
 import static org.molgenis.data.discovery.meta.BiobankUniversePackage.PACKAGE_UNIVERSE;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.ROLE_ID;
+import static org.molgenis.data.meta.AttributeType.*;
 import static org.molgenis.data.meta.model.Package.PACKAGE_SEPARATOR;
 
 @Component
-public class AttributeMappingCandidateMetaData extends SystemEntityMetaData
+public class AttributeMappingCandidateMetaData extends SystemEntityType
 {
 	public static final String SIMPLE_NAME = "AttributeMappingCandidate";
 	public static final String ATTRIBUTE_MAPPING_CANDIDATE = PACKAGE_UNIVERSE + PACKAGE_SEPARATOR + SIMPLE_NAME;
@@ -56,7 +55,7 @@ public class AttributeMappingCandidateMetaData extends SystemEntityMetaData
 		setLabel("Attribute mapping candidate");
 		setPackage(biobankUniversePackage);
 
-		addAttribute(IDENTIFIER, ROLE_ID);
+		addAttribute(IDENTIFIER, AttributeRole.ROLE_ID);
 		addAttribute(BIOBANK_UNIVERSE).setDataType(XREF).setRefEntity(biobankUniverseMetaData);
 		addAttribute(TARGET).setDataType(XREF).setRefEntity(biobankSampleAttributeMetaData);
 		addAttribute(SOURCE).setDataType(XREF).setRefEntity(biobankSampleAttributeMetaData);

@@ -1,7 +1,7 @@
 package org.molgenis.ontology.core.meta;
 
 import org.molgenis.data.Entity;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.StaticEntity;
 
 public class SemanticTypeEntity extends StaticEntity
@@ -11,14 +11,14 @@ public class SemanticTypeEntity extends StaticEntity
 		super(entity);
 	}
 
-	public SemanticTypeEntity(EntityMetaData entityMeta)
+	public SemanticTypeEntity(EntityType entityType)
 	{
-		super(entityMeta);
+		super(entityType);
 	}
 
-	public SemanticTypeEntity(String id, EntityMetaData entityMeta)
+	public SemanticTypeEntity(String id, EntityType entityType)
 	{
-		super(entityMeta);
+		super(entityType);
 		setId(id);
 	}
 

@@ -12,15 +12,18 @@ import org.elasticsearch.common.collect.Iterators;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.molgenis.data.*;
+import org.molgenis.data.aggregation.AggregateQuery;
+import org.molgenis.data.aggregation.AggregateResult;
 import org.molgenis.data.elasticsearch.index.ElasticsearchIndexCreator;
 import org.molgenis.data.elasticsearch.index.MappingsBuilder;
 import org.molgenis.data.elasticsearch.request.SearchRequestGenerator;
 import org.molgenis.data.elasticsearch.response.ResponseParser;
+import org.molgenis.data.elasticsearch.util.DocumentIdGenerator;
 import org.molgenis.data.elasticsearch.util.ElasticsearchUtils;
 import org.molgenis.data.elasticsearch.util.SearchRequest;
 import org.molgenis.data.elasticsearch.util.SearchResult;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.util.EntityUtils;
 import org.molgenis.util.Pair;
@@ -39,8 +42,7 @@ import static java.util.stream.StreamSupport.stream;
 import static org.molgenis.data.DataConverter.convert;
 import static org.molgenis.data.elasticsearch.util.ElasticsearchEntityUtils.toElasticsearchId;
 import static org.molgenis.data.elasticsearch.util.ElasticsearchEntityUtils.toElasticsearchIds;
-import static org.molgenis.data.elasticsearch.util.MapperTypeSanitizer.sanitizeMapperType;
-import static org.molgenis.data.support.EntityMetaDataUtils.createFetchForReindexing;
+import static org.molgenis.data.support.EntityTypeUtils.createFetchForReindexing;
 
 /**
  * ElasticSearch implementation of the SearchService interface.
@@ -58,68 +60,53 @@ public class ElasticsearchService implements SearchService
 		ADD, UPDATE
 	}
 
+	private final String indexName;
 	private final DataService dataService;
 	private final ElasticsearchEntityFactory elasticsearchEntityFactory;
-	private final String indexName;
+	private final DocumentIdGenerator documentIdGenerator;
+
 	private final ResponseParser responseParser = new ResponseParser();
 	private final ElasticsearchUtils elasticsearchFacade;
-	private final SearchRequestGenerator searchRequestGenerator = new SearchRequestGenerator();
+	private final SearchRequestGenerator searchRequestGenerator;
 
 	public ElasticsearchService(Client client, String indexName, DataService dataService,
-			ElasticsearchEntityFactory elasticsearchEntityFactory)
+			ElasticsearchEntityFactory elasticsearchEntityFactory, DocumentIdGenerator documentIdGenerator)
 	{
 		this.indexName = requireNonNull(indexName);
 		this.dataService = requireNonNull(dataService);
 		this.elasticsearchEntityFactory = requireNonNull(elasticsearchEntityFactory);
+		this.documentIdGenerator = requireNonNull(documentIdGenerator);
 		this.elasticsearchFacade = new ElasticsearchUtils(client);
 		new ElasticsearchIndexCreator(client).createIndexIfNotExists(indexName);
-	}
-
-	@Override
-	public Iterable<String> getTypes()
-	{
-		return () -> elasticsearchFacade.getMappings(indexName).keysIt();
+		this.searchRequestGenerator = new SearchRequestGenerator(documentIdGenerator);
 	}
 
 	private SearchResult search(SearchRequest request)
 	{
-		// TODO : A quick fix now! Need to find a better way to get
-		// EntityMetaData in ElasticSearchService, because ElasticSearchService should not be
-		// aware of DataService. E.g. Put EntityMetaData in the SearchRequest object
-		EntityMetaData entityMetaData = (request.getDocumentType() != null && dataService != null && dataService
-				.hasRepository(request.getDocumentType())) ? dataService
-				.getEntityMetaData(request.getDocumentType()) : null;
-		String documentType = request.getDocumentType() == null ? null : sanitizeMapperType(request.getDocumentType());
-		SearchResponse response = elasticsearchFacade
-				.search(SearchType.QUERY_AND_FETCH, request, entityMetaData, documentType, indexName);
-		return responseParser.parseSearchResponse(request, response, entityMetaData, dataService);
+		SearchResponse response = elasticsearchFacade.search(SearchType.QUERY_AND_FETCH, request, indexName);
+		return responseParser.parseSearchResponse(request, response, dataService);
 	}
 
 	@Override
-	public boolean hasMapping(EntityMetaData entityMetaData)
+	public boolean hasMapping(EntityType entityType)
 	{
-		return hasMapping(entityMetaData.getName());
+		String documentType = documentIdGenerator.generateId(entityType);
+		return elasticsearchFacade.getMappings(indexName).containsKey(documentType);
 	}
 
 	@Override
-	public boolean hasMapping(String entityName)
+	public void createMappings(EntityType entityType)
 	{
-		return elasticsearchFacade.getMappings(indexName).containsKey(sanitizeMapperType(entityName));
+		createMappings(entityType, true, true);
 	}
 
-	@Override
-	public void createMappings(EntityMetaData entityMetaData)
-	{
-		createMappings(entityMetaData, true, true);
-	}
-
-	private void createMappings(String index, EntityMetaData entityMetaData, boolean enableNorms,
-			boolean createAllIndex)
+	private void createMappings(String index, EntityType entityType, boolean enableNorms, boolean createAllIndex)
 	{
 		try (XContentBuilder jsonBuilder = XContentFactory.jsonBuilder())
 		{
-			MappingsBuilder.buildMapping(jsonBuilder, entityMetaData, enableNorms, createAllIndex);
-			elasticsearchFacade.putMapping(index, jsonBuilder, entityMetaData.getName());
+			String documentType = documentIdGenerator.generateId(entityType);
+			MappingsBuilder.buildMapping(jsonBuilder, entityType, documentIdGenerator, enableNorms, createAllIndex);
+			elasticsearchFacade.putMapping(index, jsonBuilder, documentType);
 		}
 		catch (IOException e)
 		{
@@ -128,9 +115,9 @@ public class ElasticsearchService implements SearchService
 	}
 
 	@Override
-	public void createMappings(EntityMetaData entityMetaData, boolean enableNorms, boolean createAllIndex)
+	public void createMappings(EntityType entityType, boolean enableNorms, boolean createAllIndex)
 	{
-		createMappings(indexName, entityMetaData, enableNorms, createAllIndex);
+		createMappings(indexName, entityType, enableNorms, createAllIndex);
 	}
 
 	@Override
@@ -146,50 +133,48 @@ public class ElasticsearchService implements SearchService
 	}
 
 	@Override
-	public long count(EntityMetaData entityMetaData)
+	public long count(EntityType entityType)
 	{
-		return count(null, entityMetaData);
+		return count(null, entityType);
 	}
 
 	@Override
-	public long count(Query<Entity> q, EntityMetaData entityMetaData)
+	public long count(Query<Entity> q, EntityType entityType)
 	{
-		String entityName = entityMetaData.getName();
-		String type = sanitizeMapperType(entityName);
-		return elasticsearchFacade.getCount(q, entityMetaData, type, indexName);
+		String documentType = documentIdGenerator.generateId(entityType);
+		return elasticsearchFacade.getCount(q, entityType, documentType, indexName);
 	}
 
 	@Override
-	public void index(Entity entity, EntityMetaData entityMetaData, IndexingMode indexingMode)
+	public void index(Entity entity, EntityType entityType, IndexingMode indexingMode)
 	{
-		LOG.debug("Indexing single {}.{} entity ...", entityMetaData.getName(), entity.getIdValue());
-		index(Stream.of(entity), entityMetaData, indexingMode == IndexingMode.UPDATE);
+		LOG.debug("Indexing single {}.{} entity ...", entityType.getId(), entity.getIdValue());
+		index(Stream.of(entity), entityType, indexingMode == IndexingMode.UPDATE);
 	}
 
 	@Override
-	public long index(Iterable<? extends Entity> entities, EntityMetaData entityMetaData, IndexingMode indexingMode)
+	public long index(Iterable<? extends Entity> entities, EntityType entityType, IndexingMode indexingMode)
 	{
-		LOG.debug("Indexing multiple {} entities...", entityMetaData.getName());
-		return index(stream(entities.spliterator(), false), entityMetaData, indexingMode == IndexingMode.UPDATE);
+		LOG.debug("Indexing multiple {} entities...", entityType.getId());
+		return index(stream(entities.spliterator(), false), entityType, indexingMode == IndexingMode.UPDATE);
 	}
 
 	@Override
-	public long index(Stream<? extends Entity> entities, EntityMetaData entityMetaData, IndexingMode indexingMode)
+	public long index(Stream<? extends Entity> entities, EntityType entityType, IndexingMode indexingMode)
 	{
-		LOG.debug("Indexing multiple {} entities...", entityMetaData.getName());
-		return index(entities, entityMetaData, indexingMode == IndexingMode.UPDATE);
+		LOG.debug("Indexing multiple {} entities...", entityType.getId());
+		return index(entities, entityType, indexingMode == IndexingMode.UPDATE);
 	}
 
-	private long index(Stream<? extends Entity> entityStream, EntityMetaData entityMetaData, boolean addReferences)
+	private long index(Stream<? extends Entity> entityStream, EntityType entityType, boolean addReferences)
 	{
-		String entityName = entityMetaData.getName();
-		String type = sanitizeMapperType(entityName);
+		String documentType = documentIdGenerator.generateId(entityType);
 
 		Stream<IndexRequest> indexRequestStream = entityStream
-				.flatMap(entity -> createIndexRequestStreamForEntity(entity, entityMetaData, type, addReferences));
+				.flatMap(entity -> createIndexRequestStreamForEntity(entity, entityType, documentType, addReferences));
 
 		AtomicLongMap<String> counts = elasticsearchFacade.index(indexRequestStream, true);
-		return counts.get(type);
+		return counts.get(documentType);
 	}
 
 	/**
@@ -197,19 +182,19 @@ public class ElasticsearchService implements SearchService
 	 * entities.
 	 *
 	 * @param entity                            the entity that should be indexed
-	 * @param entityMetaData                    the {@link EntityMetaData} of the entity
+	 * @param entityType                        the {@link EntityType} of the entity
 	 * @param type                              the sanitized mapping type of the entity
 	 * @param addRequestsForReferencingEntities boolean indicating if {@link IndexRequest}s should be added for all
 	 *                                          referencing entities.
 	 * @return Stream of {@link IndexRequest}s for the entity
 	 */
-	private Stream<IndexRequest> createIndexRequestStreamForEntity(Entity entity, EntityMetaData entityMetaData,
-			String type, boolean addRequestsForReferencingEntities)
+	private Stream<IndexRequest> createIndexRequestStreamForEntity(Entity entity, EntityType entityType, String type,
+			boolean addRequestsForReferencingEntities)
 	{
-		Stream<IndexRequest> result = Stream.of(createIndexRequestForEntity(entity, entityMetaData, type));
+		Stream<IndexRequest> result = Stream.of(createIndexRequestForEntity(entity, entityType, type));
 		if (addRequestsForReferencingEntities)
 		{
-			result = concat(result, createIndexRequestsForReferencingEntities(entity, entityMetaData));
+			result = concat(result, createIndexRequestsForReferencingEntities(entity, entityType));
 		}
 		return result;
 	}
@@ -217,53 +202,51 @@ public class ElasticsearchService implements SearchService
 	/**
 	 * Creates {@link IndexRequest}s for {@link Entity}s that have a reference to a particular entity instance
 	 *
-	 * @param entity         the entity that is referenced by the entities that need to be updated
-	 * @param entityMetaData {@link EntityMetaData} of the referenced entity
+	 * @param entity     the entity that is referenced by the entities that need to be updated
+	 * @param entityType {@link EntityType} of the referenced entity
 	 * @return Stream of {@link IndexRequest}s for the entities that reference entity.
 	 */
-	private Stream<IndexRequest> createIndexRequestsForReferencingEntities(Entity entity, EntityMetaData entityMetaData)
+	private Stream<IndexRequest> createIndexRequestsForReferencingEntities(Entity entity, EntityType entityType)
 	{
 		Stream<IndexRequest> references = Stream.of();
 		// Find entity metadata that is currently, in the database, referring to the entity we're reindexing
-		for (Pair<EntityMetaData, List<AttributeMetaData>> pair : EntityUtils
-				.getReferencingEntityMetaData(entityMetaData, dataService))
+		for (Pair<EntityType, List<Attribute>> pair : EntityUtils.getReferencingEntityType(entityType, dataService))
 		{
-			EntityMetaData refEntityMetaData = pair.getA();
-			String refEntityType = sanitizeMapperType(refEntityMetaData.getName());
+			EntityType refEntityType = pair.getA();
 
 			// Search the index for referring documents of this type
-			Stream<Entity> referringEntitiesStream = findReferringDocuments(entity, refEntityMetaData, pair.getB());
+			Stream<Entity> referringEntitiesStream = findReferringDocuments(entity, refEntityType, pair.getB());
 
 			// Get actual entities from the dataservice, skipping the ones that no longer exist and
 			// fetching all of their attributes in one go
 			referringEntitiesStream = dataService
-					.findAll(refEntityMetaData.getName(), referringEntitiesStream.map(Entity::getIdValue),
-							createFetchForReindexing(refEntityMetaData));
+					.findAll(refEntityType.getId(), referringEntitiesStream.map(Entity::getIdValue),
+							createFetchForReindexing(refEntityType));
 
 			references = concat(references, referringEntitiesStream
-					.map(referencingEntity -> createIndexRequestForEntity(referencingEntity, refEntityMetaData,
-							refEntityType)));
+					.map(referencingEntity -> createIndexRequestForEntity(referencingEntity, refEntityType,
+							documentIdGenerator.generateId(refEntityType))));
 		}
 		return references;
 	}
 
 	/**
 	 * Searches the index for documents of a certain type that contain a reference to a specific entity.
-	 * Uses {@link #searchInternalWithScanScroll(Query, EntityMetaData)} to scroll through the existing referring
+	 * Uses {@link #searchInternalWithScanScroll(Query, EntityType)} to scroll through the existing referring
 	 * entities in a context that remains valid even when the documents are getting updated.
 	 *
-	 * @param referredEntity          the entity that should be referred to in the documents
-	 * @param referringEntityMetaData {@link EntityMetaData} of the referring documents
-	 * @param referringAttributes     {@link List} of {@link AttributeMetaData} of attributes that may reference the #referredEntity
+	 * @param referredEntity      the entity that should be referred to in the documents
+	 * @param referringEntityType {@link EntityType} of the referring documents
+	 * @param referringAttributes {@link List} of {@link Attribute} of attributes that may reference the #referredEntity
 	 * @return Stream of {@link Entity} references representing the documents.
 	 */
-	private Stream<Entity> findReferringDocuments(Entity referredEntity, EntityMetaData referringEntityMetaData,
-			List<AttributeMetaData> referringAttributes)
+	private Stream<Entity> findReferringDocuments(Entity referredEntity, EntityType referringEntityType,
+			List<Attribute> referringAttributes)
 	{
 		// Find out which documents of this type currently, in ElasticSearch, contain a reference to
 		// the entity we're reindexing
 		QueryImpl<Entity> q = null;
-		for (AttributeMetaData attributeMetaData : referringAttributes)
+		for (Attribute attribute : referringAttributes)
 		{
 			if (q == null)
 			{
@@ -273,12 +256,12 @@ public class ElasticsearchService implements SearchService
 			{
 				q.or();
 			}
-			q.eq(attributeMetaData.getName(), referredEntity);
+			q.eq(attribute.getName(), referredEntity);
 		}
-		LOG.debug("q: [{}], referringEntityMetaData: [{}]", q.toString(), referringEntityMetaData.getName());
-		if (hasMapping(referringEntityMetaData))
+		LOG.debug("q: [{}], referringEntityType: [{}]", q.toString(), referringEntityType.getId());
+		if (hasMapping(referringEntityType))
 		{
-			return searchInternalWithScanScroll(q, referringEntityMetaData);
+			return searchInternalWithScanScroll(q, referringEntityType);
 		}
 		else
 		{
@@ -289,113 +272,110 @@ public class ElasticsearchService implements SearchService
 	/**
 	 * Creates an IndexRequest for an entity in index {@link #indexName}.
 	 *
-	 * @param entity         the entity that will be indexed
-	 * @param entityMetaData {@link EntityMetaData} of the entity
-	 * @param type           sanitized mapper type of the entity, so it need not be recomputed
+	 * @param entity     the entity that will be indexed
+	 * @param entityType {@link EntityType} of the entity
+	 * @param type       sanitized mapper type of the entity, so it need not be recomputed
 	 */
-	private IndexRequest createIndexRequestForEntity(Entity entity, EntityMetaData entityMetaData, String type)
+	private IndexRequest createIndexRequestForEntity(Entity entity, EntityType entityType, String type)
 	{
-		String id = toElasticsearchId(entity, entityMetaData);
+		String id = toElasticsearchId(entity, entityType);
 		XContentBuilder xContentBuilder = elasticsearchEntityFactory.create(entity);
 		LOG.trace("Indexing [{}] with id [{}] in index [{}]...", type, id, indexName);
 		return new IndexRequest().index(indexName).type(type).id(id).source(xContentBuilder);
 	}
 
 	@Override
-	public void delete(Entity entity, EntityMetaData entityMetaData)
+	public void delete(Entity entity, EntityType entityType)
 	{
-		String elasticsearchId = toElasticsearchId(entity, entityMetaData);
-		deleteById(elasticsearchId, entityMetaData);
+		String elasticsearchId = toElasticsearchId(entity, entityType);
+		deleteById(elasticsearchId, entityType);
 	}
 
 	@Override
-	public void deleteById(String id, EntityMetaData entityMetaData)
+	public void deleteById(String id, EntityType entityType)
 	{
-		deleteById(indexName, id, entityMetaData.getName());
-	}
-
-	private void deleteById(String index, String id, String entityFullName)
-	{
-		String type = sanitizeMapperType(entityFullName);
-		elasticsearchFacade.deleteById(index, id, type);
+		String documentType = documentIdGenerator.generateId(entityType);
+		elasticsearchFacade.deleteById(indexName, id, documentType);
 	}
 
 	@Override
-	public void deleteById(Stream<String> ids, EntityMetaData entityMetaData)
+	public void deleteById(Stream<String> ids, EntityType entityType)
 	{
-		ids.forEach(id -> deleteById(id, entityMetaData));
+		ids.forEach(id -> deleteById(id, entityType));
 	}
 
 	@Override
-	public void delete(Iterable<? extends Entity> entities, EntityMetaData entityMetaData)
+	public void delete(Iterable<? extends Entity> entities, EntityType entityType)
 	{
-		delete(stream(entities.spliterator(), true), entityMetaData);
+		delete(stream(entities.spliterator(), true), entityType);
 	}
 
 	@Override
-	public void delete(Stream<? extends Entity> entities, EntityMetaData entityMetaData)
+	public void delete(Stream<? extends Entity> entities, EntityType entityType)
 	{
 		Stream<Object> entityIds = entities.map(Entity::getIdValue);
 		Iterators.partition(entityIds.iterator(), BATCH_SIZE).forEachRemaining(
-				batchEntityIds -> deleteById(toElasticsearchIds(batchEntityIds.stream()), entityMetaData));
+				batchEntityIds -> deleteById(toElasticsearchIds(batchEntityIds.stream()), entityType));
 	}
 
 	@Override
-	public void delete(String entityName)
+	public void delete(EntityType entityType)
 	{
-		String type = sanitizeMapperType(entityName);
+		String documentType = documentIdGenerator.generateId(entityType);
 
-		if (elasticsearchFacade.isTypeExists(type, indexName) && !elasticsearchFacade.deleteMapping(type, indexName))
+		if (elasticsearchFacade.isTypeExists(documentType, indexName) && !elasticsearchFacade
+				.deleteMapping(documentType, indexName))
 		{
-			throw new ElasticsearchException("Delete of mapping for type '" + type + "' failed.");
+			throw new ElasticsearchException("Delete of mapping for type '" + documentType + "' failed.");
 		}
 
-		if (!elasticsearchFacade.deleteAllDocumentsOfType(type, indexName))
+		if (!elasticsearchFacade.deleteAllDocumentsOfType(documentType, indexName))
 		{
-			throw new ElasticsearchException("Deleting all documents of type '" + type + "' failed.");
+			throw new ElasticsearchException("Deleting all documents of type '" + documentType + "' failed.");
 		}
 	}
 
 	@Override
-	public Iterable<Entity> search(Query<Entity> q, final EntityMetaData entityMetaData)
+	public Iterable<Entity> search(Query<Entity> q, final EntityType entityType)
 	{
-		return searchInternal(q, entityMetaData);
+		return searchInternal(q, entityType);
 	}
 
 	@Override
-	public Stream<Entity> searchAsStream(Query<Entity> q, EntityMetaData entityMetaData)
+	public Stream<Entity> searchAsStream(Query<Entity> q, EntityType entityType)
 	{
-		ElasticsearchEntityIterable searchInternal = searchInternal(q, entityMetaData);
+		ElasticsearchEntityIterable searchInternal = searchInternal(q, entityType);
 		return new EntityStream(searchInternal.stream(), true);
 	}
 
-	private ElasticsearchEntityIterable searchInternal(Query<Entity> q, EntityMetaData entityMetaData)
+	private ElasticsearchEntityIterable searchInternal(Query<Entity> q, EntityType entityType)
 	{
-		return new ElasticsearchEntityIterable(q, entityMetaData, elasticsearchFacade, elasticsearchEntityFactory,
-				searchRequestGenerator, indexName);
+		String documentType = documentIdGenerator.generateId(entityType);
+		return new ElasticsearchEntityIterable(q, entityType, elasticsearchFacade, elasticsearchEntityFactory,
+				searchRequestGenerator, indexName, documentType);
 	}
 
-	private Stream<Entity> searchInternalWithScanScroll(Query<Entity> query, EntityMetaData entityMetaData)
+	private Stream<Entity> searchInternalWithScanScroll(Query<Entity> query, EntityType entityType)
 	{
-		String type = sanitizeMapperType(entityMetaData.getName());
 		Consumer<SearchRequestBuilder> searchRequestBuilderConsumer = searchRequestBuilder -> searchRequestGenerator
-				.buildSearchRequest(searchRequestBuilder, type, SearchType.QUERY_AND_FETCH, query, null, null, null,
-						entityMetaData);
+				.buildSearchRequest(searchRequestBuilder, SearchType.QUERY_AND_FETCH, entityType, query, null, null,
+						null);
 
+		String documentType = documentIdGenerator.generateId(entityType);
 		return elasticsearchFacade
-				.searchForIdsWithScanScroll(searchRequestBuilderConsumer, query.toString(), type, indexName)
-				.map(idString -> convert(idString, entityMetaData.getIdAttribute()))
-				.map(idObject -> elasticsearchEntityFactory.getReference(entityMetaData, idObject));
+				.searchForIdsWithScanScroll(searchRequestBuilderConsumer, query.toString(), documentType, indexName)
+				.map(idString -> convert(idString, entityType.getIdAttribute()))
+				.map(idObject -> elasticsearchEntityFactory.getReference(entityType, idObject));
 	}
 
 	@Override
-	public AggregateResult aggregate(AggregateQuery aggregateQuery, final EntityMetaData entityMetaData)
+	public AggregateResult aggregate(AggregateQuery aggregateQuery, final EntityType entityType)
 	{
 		Query<Entity> q = aggregateQuery.getQuery();
-		AttributeMetaData xAttr = aggregateQuery.getAttributeX();
-		AttributeMetaData yAttr = aggregateQuery.getAttributeY();
-		AttributeMetaData distinctAttr = aggregateQuery.getAttributeDistinct();
-		SearchRequest searchRequest = new SearchRequest(entityMetaData.getName(), q, xAttr, yAttr, distinctAttr);
+		Attribute xAttr = aggregateQuery.getAttributeX();
+		Attribute yAttr = aggregateQuery.getAttributeY();
+		Attribute distinctAttr = aggregateQuery.getAttributeDistinct();
+		SearchRequest searchRequest = SearchRequest.create(entityType, q, xAttr, yAttr, distinctAttr);
 		SearchResult searchResults = search(searchRequest);
 		return searchResults.getAggregate();
 	}
@@ -409,30 +389,24 @@ public class ElasticsearchService implements SearchService
 	@Override
 	public void rebuildIndex(Repository<? extends Entity> repository)
 	{
-		EntityMetaData entityMetaData = repository.getEntityMetaData();
+		EntityType entityType = repository.getEntityType();
 
-		if (hasMapping(entityMetaData))
+		if (hasMapping(entityType))
 		{
 			LOG.debug("Delete index for repository {}...", repository.getName());
-			delete(entityMetaData.getName());
+			delete(entityType);
 		}
 
-		createMappings(entityMetaData);
+		createMappings(entityType);
 		LOG.trace("Indexing {} repository in batches of size {}...", repository.getName(), BATCH_SIZE);
-		repository.forEachBatched(createFetchForReindexing(entityMetaData),
-				entities -> index(entities, entityMetaData, IndexingMode.ADD), BATCH_SIZE);
+		repository.forEachBatched(createFetchForReindexing(entityType),
+				entities -> index(entities, entityType, IndexingMode.ADD), BATCH_SIZE);
 		LOG.debug("Create index for repository {}...", repository.getName());
 	}
 
 	@Override
-	public void optimizeIndex()
+	public Entity findOne(Query<Entity> q, EntityType entityType)
 	{
-		elasticsearchFacade.optimizeIndex(indexName);
-	}
-
-	@Override
-	public Entity findOne(Query<Entity> q, EntityMetaData entityMetaData)
-	{
-		return FluentIterable.from(search(q, entityMetaData)).first().orNull();
+		return FluentIterable.from(search(q, entityType)).first().orNull();
 	}
 }

@@ -1,9 +1,12 @@
 package org.molgenis.data;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class Sort implements Iterable<Sort.Order>
 {
@@ -11,7 +14,7 @@ public class Sort implements Iterable<Sort.Order>
 
 	public Sort()
 	{
-		this(new ArrayList<Order>());
+		this(new ArrayList<>());
 	}
 
 	public Sort(String attr)
@@ -26,7 +29,7 @@ public class Sort implements Iterable<Sort.Order>
 
 	public Sort(List<Sort.Order> orders)
 	{
-		this.orders = orders != null ? new ArrayList<Order>(orders) : new ArrayList<Order>();
+		this.orders = orders != null ? new ArrayList<>(orders) : new ArrayList<>();
 	}
 
 	@Override
@@ -74,6 +77,30 @@ public class Sort implements Iterable<Sort.Order>
 	public String toString()
 	{
 		return "Sort [orders=" + orders + "]";
+	}
+
+	public static Sort parse(String orderByStr)
+	{
+		Sort sort = new Sort();
+		for (String sortClauseStr : StringUtils.split(orderByStr, ';'))
+		{
+			String[] tokens = StringUtils.split(sortClauseStr, ',');
+			if (tokens.length == 1)
+			{
+				sort.on(tokens[0]);
+			}
+			else
+			{
+				sort.on(tokens[0], Direction.valueOf(tokens[1]));
+			}
+		}
+		return sort;
+	}
+
+	public String toSortString()
+	{
+		return orders.stream().map(order -> order.getAttr() + ',' + order.getDirection().toString())
+				.collect(Collectors.joining(";"));
 	}
 
 	public static class Order
@@ -124,8 +151,7 @@ public class Sort implements Iterable<Sort.Order>
 				if (other.attr != null) return false;
 			}
 			else if (!attr.equals(other.attr)) return false;
-			if (direction != other.direction) return false;
-			return true;
+			return direction == other.direction;
 		}
 
 		@Override

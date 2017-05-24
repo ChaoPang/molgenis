@@ -1,37 +1,34 @@
 package org.molgenis.data.postgresql;
 
 import org.molgenis.data.*;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.AbstractRepositoryCollection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
-import java.util.Iterator;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.lang.String.format;
 import static java.util.EnumSet.of;
 import static java.util.Objects.requireNonNull;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.COMPOUND;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.ENUM;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.molgenis.data.RepositoryCollectionCapability.*;
-import static org.molgenis.data.i18n.model.LanguageMetaData.*;
-import static org.molgenis.data.meta.MetaUtils.getEntityMetaDataFetch;
-import static org.molgenis.data.meta.model.EntityMetaDataMetaData.*;
+import static org.molgenis.data.meta.AttributeType.*;
+import static org.molgenis.data.meta.MetaUtils.getEntityTypeFetch;
+import static org.molgenis.data.meta.model.EntityTypeMetadata.*;
 import static org.molgenis.data.postgresql.PostgreSqlQueryGenerator.*;
-import static org.molgenis.data.postgresql.PostgreSqlQueryUtils.getPersistedAttributesMref;
-import static org.molgenis.data.postgresql.PostgreSqlQueryUtils.getTableName;
-import static org.molgenis.data.support.EntityMetaDataUtils.*;
+import static org.molgenis.data.postgresql.PostgreSqlQueryUtils.*;
+import static org.molgenis.data.support.EntityTypeUtils.*;
 
 public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 {
@@ -43,16 +40,14 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 	private final DataSource dataSource;
 	private final JdbcTemplate jdbcTemplate;
 	private final DataService dataService;
-	private final PlatformTransactionManager transactionManager;
 
 	PostgreSqlRepositoryCollection(PostgreSqlEntityFactory postgreSqlEntityFactory, DataSource dataSource,
-			JdbcTemplate jdbcTemplate, DataService dataService, PlatformTransactionManager transactionManager)
+			JdbcTemplate jdbcTemplate, DataService dataService)
 	{
 		this.postgreSqlEntityFactory = requireNonNull(postgreSqlEntityFactory);
 		this.dataSource = requireNonNull(dataSource);
 		this.jdbcTemplate = requireNonNull(jdbcTemplate);
 		this.dataService = requireNonNull(dataService);
-		this.transactionManager = requireNonNull(transactionManager);
 	}
 
 	@Override
@@ -74,304 +69,309 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 	}
 
 	@Override
-	public Stream<String> getLanguageCodes()
-	{
-		if (isTableExists(LANGUAGE))
-		{
-			String sql = "SELECT \"" + CODE + "\" FROM \"" + LANGUAGE + '"';
-			if (LOG.isDebugEnabled())
-			{
-				LOG.debug("Fetching languages");
-				if (LOG.isTraceEnabled())
-				{
-					LOG.trace("SQL: {}", sql);
-				}
-			}
-			return jdbcTemplate.query(sql, (rs, rowNum) -> rs.getString(CODE)).stream();
-		}
-		else
-		{
-			return Stream.of(DEFAULT_LANGUAGE_CODE);
-		}
-	}
-
-	@Override
-	public Repository<Entity> createRepository(EntityMetaData entityMeta)
+	public Repository<Entity> createRepository(EntityType entityType)
 	{
 		PostgreSqlRepository repository = createPostgreSqlRepository();
-		repository.setMetaData(entityMeta);
-		if (!isTableExists(entityMeta))
+		repository.setEntityType(entityType);
+		if (!isTableExists(entityType))
 		{
-			createTable(entityMeta);
+			createTable(entityType);
 		}
 		return repository;
 	}
 
 	@Override
-	public boolean hasRepository(EntityMetaData entityMeta)
+	public boolean hasRepository(EntityType entityType)
 	{
-		return isTableExists(entityMeta);
+		return isTableExists(entityType);
 	}
 
 	@Override
-	public Iterable<String> getEntityNames()
+	public Iterable<String> getEntityTypeIds()
 	{
-		return dataService.query(ENTITY_META_DATA, EntityMetaData.class).eq(BACKEND, POSTGRESQL)
-				.fetch(getEntityMetaDataFetch()).findAll().map(EntityMetaData::getName)::iterator;
+		return dataService.query(ENTITY_TYPE_META_DATA, EntityType.class).eq(BACKEND, POSTGRESQL)
+				.fetch(getEntityTypeFetch()).findAll().map(EntityType::getId)::iterator;
 	}
 
 	@Override
-	public Repository<Entity> getRepository(String name)
+	public Repository<Entity> getRepository(String id)
 	{
-		EntityMetaData entityMeta = dataService.query(ENTITY_META_DATA, EntityMetaData.class).eq(BACKEND, POSTGRESQL)
-				.and().eq(FULL_NAME, name).and().eq(ABSTRACT, false).fetch(getEntityMetaDataFetch()).findOne();
-		return getRepository(entityMeta);
+		EntityType entityType = dataService.query(ENTITY_TYPE_META_DATA, EntityType.class).eq(BACKEND, POSTGRESQL).and()
+				.eq(ID, id).and().eq(IS_ABSTRACT, false).fetch(getEntityTypeFetch()).findOne();
+		return getRepository(entityType);
 	}
 
 	@Override
-	public Repository<Entity> getRepository(EntityMetaData entityMeta)
+	public Repository<Entity> getRepository(EntityType entityType)
 	{
 		PostgreSqlRepository repository = createPostgreSqlRepository();
-		repository.setMetaData(entityMeta);
+		repository.setEntityType(entityType);
 		return repository;
 	}
 
 	@Override
 	public Iterator<Repository<Entity>> iterator()
 	{
-		return dataService.query(ENTITY_META_DATA, EntityMetaData.class).eq(BACKEND, POSTGRESQL).and()
-				.eq(ABSTRACT, false).fetch(getEntityMetaDataFetch()).findAll().map(this::getRepository).iterator();
+		return dataService.query(ENTITY_TYPE_META_DATA, EntityType.class).eq(BACKEND, POSTGRESQL).and()
+				.eq(IS_ABSTRACT, false).fetch(getEntityTypeFetch()).findAll().map(this::getRepository).iterator();
 	}
 
 	@Override
-	public void deleteRepository(EntityMetaData entityMeta)
+	public void deleteRepository(EntityType entityType)
 	{
-		if (entityMeta.isAbstract())
+		if (entityType.isAbstract())
 		{
-			throw new UnknownRepositoryException(entityMeta.getName());
+			throw new UnknownRepositoryException(entityType.getId());
 		}
+		dropTables(entityType);
+	}
 
-		getPersistedAttributesMref(entityMeta).forEach(mrefAttr -> dropJunctionTable(entityMeta, mrefAttr));
+	private void dropTables(EntityType entityType)
+	{
+		getJunctionTableAttributes(entityType).forEach(mrefAttr -> dropJunctionTable(entityType, mrefAttr));
 
-		String sqlDropTable = getSqlDropTable(entityMeta);
+		String sqlDropTable = getSqlDropTable(entityType);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Dropping table for entity [{}]", entityMeta.getName());
+			LOG.debug("Dropping table for entity [{}]", entityType.getId());
 			if (LOG.isTraceEnabled())
 			{
 				LOG.trace("SQL: {}", sqlDropTable);
 			}
 		}
 		jdbcTemplate.execute(sqlDropTable);
+
+		String sqlDropFunctionValidateUpdate = getSqlDropFunctionValidateUpdate(entityType);
+		if (LOG.isDebugEnabled())
+		{
+			LOG.debug("Dropping trigger function for entity [{}]", entityType.getId());
+			if (LOG.isTraceEnabled())
+			{
+				LOG.trace("SQL: {}", sqlDropFunctionValidateUpdate);
+			}
+		}
+		jdbcTemplate.execute(sqlDropFunctionValidateUpdate);
 	}
 
 	@Override
-	public void addAttribute(EntityMetaData entityMeta, AttributeMetaData attr)
+	public void addAttribute(EntityType entityType, Attribute attr)
 	{
-		addAttributeRec(entityMeta, attr, true);
-	}
-
-	@Override
-	public void updateAttribute(EntityMetaData entityMeta, AttributeMetaData attr, AttributeMetaData updatedAttr)
-	{
-		if (entityMeta.getAttribute(attr.getName()) == null)
+		if (entityType.isAbstract())
 		{
-			throw new UnknownAttributeException(format("Unknown attribute [%s]", attr.getName()));
+			throw new MolgenisDataException(
+					format("Cannot add attribute [%s] to abstract entity type [%s].", attr.getName(),
+							entityType.getId()));
 		}
-		updateAttributeRec(entityMeta, attr, updatedAttr);
-	}
-
-	@Override
-	public void deleteAttribute(EntityMetaData entityMeta, AttributeMetaData attr)
-	{
-		if (entityMeta.getAttribute(attr.getName()) == null)
-		{
-			throw new UnknownAttributeException(format("Unknown attribute [%s]", attr.getName()));
-		}
-		deleteAttributeRec(entityMeta, attr);
-	}
-
-	/**
-	 * Recursively add attribute to entity and entities extending from this entity.
-	 *
-	 * @param entityMeta      entity meta data
-	 * @param attr            attribute to add
-	 * @param checkAttrExists whether or not to perform a check if the attribute exists for the given entity
-	 */
-	private void addAttributeRec(EntityMetaData entityMeta, AttributeMetaData attr, boolean checkAttrExists)
-	{
-		if (attr.getExpression() != null || attr.getDataType() == COMPOUND)
-		{
-			// computed attributes and compound attributes are not persisted
-			return;
-		}
-
-		if (checkAttrExists && entityMeta.getAttribute(attr.getName()) != null)
+		if (entityType.getAttribute(attr.getName()) != null)
 		{
 			throw new MolgenisDataException(
 					format("Adding attribute operation failed. Attribute already exists [%s]", attr.getName()));
 		}
+		addAttributeInternal(entityType, attr);
+	}
 
-		if (entityMeta.isAbstract())
+	@Override
+	public void updateAttribute(EntityType entityType, Attribute attr, Attribute updatedAttr)
+	{
+		if (entityType.isAbstract())
 		{
-			// for abstract entities recursively update entities extending the abstract entity
-			dataService.query(ENTITY_META_DATA, EntityMetaData.class).eq(EXTENDS, entityMeta).findAll()
-					.forEach(childEntityMeta -> addAttributeRec(childEntityMeta, attr, checkAttrExists));
+			throw new MolgenisDataException(
+					format("Cannot update attribute [%s] for abstract entity type [%s].", attr.getName(),
+							entityType.getId()));
+		}
+		if (!isPersisted(attr) && !isPersisted(updatedAttr))
+		{
+			return;
+		}
+
+		if (isPersisted(attr) && !isPersisted(updatedAttr))
+		{
+			deleteAttribute(entityType, attr);
+		}
+		else if (!isPersisted(attr) && isPersisted(updatedAttr))
+		{
+			addAttributeInternal(entityType, updatedAttr);
 		}
 		else
 		{
+			updateColumn(entityType, attr, updatedAttr);
+		}
+	}
+
+	@Override
+	public void deleteAttribute(EntityType entityType, Attribute attr)
+	{
+		if (entityType.isAbstract())
+		{
+			throw new MolgenisDataException(
+					format("Cannot delete attribute [%s] from abstract entity type [%s].", attr.getName(),
+							entityType.getId()));
+		}
+		if (entityType.getAttribute(attr.getName()) == null)
+		{
+			throw new UnknownAttributeException(format("Unknown attribute [%s]", attr.getName()));
+		}
+		if (!isPersisted(attr))
+		{
+			return;
+		}
+
+		if (!(attr.getDataType() == ONE_TO_MANY && attr.isMappedBy()))
+		{
 			if (isMultipleReferenceType(attr))
 			{
-				createJunctionTable(entityMeta, attr);
+				dropJunctionTable(entityType, attr);
 			}
 			else
 			{
-				createColumn(entityMeta, attr);
+				dropColumn(entityType, attr);
 			}
 		}
 	}
 
 	/**
-	 * Recursively update attribute of entity and entities extending from this entity.
+	 * Add attribute to entityType.
 	 *
-	 * @param entityMeta  entity meta data
-	 * @param attr        existing attribute
-	 * @param updatedAttr updated attribute
+	 * @param entityType the {@link EntityType} to add attribute to
+	 * @param attr       attribute to add
 	 */
-	private void updateAttributeRec(EntityMetaData entityMeta, AttributeMetaData attr, AttributeMetaData updatedAttr)
+	private void addAttributeInternal(EntityType entityType, Attribute attr)
 	{
-		if ((attr.getExpression() != null && updatedAttr.getExpression() != null) || (attr.getDataType() == COMPOUND
-				&& updatedAttr.getDataType() == COMPOUND))
+		if (!isPersisted(attr))
 		{
 			return;
 		}
 
-		if (entityMeta.isAbstract())
+		if (!(attr.getDataType() == ONE_TO_MANY && attr.isMappedBy()))
 		{
-			// for abstract entities recursively update entities extending the abstract entity
-			dataService.query(ENTITY_META_DATA, EntityMetaData.class).eq(EXTENDS, entityMeta).findAll()
-					.forEach(childEntityMeta -> updateAttributeRec(childEntityMeta, attr, updatedAttr));
-		}
-		else
-		{
-			if ((attr.getExpression() == null && updatedAttr.getExpression() != null) || (attr.getDataType() != COMPOUND
-					&& updatedAttr.getDataType() == COMPOUND))
+			if (isMultipleReferenceType(attr))
 			{
-				// computed attributes and compound attributes are not persisted
-				deleteAttribute(entityMeta, attr);
-			}
-			else if ((attr.getExpression() != null && updatedAttr.getExpression() == null) || (
-					attr.getDataType() == COMPOUND && updatedAttr.getDataType() != COMPOUND))
-			{
-				// computed attributes and compound attributes are not persisted
-				addAttributeRec(entityMeta, updatedAttr, false);
+				createJunctionTable(entityType, attr);
 			}
 			else
 			{
-				updateColumn(entityMeta, attr, updatedAttr);
+				createColumn(entityType, attr);
 			}
 		}
+	}
+
+	/**
+	 * Indicates if the attribute is persisted in the database.
+	 * Compound attributes and computed attributes with an expression are not persisted.
+	 *
+	 * @param attr the attribute to check
+	 * @return boolean indicating if the entity is persisted in the database.
+	 */
+	private static boolean isPersisted(Attribute attr)
+	{
+		return !attr.hasExpression() && attr.getDataType() != COMPOUND;
 	}
 
 	/**
 	 * Updates database column based on attribute changes.
 	 *
-	 * @param entityMeta  entity meta data
+	 * @param entityType  entity meta data
 	 * @param attr        current attribute
 	 * @param updatedAttr updated attribute
 	 */
-	private void updateColumn(EntityMetaData entityMeta, AttributeMetaData attr, AttributeMetaData updatedAttr)
+	private void updateColumn(EntityType entityType, Attribute attr, Attribute updatedAttr)
 	{
 		// nullable changes
 		if (!Objects.equals(attr.isNillable(), updatedAttr.isNillable()))
 		{
-			updateNillable(entityMeta, attr, updatedAttr);
+			updateNillable(entityType, attr, updatedAttr);
 		}
 
 		// unique changes
 		if (!Objects.equals(attr.isUnique(), updatedAttr.isUnique()))
 		{
-			updateUnique(entityMeta, attr, updatedAttr);
+			updateUnique(entityType, attr, updatedAttr);
+		}
+
+		// readonly changes
+		if (!Objects.equals(attr.isReadOnly(), updatedAttr.isReadOnly()))
+		{
+			updateReadonly(entityType, attr, updatedAttr);
 		}
 
 		// data type changes
 		if (!Objects.equals(attr.getDataType(), updatedAttr.getDataType()))
 		{
-			updateDataType(entityMeta, attr, updatedAttr);
+			updateDataType(entityType, attr, updatedAttr);
 		}
 
 		// ref entity changes
-		if (attr.getRefEntity() != null && updatedAttr.getRefEntity() != null && !attr.getRefEntity().getName()
-				.equals(updatedAttr.getRefEntity().getName()))
+		if (attr.getRefEntity() != null && updatedAttr.getRefEntity() != null && !attr.getRefEntity().getId()
+				.equals(updatedAttr.getRefEntity().getId()))
 		{
-			updateRefEntity(entityMeta, attr, updatedAttr);
+			updateRefEntity(entityType, attr, updatedAttr);
 		}
 
 		// enum option changes
 		if (!Objects.equals(attr.getEnumOptions(), updatedAttr.getEnumOptions()))
 		{
-			updateEnumOptions(entityMeta, attr, updatedAttr);
+			updateEnumOptions(entityType, attr, updatedAttr);
 		}
 	}
 
 	/**
 	 * Updates foreign keys based on referenced entity changes.
 	 *
-	 * @param entityMeta  entity meta data
+	 * @param entityType  entity meta data
 	 * @param attr        current attribute
 	 * @param updatedAttr updated attribute
 	 */
-	private void updateRefEntity(EntityMetaData entityMeta, AttributeMetaData attr, AttributeMetaData updatedAttr)
+	private void updateRefEntity(EntityType entityType, Attribute attr, Attribute updatedAttr)
 	{
 		if (isSingleReferenceType(attr) && isSingleReferenceType(updatedAttr))
 		{
-			dropForeignKey(entityMeta, attr);
+			dropForeignKey(entityType, attr);
 
 			if (attr.getRefEntity().getIdAttribute().getDataType() != updatedAttr.getRefEntity().getIdAttribute()
 					.getDataType())
 			{
-				updateColumnDataType(entityMeta, updatedAttr);
+				updateColumnDataType(entityType, updatedAttr);
 			}
 
-			createForeignKey(entityMeta, updatedAttr);
+			createForeignKey(entityType, updatedAttr);
 		}
 		else if (isMultipleReferenceType(attr) && isMultipleReferenceType(updatedAttr))
 		{
 			throw new MolgenisDataException(
 					format("Updating entity [%s] attribute [%s] referenced entity from [%s] to [%s] not allowed for type [%s]",
-							entityMeta.getName(), attr.getName(), attr.getRefEntity().getName(),
-							updatedAttr.getRefEntity().getName(), updatedAttr.getDataType().toString()));
+							entityType.getId(), attr.getName(), attr.getRefEntity().getId(),
+							updatedAttr.getRefEntity().getId(), updatedAttr.getDataType().toString()));
 		}
 	}
 
 	/**
 	 * Updates check constraint based on enum value changes.
 	 *
-	 * @param entityMeta  entity meta data
+	 * @param entityType  entity meta data
 	 * @param attr        current attribute
 	 * @param updatedAttr updated attribute
 	 */
-	private void updateEnumOptions(EntityMetaData entityMeta, AttributeMetaData attr, AttributeMetaData updatedAttr)
+	private void updateEnumOptions(EntityType entityType, Attribute attr, Attribute updatedAttr)
 	{
 		if (attr.getDataType() == ENUM)
 		{
 			if (updatedAttr.getDataType() == ENUM)
 			{
 				// update check constraint
-				dropCheckConstraint(entityMeta, attr);
-				createCheckConstraint(entityMeta, updatedAttr);
+				dropCheckConstraint(entityType, attr);
+				createCheckConstraint(entityType, updatedAttr);
 			}
 			else
 			{
 				// drop check constraint
-				dropCheckConstraint(entityMeta, attr);
+				dropCheckConstraint(entityType, attr);
 			}
 		}
 		else
 		{
 			if (updatedAttr.getDataType() == ENUM)
 			{
-				createCheckConstraint(entityMeta, updatedAttr);
+				createCheckConstraint(entityType, updatedAttr);
 			}
 		}
 	}
@@ -379,18 +379,18 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 	/**
 	 * Updates column data type and foreign key constraints based on data type update.
 	 *
-	 * @param entityMeta  entity meta data
+	 * @param entityType  entity meta data
 	 * @param attr        current attribute
 	 * @param updatedAttr updated attribute
 	 */
-	private void updateDataType(EntityMetaData entityMeta, AttributeMetaData attr, AttributeMetaData updatedAttr)
+	private void updateDataType(EntityType entityType, Attribute attr, Attribute updatedAttr)
 	{
-		AttributeMetaData idAttr = entityMeta.getIdAttribute();
+		Attribute idAttr = entityType.getIdAttribute();
 		if (idAttr != null && idAttr.getName().equals(attr.getName()))
 		{
 			throw new MolgenisDataException(
 					format("Data type of entity [%s] attribute [%s] cannot be modified, because [%s] is an ID attribute.",
-							entityMeta.getName(), attr.getName(), attr.getName()));
+							entityType.getId(), attr.getName(), attr.getName()));
 		}
 
 		// do nothing on representation changes XREF --> CATEGORICAL
@@ -408,68 +408,75 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		// remove foreign key on data type updates such as XREF --> STRING
 		if (isSingleReferenceType(attr) && !isReferenceType(updatedAttr))
 		{
-			dropForeignKey(entityMeta, attr);
+			dropForeignKey(entityType, attr);
 		}
 
-		updateColumnDataType(entityMeta, updatedAttr);
+		updateColumnDataType(entityType, updatedAttr);
 
 		// add foreign key on data type updates such as STRING --> XREF
 		if (!isReferenceType(attr) && isSingleReferenceType(updatedAttr))
 		{
-			createForeignKey(entityMeta, updatedAttr);
+			createForeignKey(entityType, updatedAttr);
 		}
 	}
 
 	/**
 	 * Updates unique constraint based on attribute unique changes.
 	 *
-	 * @param entityMeta  entity meta data
+	 * @param entityType  entity meta data
 	 * @param attr        current attribute
 	 * @param updatedAttr updated attribute
 	 */
-	private void updateUnique(EntityMetaData entityMeta, AttributeMetaData attr, AttributeMetaData updatedAttr)
+	private void updateUnique(EntityType entityType, Attribute attr, Attribute updatedAttr)
 	{
 		if (attr.isUnique() && !updatedAttr.isUnique())
 		{
-			AttributeMetaData idAttr = entityMeta.getIdAttribute();
+			Attribute idAttr = entityType.getIdAttribute();
 			if (idAttr != null && idAttr.getName().equals(attr.getName()))
 			{
 				throw new MolgenisDataException(
-						format("ID attribute [%s] of entity [%s] must be unique", attr.getName(),
-								entityMeta.getName()));
+						format("ID attribute [%s] of entity [%s] must be unique", attr.getName(), entityType.getId()));
 			}
 
-			dropUniqueKey(entityMeta, updatedAttr);
+			dropUniqueKey(entityType, updatedAttr);
 		}
 		else if (!attr.isUnique() && updatedAttr.isUnique())
 		{
-			createUniqueKey(entityMeta, updatedAttr);
+			createUniqueKey(entityType, updatedAttr);
 		}
 	}
 
 	/**
-	 * Recursively delete attribute in entity and entities extending from this entity.
+	 * Updates triggers and functions based on attribute readonly changes.
 	 *
-	 * @param entityMeta entity meta data
-	 * @param attr       attribute to delete
+	 * @param entityType  entity meta data
+	 * @param attr        current attribute
+	 * @param updatedAttr updated attribute
 	 */
-	private void deleteAttributeRec(EntityMetaData entityMeta, AttributeMetaData attr)
+	private void updateReadonly(EntityType entityType, Attribute attr, Attribute updatedAttr)
 	{
-		if (attr.getExpression() != null || attr.getDataType() == COMPOUND)
+		LinkedHashMap<String, Attribute> readonlyTableAttrs = getTableAttributesReadonly(entityType)
+				.collect(toMap(Attribute::getName, Function.identity(), (u, v) ->
+				{
+					throw new IllegalStateException(String.format("Duplicate key %s", u));
+				}, LinkedHashMap::new));
+		if (!readonlyTableAttrs.isEmpty())
 		{
-			// computed attributes and compound attributes are not persisted
-			return;
+			dropTableTriggers(entityType);
 		}
 
-		if (entityMeta.isAbstract())
+		if (attr.isReadOnly() && !updatedAttr.isReadOnly())
 		{
-			// for abstract entities recursively update entities extending the abstract entity
-			dataService.query(ENTITY_META_DATA, EntityMetaData.class).eq(EXTENDS, entityMeta).findAll()
-					.forEach(childEntityMeta -> deleteAttributeRec(childEntityMeta, attr));
+			readonlyTableAttrs.remove(attr.getName());
 		}
-		else
+		else if (!attr.isReadOnly() && updatedAttr.isReadOnly())
 		{
-			dropColumn(entityMeta, attr);
+			readonlyTableAttrs.put(updatedAttr.getName(), updatedAttr);
+		}
+
+		if (!readonlyTableAttrs.isEmpty())
+		{
+			createTableTriggers(entityType, readonlyTableAttrs.values());
 		}
 	}
 
@@ -478,12 +485,12 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 	 */
 	private PostgreSqlRepository createPostgreSqlRepository()
 	{
-		return new PostgreSqlRepository(postgreSqlEntityFactory, jdbcTemplate, dataSource, transactionManager);
+		return new PostgreSqlRepository(postgreSqlEntityFactory, jdbcTemplate, dataSource);
 	}
 
-	private boolean isTableExists(EntityMetaData entityMeta)
+	private boolean isTableExists(EntityType entityType)
 	{
-		return isTableExists(getTableName(entityMeta, false));
+		return isTableExists(PostgreSqlNameGenerator.getTableName(entityType, false));
 	}
 
 	private boolean isTableExists(String tableName)
@@ -519,14 +526,14 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		}
 	}
 
-	private void updateNillable(EntityMetaData entityMeta, AttributeMetaData attr, AttributeMetaData updatedAttr)
+	private void updateNillable(EntityType entityType, Attribute attr, Attribute updatedAttr)
 	{
 		if (attr.isNillable() && !updatedAttr.isNillable())
 		{
-			String sqlSetNotNull = getSqlSetNotNull(entityMeta, updatedAttr);
+			String sqlSetNotNull = getSqlSetNotNull(entityType, updatedAttr);
 			if (LOG.isDebugEnabled())
 			{
-				LOG.debug("Creating not null constraint for entity [{}] attribute [{}]", entityMeta.getName(),
+				LOG.debug("Creating not null constraint for entity [{}] attribute [{}]", entityType.getId(),
 						attr.getName());
 				if (LOG.isTraceEnabled())
 				{
@@ -537,18 +544,18 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		}
 		else if (!attr.isNillable() && updatedAttr.isNillable())
 		{
-			AttributeMetaData idAttr = entityMeta.getIdAttribute();
+			Attribute idAttr = entityType.getIdAttribute();
 			if (idAttr != null && idAttr.getName().equals(attr.getName()))
 			{
 				throw new MolgenisDataException(
 						format("ID attribute [%s] of entity [%s] cannot be nullable", attr.getName(),
-								entityMeta.getName()));
+								entityType.getId()));
 			}
 
-			String sqlDropNotNull = getSqlDropNotNull(entityMeta, updatedAttr);
+			String sqlDropNotNull = getSqlDropNotNull(entityType, updatedAttr);
 			if (LOG.isDebugEnabled())
 			{
-				LOG.debug("Removing not null constraint for entity [{}] attribute [{}]", entityMeta.getName(),
+				LOG.debug("Removing not null constraint for entity [{}] attribute [{}]", entityType.getId(),
 						attr.getName());
 				if (LOG.isTraceEnabled())
 				{
@@ -559,14 +566,13 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		}
 	}
 
-	// @Transactional FIXME enable when bootstrapping transaction issue has been resolved
-	private void createTable(EntityMetaData entityMeta)
+	private void createTable(EntityType entityType)
 	{
 		// create table
-		String createTableSql = getSqlCreateTable(entityMeta);
+		String createTableSql = getSqlCreateTable(entityType);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Creating table for entity [{}]", entityMeta.getName());
+			LOG.debug("Creating table for entity [{}]", entityType.getId());
 			if (LOG.isTraceEnabled())
 			{
 				LOG.trace("SQL: {}", createTableSql);
@@ -574,16 +580,89 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		}
 		jdbcTemplate.execute(createTableSql);
 
+		createTableTriggers(entityType);
+
 		// create junction tables for attributes referencing multiple entities
-		getPersistedAttributesMref(entityMeta).forEach(attr -> createJunctionTable(entityMeta, attr));
+		createJunctionTables(entityType);
 	}
 
-	private void createForeignKey(EntityMetaData entityMeta, AttributeMetaData attr)
+	private void createTableTriggers(EntityType entityType)
 	{
-		String createForeignKeySql = getSqlCreateForeignKey(entityMeta, attr);
+		List<Attribute> readonlyTableAttrs = getTableAttributesReadonly(entityType).collect(toList());
+		if (!readonlyTableAttrs.isEmpty())
+		{
+			createTableTriggers(entityType, readonlyTableAttrs);
+		}
+	}
+
+	private void createTableTriggers(EntityType entityType, Collection<Attribute> readonlyTableAttrs)
+	{
+		String createFunctionSql = getSqlCreateFunctionValidateUpdate(entityType, readonlyTableAttrs);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Creating foreign key for entity [{}] attribute [{}]", entityMeta.getName(), attr.getName());
+			LOG.debug("Creating update trigger function for entity [{}]", entityType.getId());
+			if (LOG.isTraceEnabled())
+			{
+				LOG.trace("SQL: {}", createFunctionSql);
+			}
+		}
+		jdbcTemplate.execute(createFunctionSql);
+
+		String createUpdateTriggerSql = getSqlCreateUpdateTrigger(entityType, readonlyTableAttrs);
+		if (LOG.isDebugEnabled())
+		{
+			LOG.debug("Creating update trigger for entity [{}]", entityType.getId());
+			if (LOG.isTraceEnabled())
+			{
+				LOG.trace("SQL: {}", createUpdateTriggerSql);
+			}
+		}
+		jdbcTemplate.execute(createUpdateTriggerSql);
+	}
+
+	private void updateTableTriggers(EntityType entityType, Collection<Attribute> readonlyTableAttrs)
+	{
+		dropTableTriggers(entityType);
+		createTableTriggers(entityType, readonlyTableAttrs);
+	}
+
+	private void dropTableTriggers(EntityType entityType)
+	{
+		String dropUpdateTriggerSql = getSqlDropUpdateTrigger(entityType);
+		if (LOG.isDebugEnabled())
+		{
+			LOG.debug("Deleting update trigger for entity [{}]", entityType.getId());
+			if (LOG.isTraceEnabled())
+			{
+				LOG.trace("SQL: {}", dropUpdateTriggerSql);
+			}
+		}
+		jdbcTemplate.execute(dropUpdateTriggerSql);
+
+		String dropFunctionValidateUpdateSql = getSqlDropFunctionValidateUpdate(entityType);
+		if (LOG.isDebugEnabled())
+		{
+			LOG.debug("Deleting update trigger function for entity [{}]", entityType.getId());
+			if (LOG.isTraceEnabled())
+			{
+				LOG.trace("SQL: {}", dropFunctionValidateUpdateSql);
+			}
+		}
+		jdbcTemplate.execute(dropFunctionValidateUpdateSql);
+	}
+
+	private void createJunctionTables(EntityType entityType)
+	{
+		getJunctionTableAttributes(entityType).forEach(attr -> createJunctionTable(entityType, attr));
+	}
+
+	private void createForeignKey(EntityType entityType, Attribute attr)
+	{
+		String createForeignKeySql = getSqlCreateForeignKey(entityType, attr);
+		if (LOG.isDebugEnabled())
+		{
+			LOG.debug("Creating foreign key for entity [{}] attribute [{}]", entityType.getId(),
+					attr.getName());
 			if (LOG.isTraceEnabled())
 			{
 				LOG.trace("SQL: {}", createForeignKeySql);
@@ -592,12 +671,13 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		jdbcTemplate.execute(createForeignKeySql);
 	}
 
-	private void dropForeignKey(EntityMetaData entityMeta, AttributeMetaData attr)
+	private void dropForeignKey(EntityType entityType, Attribute attr)
 	{
-		String dropForeignKeySql = getSqlDropForeignKey(entityMeta, attr);
+		String dropForeignKeySql = getSqlDropForeignKey(entityType, attr);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Dropping foreign key for entity [{}] attribute [{}]", entityMeta.getName(), attr.getName());
+			LOG.debug("Dropping foreign key for entity [{}] attribute [{}]", entityType.getId(),
+					attr.getName());
 			if (LOG.isTraceEnabled())
 			{
 				LOG.trace("SQL: {}", dropForeignKeySql);
@@ -606,12 +686,13 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		jdbcTemplate.execute(dropForeignKeySql);
 	}
 
-	private void createUniqueKey(EntityMetaData entityMeta, AttributeMetaData attr)
+	private void createUniqueKey(EntityType entityType, Attribute attr)
 	{
-		String createUniqueKeySql = getSqlCreateUniqueKey(entityMeta, attr);
+		String createUniqueKeySql = getSqlCreateUniqueKey(entityType, attr);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Creating unique key for entity [{}] attribute [{}]", entityMeta.getName(), attr.getName());
+			LOG.debug("Creating unique key for entity [{}] attribute [{}]", entityType.getId(),
+					attr.getName());
 			if (LOG.isTraceEnabled())
 			{
 				LOG.trace("SQL: {}", createUniqueKeySql);
@@ -620,12 +701,13 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		jdbcTemplate.execute(createUniqueKeySql);
 	}
 
-	private void dropUniqueKey(EntityMetaData entityMeta, AttributeMetaData attr)
+	private void dropUniqueKey(EntityType entityType, Attribute attr)
 	{
-		String dropUniqueKeySql = getSqlDropUniqueKey(entityMeta, attr);
+		String dropUniqueKeySql = getSqlDropUniqueKey(entityType, attr);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Dropping unique key for entity [{}] attribute [{}]", entityMeta.getName(), attr.getName());
+			LOG.debug("Dropping unique key for entity [{}] attribute [{}]", entityType.getId(),
+					attr.getName());
 			if (LOG.isTraceEnabled())
 			{
 				LOG.trace("SQL: {}", dropUniqueKeySql);
@@ -634,12 +716,13 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		jdbcTemplate.execute(dropUniqueKeySql);
 	}
 
-	private void createCheckConstraint(EntityMetaData entityMeta, AttributeMetaData attr)
+	private void createCheckConstraint(EntityType entityType, Attribute attr)
 	{
-		String sqlCreateCheckConstraint = getSqlCreateCheckConstraint(entityMeta, attr);
+		String sqlCreateCheckConstraint = getSqlCreateCheckConstraint(entityType, attr);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Creating check constraint for entity [{}] attribute [{}]", entityMeta.getName(), attr.getName());
+			LOG.debug("Creating check constraint for entity [{}] attribute [{}]", entityType.getId(),
+					attr.getName());
 			if (LOG.isTraceEnabled())
 			{
 				LOG.trace("SQL: {}", sqlCreateCheckConstraint);
@@ -648,12 +731,13 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		jdbcTemplate.execute(sqlCreateCheckConstraint);
 	}
 
-	private void dropCheckConstraint(EntityMetaData entityMeta, AttributeMetaData attr)
+	private void dropCheckConstraint(EntityType entityType, Attribute attr)
 	{
-		String sqlDropCheckConstraint = getSqlDropCheckConstraint(entityMeta, attr);
+		String sqlDropCheckConstraint = getSqlDropCheckConstraint(entityType, attr);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Dropping check constraint for entity [{}] attribute [{}]", entityMeta.getName(), attr.getName());
+			LOG.debug("Dropping check constraint for entity [{}] attribute [{}]", entityType.getId(),
+					attr.getName());
 			if (LOG.isTraceEnabled())
 			{
 				LOG.trace("SQL: {}", sqlDropCheckConstraint);
@@ -662,26 +746,55 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		jdbcTemplate.execute(sqlDropCheckConstraint);
 	}
 
-	private void createColumn(EntityMetaData entityMeta, AttributeMetaData attr)
+	private void createColumn(EntityType entityType, Attribute attr)
 	{
-		String addColumnSql = getSqlAddColumn(entityMeta, attr);
+		String addColumnSql = getSqlAddColumn(entityType, attr);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Creating column for entity [{}] attribute [{}]", entityMeta.getName(), attr.getName());
+			LOG.debug("Creating column for entity [{}] attribute [{}]", entityType.getId(),
+					attr.getName());
 			if (LOG.isTraceEnabled())
 			{
 				LOG.trace("SQL: {}", addColumnSql);
 			}
 		}
 		jdbcTemplate.execute(addColumnSql);
+
+		if (attr.isReadOnly())
+		{
+			Stream<Attribute> updatedTableAttrsReadonly;
+			Stream<Attribute> tableAttrsReadonly = getTableAttributesReadonly(entityType);
+			if (isTableAttribute(attr))
+			{
+				updatedTableAttrsReadonly = Stream.concat(tableAttrsReadonly, Stream.of(attr));
+			}
+			else
+			{
+				updatedTableAttrsReadonly = tableAttrsReadonly;
+			}
+			updateTableTriggers(entityType, updatedTableAttrsReadonly.collect(toList()));
+		}
 	}
 
-	private void dropColumn(EntityMetaData entityMeta, AttributeMetaData attr)
+	private void dropColumn(EntityType entityType, Attribute attr)
 	{
-		String dropColumnSql = getSqlDropColumn(entityMeta, attr);
+		if (attr.isReadOnly())
+		{
+			LinkedHashMap<String, Attribute> updatedReadonlyTableAttrs = getTableAttributesReadonly(entityType)
+					.collect(toMap(Attribute::getName, Function.identity(), (u, v) ->
+					{
+						throw new IllegalStateException(String.format("Duplicate key %s", u));
+					}, LinkedHashMap::new));
+			updatedReadonlyTableAttrs.remove(attr.getName());
+
+			updateTableTriggers(entityType, updatedReadonlyTableAttrs.values());
+		}
+
+		String dropColumnSql = getSqlDropColumn(entityType, attr);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Dropping column for entity [{}] attribute [{}]", entityMeta.getName(), attr.getName());
+			LOG.debug("Dropping column for entity [{}] attribute [{}]", entityType.getId(),
+					attr.getName());
 			if (LOG.isTraceEnabled())
 			{
 				LOG.trace("SQL: {}", dropColumnSql);
@@ -690,13 +803,13 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		jdbcTemplate.execute(dropColumnSql);
 	}
 
-	private void updateColumnDataType(EntityMetaData entityMeta, AttributeMetaData attr)
+	private void updateColumnDataType(EntityType entityType, Attribute attr)
 	{
-		String sqlSetDataType = getSqlSetDataType(entityMeta, attr);
+		String sqlSetDataType = getSqlSetDataType(entityType, attr);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Changing data type of entity [{}] attribute [{}] to [{}]", entityMeta.getName(), attr.getName(),
-					attr.getDataType().toString());
+			LOG.debug("Changing data type of entity [{}] attribute [{}] to [{}]", entityType.getId(),
+					attr.getName(), attr.getDataType().toString());
 			if (LOG.isTraceEnabled())
 			{
 				LOG.trace("SQL: {}", sqlSetDataType);
@@ -705,12 +818,13 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		jdbcTemplate.execute(sqlSetDataType);
 	}
 
-	private void createJunctionTable(EntityMetaData entityMeta, AttributeMetaData attr)
+	private void createJunctionTable(EntityType entityType, Attribute attr)
 	{
-		String createJunctionTableSql = getSqlCreateJunctionTable(entityMeta, attr);
+		String createJunctionTableSql = getSqlCreateJunctionTable(entityType, attr);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Creating junction table for entity [{}] attribute [{}]", entityMeta.getName(), attr.getName());
+			LOG.debug("Creating junction table for entity [{}] attribute [{}]", entityType.getId(),
+					attr.getName());
 			if (LOG.isTraceEnabled())
 			{
 				LOG.trace("SQL: {}", createJunctionTableSql);
@@ -718,10 +832,10 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		}
 		jdbcTemplate.execute(createJunctionTableSql);
 
-		String createJunctionTableIndexSql = getSqlCreateJunctionTableIndex(entityMeta, attr);
+		String createJunctionTableIndexSql = getSqlCreateJunctionTableIndex(entityType, attr);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Creating junction table index for entity [{}] attribute [{}]", entityMeta.getName(),
+			LOG.debug("Creating junction table index for entity [{}] attribute [{}]", entityType.getId(),
 					attr.getName());
 			if (LOG.isTraceEnabled())
 			{
@@ -731,12 +845,12 @@ public class PostgreSqlRepositoryCollection extends AbstractRepositoryCollection
 		jdbcTemplate.execute(createJunctionTableIndexSql);
 	}
 
-	private void dropJunctionTable(EntityMetaData entityMeta, AttributeMetaData mrefAttr)
+	private void dropJunctionTable(EntityType entityType, Attribute mrefAttr)
 	{
-		String sqlDropJunctionTable = getSqlDropJunctionTable(entityMeta, mrefAttr);
+		String sqlDropJunctionTable = getSqlDropJunctionTable(entityType, mrefAttr);
 		if (LOG.isDebugEnabled())
 		{
-			LOG.debug("Dropping junction table for entity [{}] attribute [{}]", entityMeta.getName(),
+			LOG.debug("Dropping junction table for entity [{}] attribute [{}]", entityType.getId(),
 					mrefAttr.getName());
 			if (LOG.isTraceEnabled())
 			{

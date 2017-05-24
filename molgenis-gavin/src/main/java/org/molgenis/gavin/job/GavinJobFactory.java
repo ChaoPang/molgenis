@@ -1,18 +1,16 @@
 package org.molgenis.gavin.job;
 
 import org.molgenis.data.DataService;
-import org.molgenis.data.annotation.core.EffectsAnnotator;
+import org.molgenis.data.annotation.core.EffectBasedAnnotator;
 import org.molgenis.data.annotation.core.RepositoryAnnotator;
-import org.molgenis.data.annotation.web.CrudRepositoryAnnotator;
 import org.molgenis.data.jobs.JobExecutionUpdater;
 import org.molgenis.data.jobs.ProgressImpl;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
-import org.molgenis.data.vcf.model.VcfAttributes;
-import org.molgenis.data.vcf.utils.VcfUtils;
 import org.molgenis.file.FileStore;
+import org.molgenis.gavin.job.input.Parser;
 import org.molgenis.security.core.runas.RunAsSystem;
 import org.molgenis.ui.menu.MenuReaderService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailSender;
 import org.springframework.security.access.intercept.RunAsUserToken;
@@ -26,36 +24,34 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.of;
+import static org.molgenis.gavin.job.meta.GavinJobExecutionMetaData.GAVIN_JOB_EXECUTION;
 
 @Component
 public class GavinJobFactory
 {
-	CrudRepositoryAnnotator crudRepositoryAnnotator;
-	DataService dataService;
+	private static final Logger LOG = LoggerFactory.getLogger(GavinJobFactory.class);
+
+	private final Parser parser;
+	private DataService dataService;
 	private PlatformTransactionManager transactionManager;
 	private UserDetailsService userDetailsService;
 	private JobExecutionUpdater jobExecutionUpdater;
 	private MailSender mailSender;
-	FileStore fileStore;
+	private FileStore fileStore;
 	private RepositoryAnnotator cadd;
 	private RepositoryAnnotator exac;
 	private RepositoryAnnotator snpEff;
-	private EffectsAnnotator gavin;
+	private EffectBasedAnnotator gavin;
 	private MenuReaderService menuReaderService;
-	private VcfAttributes vcfAttributes;
-	private VcfUtils vcfUtils;
-	private AttributeMetaDataFactory attributeMetaDataFactory;
-	private EntityMetaDataFactory entityMetaDataFactory;
+	private AnnotatorRunner annotatorRunner;
 
 	@Autowired
-	public GavinJobFactory(CrudRepositoryAnnotator crudRepositoryAnnotator, DataService dataService,
-			PlatformTransactionManager transactionManager, UserDetailsService userDetailsService,
-			JobExecutionUpdater jobExecutionUpdater, MailSender mailSender, FileStore fileStore,
-			RepositoryAnnotator cadd, RepositoryAnnotator exac, RepositoryAnnotator snpEff, EffectsAnnotator gavin,
-			MenuReaderService menuReaderService, VcfAttributes vcfAttributes, VcfUtils vcfUtils,
-			AttributeMetaDataFactory attributeMetaDataFactory, EntityMetaDataFactory entityMetaDataFactory)
+	public GavinJobFactory(DataService dataService, PlatformTransactionManager transactionManager,
+			UserDetailsService userDetailsService, JobExecutionUpdater jobExecutionUpdater, MailSender mailSender,
+			FileStore fileStore, RepositoryAnnotator cadd, RepositoryAnnotator exac, RepositoryAnnotator snpEff,
+			EffectBasedAnnotator gavin, MenuReaderService menuReaderService, Parser parser,
+			AnnotatorRunner annotatorRunner)
 	{
-		this.crudRepositoryAnnotator = requireNonNull(crudRepositoryAnnotator);
 		this.dataService = requireNonNull(dataService);
 		this.transactionManager = requireNonNull(transactionManager);
 		this.userDetailsService = requireNonNull(userDetailsService);
@@ -67,26 +63,22 @@ public class GavinJobFactory
 		this.snpEff = requireNonNull(snpEff);
 		this.gavin = requireNonNull(gavin);
 		this.menuReaderService = requireNonNull(menuReaderService);
-		this.vcfAttributes = requireNonNull(vcfAttributes);
-		this.vcfUtils = requireNonNull(vcfUtils);
-		this.attributeMetaDataFactory = requireNonNull(attributeMetaDataFactory);
-		this.entityMetaDataFactory = requireNonNull(entityMetaDataFactory);
+		this.parser = requireNonNull(parser);
+		this.annotatorRunner = requireNonNull(annotatorRunner);
 	}
 
 	@RunAsSystem
 	public GavinJob createJob(GavinJobExecution gavinJobExecution)
 	{
-		dataService.add(gavinJobExecution.getEntityMetaData().getName(), gavinJobExecution);
+		dataService.add(gavinJobExecution.getEntityType().getId(), gavinJobExecution);
 		String username = gavinJobExecution.getUser();
-
 		// create an authentication to run as the user that is listed as the owner of the job
 		RunAsUserToken runAsAuthentication = new RunAsUserToken("Job Execution", username, null,
 				userDetailsService.loadUserByUsername(username).getAuthorities(), null);
 
 		return new GavinJob(new ProgressImpl(gavinJobExecution, jobExecutionUpdater, mailSender),
 				new TransactionTemplate(transactionManager), runAsAuthentication, gavinJobExecution.getIdentifier(),
-				fileStore, menuReaderService, cadd, exac, snpEff, gavin, vcfAttributes, vcfUtils, entityMetaDataFactory,
-				attributeMetaDataFactory);
+				fileStore, menuReaderService, cadd, exac, snpEff, gavin, parser, annotatorRunner, gavinJobExecution);
 	}
 
 	public List<String> getAnnotatorsWithMissingResources()
@@ -94,4 +86,24 @@ public class GavinJobFactory
 		return of(cadd, exac, snpEff, gavin).filter(annotator -> !annotator.annotationDataExists())
 				.map(RepositoryAnnotator::getSimpleName).collect(toList());
 	}
+
+	/**
+	 * Retrieves a {@link GavinJobExecution} for anyone who has the identifier, without checking their permissions.
+	 *
+	 * @param jobIdentifier the identifier of the {@link GavinJobExecution}
+	 * @return GavinJobExecution with the specified identifier, if it exists
+	 * @throws JobNotFoundException if no GavinJobExecution with the specified identifier exists.
+	 */
+	@RunAsSystem
+	public GavinJobExecution findGavinJobExecution(String jobIdentifier) throws JobNotFoundException
+	{
+		GavinJobExecution result = dataService.findOneById(GAVIN_JOB_EXECUTION, jobIdentifier, GavinJobExecution.class);
+		if (result == null)
+		{
+
+			throw new JobNotFoundException("Job not found.");
+		}
+		return result;
+	}
+
 }

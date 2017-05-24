@@ -3,11 +3,11 @@ package org.molgenis.data.rsql;
 import cz.jirutka.rsql.parser.ast.*;
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.*;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.aggregation.AggregateQuery;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.AggregateQueryImpl;
 
-import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -19,21 +19,20 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public class AggregateQueryRsqlVisitor extends NoArgRSQLVisitorAdapter<AggregateQuery>
 {
-	private final EntityMetaData entityMetaData;
+	private final EntityType entityType;
 	private final AggregateQueryImpl aggsQ;
 
-	public AggregateQueryRsqlVisitor(EntityMetaData entityMetaData, Query<Entity> query)
+	public AggregateQueryRsqlVisitor(EntityType entityType, Query<Entity> query)
 	{
-		this.entityMetaData = checkNotNull(entityMetaData);
+		this.entityType = checkNotNull(entityType);
 		this.aggsQ = new AggregateQueryImpl().query(query);
 	}
 
 	@Override
 	public AggregateQuery visit(AndNode node)
 	{
-		for (Iterator<Node> it = node.iterator(); it.hasNext(); )
+		for (Node child : node)
 		{
-			Node child = it.next();
 			child.accept(this);
 		}
 
@@ -76,7 +75,7 @@ public class AggregateQueryRsqlVisitor extends NoArgRSQLVisitorAdapter<Aggregate
 		return aggsQ;
 	}
 
-	private AttributeMetaData getAttribute(ComparisonNode node)
+	private Attribute getAttribute(ComparisonNode node)
 	{
 		List<String> args = node.getArguments();
 		if (args.size() != 1)
@@ -88,16 +87,16 @@ public class AggregateQueryRsqlVisitor extends NoArgRSQLVisitorAdapter<Aggregate
 		String attrName = args.iterator().next();
 
 		String[] attrTokens = attrName.split("\\.");
-		AttributeMetaData attr = entityMetaData.getAttribute(attrTokens[0]);
+		Attribute attr = entityType.getAttribute(attrTokens[0]);
 		if (attr == null)
 		{
 			throw new UnknownAttributeException("Unknown attribute [" + attrName + "]");
 		}
-		EntityMetaData entityMetaDataAtDepth = entityMetaData;
+		EntityType entityTypeAtDepth;
 		for (int i = 1; i < attrTokens.length; ++i)
 		{
-			entityMetaDataAtDepth = attr.getRefEntity();
-			attr = entityMetaDataAtDepth.getAttribute(attrTokens[i]);
+			entityTypeAtDepth = attr.getRefEntity();
+			attr = entityTypeAtDepth.getAttribute(attrTokens[i]);
 			if (attr == null)
 			{
 				throw new UnknownAttributeException("Unknown attribute [" + attrName + "]");

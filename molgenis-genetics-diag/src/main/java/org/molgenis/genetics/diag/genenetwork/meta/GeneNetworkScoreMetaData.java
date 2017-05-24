@@ -1,13 +1,13 @@
 package org.molgenis.genetics.diag.genenetwork.meta;
 
-import org.molgenis.data.meta.SystemEntityMetaData;
+import org.molgenis.data.meta.SystemEntityType;
 import org.springframework.stereotype.Component;
 
-import static org.molgenis.MolgenisFieldTypes.AttributeType.DECIMAL;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.*;
+import static org.molgenis.data.meta.AttributeType.DECIMAL;
+import static org.molgenis.data.meta.model.EntityType.AttributeRole.*;
 
 @Component
-public class GeneNetworkScoreMetaData extends SystemEntityMetaData
+public class GeneNetworkScoreMetaData extends SystemEntityType
 {
 	public static final String SIMPLE_NAME = "GeneNetworkScore";
 
@@ -30,12 +30,12 @@ public class GeneNetworkScoreMetaData extends SystemEntityMetaData
 		setDescription("The gene network score for a combination of a gene and a hpo term");
 
 		addAttribute(ID, ROLE_ID).setUnique(true).setAuto(true).setVisible(false).setDescription("TODO");
-		addAttribute(HPO, ROLE_LABEL, ROLE_LOOKUP).setLabel("HPO ID").setDescription("").setNillable(false)
+		addAttribute(HPO, ROLE_LABEL, ROLE_LOOKUP).setLabel("HPO ID").setNillable(false)
 				.setAggregatable(true);
 		addAttribute(ENSEMBL_ID).setLabel("Gene").setDescription("The Ensembl identifier").setNillable(false)
 				.setAggregatable(true);
 		addAttribute(HUGO_SYMBOL).setLabel("HUGO Symbol").setDescription("The HGNC gene symbol").setAggregatable(true);
-		addAttribute(SCORE).setLabel("Gene Network Score").setDataType(DECIMAL).setDefaultValue("false")
-				.setAggregatable(true).setNillable(false);
+		addAttribute(SCORE).setLabel("Gene Network Score").setDataType(DECIMAL).setAggregatable(true)
+				.setNillable(false);
 	}
 }

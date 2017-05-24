@@ -1,10 +1,5 @@
 package org.molgenis.data.mapper.jobs.mappingservice;
 
-import static java.util.Objects.requireNonNull;
-
-import java.util.List;
-import java.util.stream.Collectors;
-
 import org.molgenis.data.DataService;
 import org.molgenis.data.jobs.JobExecutionUpdater;
 import org.molgenis.data.jobs.Progress;
@@ -12,8 +7,8 @@ import org.molgenis.data.jobs.ProgressImpl;
 import org.molgenis.data.mapper.jobs.mappingservice.meta.MappingServiceJobExecutionMetaData;
 import org.molgenis.data.mapper.repository.EntityMappingRepository;
 import org.molgenis.data.mapper.service.AlgorithmService;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.data.meta.model.EntityMetaDataMetaData;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.meta.model.EntityTypeMetadata;
 import org.molgenis.security.core.runas.RunAsSystem;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailSender;
@@ -21,6 +16,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import java.util.List;
+
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @Component
 public class MappingServiceJobFactory
@@ -52,12 +52,11 @@ public class MappingServiceJobFactory
 		dataService.add(MappingServiceJobExecutionMetaData.MAPPING_SERVICE_JOB_EXECUTION, mappingServiceJobExecution);
 
 		List<String> sourceEntityNames = mappingServiceJobExecution.getSourceEntities().stream()
-				.map(e -> e.getString(EntityMetaDataMetaData.FULL_NAME)).collect(Collectors.toList());
-		String targetEntityName = mappingServiceJobExecution.getTargetEntity()
-				.getString(EntityMetaDataMetaData.FULL_NAME);
+				.map(e -> e.getString(EntityTypeMetadata.ID)).collect(toList());
+		String targetEntityName = mappingServiceJobExecution.getTargetEntity().getString(EntityTypeMetadata.ID);
 
-		EntityMetaData sourceEntityMetaData = dataService.getEntityMetaData(sourceEntityNames.get(0));
-		EntityMetaData targetEntityMetaData = dataService.getEntityMetaData(targetEntityName);
+		EntityType sourceEntityMetaData = dataService.getEntityType(sourceEntityNames.get(0));
+		EntityType targetEntityMetaData = dataService.getEntityType(targetEntityName);
 
 		Progress progress = new ProgressImpl(mappingServiceJobExecution, jobExecutionUpdater, mailSender);
 

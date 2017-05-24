@@ -1,7 +1,7 @@
 package org.molgenis.data.discovery.model.biobank;
 
 import com.google.auto.value.AutoValue;
-import org.molgenis.auth.MolgenisUser;
+import org.molgenis.auth.User;
 import org.molgenis.gson.AutoGson;
 import org.molgenis.ontology.core.model.SemanticType;
 
@@ -17,14 +17,14 @@ public abstract class BiobankUniverse
 
 	public abstract List<BiobankSampleCollection> getMembers();
 
-	public abstract MolgenisUser getOwner();
+	public abstract User getOwner();
 
 	public abstract List<SemanticType> getKeyConcepts();
 
 	public abstract List<BiobankUniverseMemberVector> getVectors();
 
 	public static BiobankUniverse create(String identifier, String name, List<BiobankSampleCollection> members,
-			MolgenisUser owner, List<SemanticType> keyConcepts, List<BiobankUniverseMemberVector> vectors)
+			User owner, List<SemanticType> keyConcepts, List<BiobankUniverseMemberVector> vectors)
 	{
 		return new AutoValue_BiobankUniverse(identifier, name, members, owner, keyConcepts, vectors);
 	}

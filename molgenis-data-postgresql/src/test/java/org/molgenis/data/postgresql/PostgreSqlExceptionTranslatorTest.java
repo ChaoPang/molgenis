@@ -1,9 +1,16 @@
 package org.molgenis.data.postgresql;
 
+import com.google.common.collect.ImmutableMap;
+import org.molgenis.data.postgresql.identifier.AttributeDescription;
+import org.molgenis.data.postgresql.identifier.EntityTypeDescription;
+import org.molgenis.data.postgresql.identifier.EntityTypeRegistry;
 import org.molgenis.data.validation.MolgenisValidationException;
 import org.postgresql.util.PSQLException;
 import org.postgresql.util.ServerErrorMessage;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import javax.sql.DataSource;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -11,10 +18,113 @@ import static org.testng.Assert.assertEquals;
 
 public class PostgreSqlExceptionTranslatorTest
 {
+
+	private PostgreSqlExceptionTranslator postgreSqlExceptionTranslator;
+
+	@BeforeMethod
+	public void setUpBeforeMethod()
+	{
+		DataSource dataSource = mock(DataSource.class);
+		EntityTypeRegistry entityTypeRegistry = mock(EntityTypeRegistry.class);
+		EntityTypeDescription entityTypeDescription = EntityTypeDescription.create("myEntity",
+				ImmutableMap.<String, AttributeDescription>builder()
+						.put("myColumn", AttributeDescription.create("myAttr")).build());
+		EntityTypeDescription refEntityTypeDescription = EntityTypeDescription.create("myRefEntity",
+				ImmutableMap.<String, AttributeDescription>builder()
+						.put("myColumn", AttributeDescription.create("myAttr")).build());
+		EntityTypeDescription otherRefEntityTypeDescription = EntityTypeDescription.create("myOtherRefEntity",
+				ImmutableMap.<String, AttributeDescription>builder()
+						.put("myColumn", AttributeDescription.create("myAttr")).build());
+		when(entityTypeRegistry.getEntityTypeDescription("myTable")).thenReturn(entityTypeDescription);
+		when(entityTypeRegistry.getEntityTypeDescription("myDependentTable")).thenReturn(refEntityTypeDescription);
+		when(entityTypeRegistry.getEntityTypeDescription("myOtherDependentTable"))
+				.thenReturn(otherRefEntityTypeDescription);
+		postgreSqlExceptionTranslator = new PostgreSqlExceptionTranslator(dataSource, entityTypeRegistry);
+	}
+
 	@Test(expectedExceptions = NullPointerException.class)
 	public void PostgreSqlExceptionTranslator()
 	{
-		new PostgreSqlExceptionTranslator(null);
+		new PostgreSqlExceptionTranslator(null, null);
+	}
+
+	@Test
+	public void translateReadonlyViolation()
+	{
+		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
+		when(serverErrorMessage.getMessage())
+				.thenReturn("Updating read-only column \"myColumn\" of table \"myTable\" with id [abc] is not allowed");
+		//noinspection ThrowableResultOfMethodCallIgnored
+		MolgenisValidationException e = postgreSqlExceptionTranslator
+				.translateReadonlyViolation(new PSQLException(serverErrorMessage));
+		assertEquals(e.getMessage(),
+				"Updating read-only attribute 'myAttr' of entity 'myEntity' with id 'abc' is not allowed.");
+	}
+
+	@Test
+	public void translateReadonlyViolationNoDoubleQuotes()
+	{
+		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
+		when(serverErrorMessage.getMessage())
+				.thenReturn("Updating read-only column myColumn of table myTable with id [abc] is not allowed");
+		//noinspection ThrowableResultOfMethodCallIgnored
+		MolgenisValidationException e = postgreSqlExceptionTranslator
+				.translateReadonlyViolation(new PSQLException(serverErrorMessage));
+		assertEquals(e.getMessage(),
+				"Updating read-only attribute 'myAttr' of entity 'myEntity' with id 'abc' is not allowed.");
+	}
+
+	@Test
+	public void translateDependentObjectsStillExistOneDependentTableSingleDependency()
+	{
+		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
+		when(serverErrorMessage.getSQLState()).thenReturn("2BP01");
+		when(serverErrorMessage.getDetail()).thenReturn(
+				"constraint my_foreign_key_constraint on table \"myTable\" depends on table \"myDependentTable\"");
+		//noinspection ThrowableResultOfMethodCallIgnored
+		MolgenisValidationException e = postgreSqlExceptionTranslator
+				.translateDependentObjectsStillExist(new PSQLException(serverErrorMessage));
+		assertEquals(e.getMessage(), "Cannot delete entity 'myRefEntity' because entity 'myEntity' depends on it.");
+	}
+
+	@Test
+	public void translateDependentObjectsStillExistOneDependentTableMultipleDependencies()
+	{
+		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
+		when(serverErrorMessage.getSQLState()).thenReturn("2BP01");
+		when(serverErrorMessage.getDetail()).thenReturn(
+				"constraint my_foreign_key_constraint on table \"myTable\" depends on table \"myDependentTable\"\nconstraint myOther_foreign_key_constraint on table \"myTable\" depends on table \"myDependentTable\"");
+		//noinspection ThrowableResultOfMethodCallIgnored
+		MolgenisValidationException e = postgreSqlExceptionTranslator
+				.translateDependentObjectsStillExist(new PSQLException(serverErrorMessage));
+		assertEquals(e.getMessage(), "Cannot delete entity 'myRefEntity' because entity 'myEntity' depends on it.");
+	}
+
+	@Test
+	public void translateDependentObjectsStillExistMultipleDependentTables()
+	{
+		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
+		when(serverErrorMessage.getSQLState()).thenReturn("2BP01");
+		when(serverErrorMessage.getDetail()).thenReturn(
+				"constraint my_foreign_key_constraint on table \"myTable\" depends on table \"myDependentTable\"\nconstraint myOther_foreign_key_constraint on table \"myTable\" depends on table \"myOtherDependentTable\"");
+		//noinspection ThrowableResultOfMethodCallIgnored
+		MolgenisValidationException e = postgreSqlExceptionTranslator
+				.translateDependentObjectsStillExist(new PSQLException(serverErrorMessage));
+		assertEquals(e.getMessage(),
+				"Cannot delete entity 'myRefEntity' because entity 'myEntity' depends on it..Cannot delete entity 'myOtherRefEntity' because entity 'myEntity' depends on it.");
+	}
+
+	@Test
+	public void translateDependentObjectsStillExistNoDoubleQuotes()
+	{
+		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
+		when(serverErrorMessage.getSQLState()).thenReturn("2BP01");
+		when(serverErrorMessage.getDetail())
+				.thenReturn("constraint my_foreign_key_constraint on table myTable depends on table myDependentTable");
+		//noinspection ThrowableResultOfMethodCallIgnored
+		MolgenisValidationException e = postgreSqlExceptionTranslator
+				.translateDependentObjectsStillExist(new PSQLException(serverErrorMessage));
+		assertEquals(e.getMessage(), "Cannot delete entity 'myRefEntity' because entity 'myEntity' depends on it.");
 	}
 
 	@Test
@@ -22,13 +132,13 @@ public class PostgreSqlExceptionTranslatorTest
 	{
 		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
 		when(serverErrorMessage.getSQLState()).thenReturn("23502");
-		when(serverErrorMessage.getTable()).thenReturn("mytable");
+		when(serverErrorMessage.getTable()).thenReturn("myTable");
 		when(serverErrorMessage.getMessage())
-				.thenReturn("null value in column \"mycolumn\" violates not-null constraint");
+				.thenReturn("null value in column \"myColumn\" violates not-null constraint");
 		//noinspection ThrowableResultOfMethodCallIgnored
-		MolgenisValidationException e = PostgreSqlExceptionTranslator
+		MolgenisValidationException e = postgreSqlExceptionTranslator
 				.translateNotNullViolation(new PSQLException(serverErrorMessage));
-		assertEquals(e.getMessage(), "The attribute 'mycolumn' of entity 'mytable' can not be null.");
+		assertEquals(e.getMessage(), "The attribute 'myAttr' of entity 'myEntity' can not be null.");
 	}
 
 	@Test(expectedExceptions = RuntimeException.class)
@@ -39,7 +149,20 @@ public class PostgreSqlExceptionTranslatorTest
 		when(serverErrorMessage.getTable()).thenReturn("mytable");
 		when(serverErrorMessage.getMessage()).thenReturn("xxxyyyzzzz");
 		//noinspection ThrowableResultOfMethodCallIgnored
-		PostgreSqlExceptionTranslator.translateNotNullViolation(new PSQLException(serverErrorMessage));
+		postgreSqlExceptionTranslator.translateNotNullViolation(new PSQLException(serverErrorMessage));
+	}
+
+	@Test
+	public void translateNotNullViolationNoDoubleQuotes()
+	{
+		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
+		when(serverErrorMessage.getSQLState()).thenReturn("23502");
+		when(serverErrorMessage.getTable()).thenReturn("myTable");
+		when(serverErrorMessage.getMessage()).thenReturn("null value in column myColumn violates not-null constraint");
+		//noinspection ThrowableResultOfMethodCallIgnored
+		MolgenisValidationException e = postgreSqlExceptionTranslator
+				.translateNotNullViolation(new PSQLException(serverErrorMessage));
+		assertEquals(e.getMessage(), "The attribute 'myAttr' of entity 'myEntity' can not be null.");
 	}
 
 	@Test
@@ -47,12 +170,12 @@ public class PostgreSqlExceptionTranslatorTest
 	{
 		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
 		when(serverErrorMessage.getSQLState()).thenReturn("23503");
-		when(serverErrorMessage.getTable()).thenReturn("mytable");
-		when(serverErrorMessage.getDetail()).thenReturn("... (mycolumn) ... (myvalue) ...");
+		when(serverErrorMessage.getTable()).thenReturn("myTable");
+		when(serverErrorMessage.getDetail()).thenReturn("... (myColumn) ... (myValue) ...");
 		//noinspection ThrowableResultOfMethodCallIgnored
-		MolgenisValidationException e = PostgreSqlExceptionTranslator
+		MolgenisValidationException e = postgreSqlExceptionTranslator
 				.translateForeignKeyViolation(new PSQLException(serverErrorMessage));
-		assertEquals(e.getMessage(), "Unknown xref value 'myvalue' for attribute 'mycolumn' of entity 'mytable'.");
+		assertEquals(e.getMessage(), "Unknown xref value 'myValue' for attribute 'myAttr' of entity 'myEntity'.");
 	}
 
 	@Test
@@ -60,26 +183,29 @@ public class PostgreSqlExceptionTranslatorTest
 	{
 		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
 		when(serverErrorMessage.getSQLState()).thenReturn("23503");
-		when(serverErrorMessage.getTable()).thenReturn("mytable");
-		when(serverErrorMessage.getDetail()).thenReturn("Key (mycolumn)=(myvalue) is not present in table \"mytable\"");
+		when(serverErrorMessage.getTable()).thenReturn("myTable");
+		when(serverErrorMessage.getDetail()).thenReturn("Key (myColumn)=(myValue) is not present in table \"myTable\"");
 		//noinspection ThrowableResultOfMethodCallIgnored
-		MolgenisValidationException e = PostgreSqlExceptionTranslator
+		MolgenisValidationException e = postgreSqlExceptionTranslator
 				.translateForeignKeyViolation(new PSQLException(serverErrorMessage));
-		assertEquals(e.getMessage(), "Unknown xref value 'myvalue' for attribute 'mycolumn' of entity 'mytable'.");
+		assertEquals(e.getMessage(), "Unknown xref value 'myValue' for attribute 'myAttr' of entity 'myEntity'.");
 	}
 
 	@Test
 	public void translateForeignKeyViolationStillReferenced()
 	{
+
 		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
 		when(serverErrorMessage.getSQLState()).thenReturn("23503");
-		when(serverErrorMessage.getTable()).thenReturn("mytable");
+		when(serverErrorMessage.getTable()).thenReturn("myTable");
+		when(serverErrorMessage.getMessage()).thenReturn(
+				"update or delete on table \"myDependentTable\" violates foreign key constraint \"myTable_myAttr_fkey\" on table \"myTable\"");
 		when(serverErrorMessage.getDetail())
-				.thenReturn("Key (mycolumn)=(myvalue) is still referenced from table \"mytable\"");
+				.thenReturn("Key (myColumn)=(myValue) is still referenced from table \"myTable\"");
 		//noinspection ThrowableResultOfMethodCallIgnored
-		MolgenisValidationException e = PostgreSqlExceptionTranslator
+		MolgenisValidationException e = postgreSqlExceptionTranslator
 				.translateForeignKeyViolation(new PSQLException(serverErrorMessage));
-		assertEquals(e.getMessage(), "Value 'myvalue' for attribute 'mycolumn' is referenced by entity 'mytable'.");
+		assertEquals(e.getMessage(), "Value 'myValue' for attribute 'myAttr' is referenced by entity 'myEntity'.");
 	}
 
 	@Test(expectedExceptions = RuntimeException.class)
@@ -90,7 +216,7 @@ public class PostgreSqlExceptionTranslatorTest
 		when(serverErrorMessage.getTable()).thenReturn("mytable");
 		when(serverErrorMessage.getDetail()).thenReturn("xxxyyyyzzzz");
 		//noinspection ThrowableResultOfMethodCallIgnored
-		PostgreSqlExceptionTranslator.translateForeignKeyViolation(new PSQLException(serverErrorMessage));
+		postgreSqlExceptionTranslator.translateForeignKeyViolation(new PSQLException(serverErrorMessage));
 	}
 
 	@Test
@@ -98,13 +224,12 @@ public class PostgreSqlExceptionTranslatorTest
 	{
 		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
 		when(serverErrorMessage.getSQLState()).thenReturn("23505");
-		when(serverErrorMessage.getTable()).thenReturn("mytable");
-		when(serverErrorMessage.getDetail()).thenReturn("Key (mycolumn)=(myvalue) already exists.");
+		when(serverErrorMessage.getTable()).thenReturn("myTable");
+		when(serverErrorMessage.getDetail()).thenReturn("Key (myColumn)=(myValue) already exists.");
 		//noinspection ThrowableResultOfMethodCallIgnored
-		MolgenisValidationException e = PostgreSqlExceptionTranslator
+		MolgenisValidationException e = postgreSqlExceptionTranslator
 				.translateUniqueKeyViolation(new PSQLException(serverErrorMessage));
-		assertEquals(e.getMessage(),
-				"Duplicate value 'myvalue' for unique attribute 'mycolumn' from entity 'mytable'.");
+		assertEquals(e.getMessage(), "Duplicate value 'myValue' for unique attribute 'myAttr' from entity 'myEntity'.");
 	}
 
 	@Test(expectedExceptions = RuntimeException.class)
@@ -115,7 +240,7 @@ public class PostgreSqlExceptionTranslatorTest
 		when(serverErrorMessage.getTable()).thenReturn("mytable");
 		when(serverErrorMessage.getDetail()).thenReturn("xxxyyyyzzz");
 		//noinspection ThrowableResultOfMethodCallIgnored
-		PostgreSqlExceptionTranslator.translateUniqueKeyViolation(new PSQLException(serverErrorMessage));
+		postgreSqlExceptionTranslator.translateUniqueKeyViolation(new PSQLException(serverErrorMessage));
 	}
 
 	@Test
@@ -166,7 +291,8 @@ public class PostgreSqlExceptionTranslatorTest
 	public void translateInvalidIntegerExceptionDateTime()
 	{
 		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
-		when(serverErrorMessage.getMessage()).thenReturn("invalid input syntax for type timestamp: \"str1\"");
+		when(serverErrorMessage.getMessage())
+				.thenReturn("invalid input syntax for type timestamp with time zone: \"str1\"");
 		//noinspection ThrowableResultOfMethodCallIgnored
 		MolgenisValidationException e = PostgreSqlExceptionTranslator
 				.translateInvalidIntegerException(new PSQLException(serverErrorMessage));
@@ -177,11 +303,23 @@ public class PostgreSqlExceptionTranslatorTest
 	public void translateCheckConstraintViolation()
 	{
 		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
-		when(serverErrorMessage.getTable()).thenReturn("entity");
-		when(serverErrorMessage.getConstraint()).thenReturn("entity_column_chk");
+		when(serverErrorMessage.getTable()).thenReturn("myTable");
+		when(serverErrorMessage.getConstraint()).thenReturn("myTable_myColumn_chk");
+		//noinspection ThrowableResultOfMethodCallIgnored
+		MolgenisValidationException e = postgreSqlExceptionTranslator
+				.translateCheckConstraintViolation(new PSQLException(serverErrorMessage));
+		assertEquals(e.getMessage(), "Unknown enum value for attribute 'myAttr' of entity 'myEntity'.");
+	}
+
+	@Test
+	public void translateUndefinedColumnException()
+	{
+		ServerErrorMessage serverErrorMessage = mock(ServerErrorMessage.class);
+		when(serverErrorMessage.getSQLState()).thenReturn("42703");
+		when(serverErrorMessage.getMessage()).thenReturn("Undefined column: 7 ERROR: column \"test\" does not exist");
 		//noinspection ThrowableResultOfMethodCallIgnored
 		MolgenisValidationException e = PostgreSqlExceptionTranslator
-				.translateCheckConstraintViolation(new PSQLException(serverErrorMessage));
-		assertEquals(e.getMessage(), "Unknown enum value for attribute 'column' of entity 'entity'.");
+				.translateUndefinedColumnException(new PSQLException(serverErrorMessage));
+		assertEquals(e.getMessage(), "Undefined column: 7 ERROR: column \"test\" does not exist");
 	}
 }

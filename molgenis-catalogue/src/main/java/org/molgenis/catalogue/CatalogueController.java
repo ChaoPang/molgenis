@@ -3,7 +3,7 @@ package org.molgenis.catalogue;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.DataService;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.ui.MolgenisPluginController;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -38,13 +38,13 @@ public class CatalogueController extends MolgenisPluginController
 			Model model)
 	{
 		AtomicBoolean showEntitySelectBoolean = new AtomicBoolean(true);
-		List<EntityMetaData> emds = Lists.newArrayList();
-		dataService.getEntityNames().forEach(entityName ->
+		List<EntityType> emds = Lists.newArrayList();
+		dataService.getEntityTypeIds().forEach(entityTypeId ->
 		{
-			if (currentUserHasRole(AUTHORITY_SU, AUTHORITY_ENTITY_READ_PREFIX + entityName.toUpperCase()))
+			if (currentUserHasRole(AUTHORITY_SU, AUTHORITY_ENTITY_READ_PREFIX + entityTypeId))
 			{
-				emds.add(dataService.getEntityMetaData(entityName));
-				if (StringUtils.isNotBlank(selectedEntityName) && selectedEntityName.equalsIgnoreCase(entityName))
+				emds.add(dataService.getEntityType(entityTypeId));
+				if (StringUtils.isNotBlank(selectedEntityName) && selectedEntityName.equalsIgnoreCase(entityTypeId))
 				{
 					// Hide entity dropdown
 					showEntitySelectBoolean.set(false);
@@ -68,7 +68,7 @@ public class CatalogueController extends MolgenisPluginController
 			if (!emds.isEmpty())
 			{
 				// Select first entity
-				selectedEntityNameValue = emds.get(0).getName();
+				selectedEntityNameValue = emds.get(0).getId();
 			}
 		}
 

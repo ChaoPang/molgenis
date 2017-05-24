@@ -3,7 +3,7 @@ package org.molgenis.ui.controller;
 import org.molgenis.data.DataService;
 import org.molgenis.data.populate.EntityPopulator;
 import org.molgenis.security.core.utils.SecurityUtils;
-import org.molgenis.security.user.MolgenisUserDetailsService;
+import org.molgenis.security.user.UserDetailsService;
 import org.molgenis.ui.settings.StaticContent;
 import org.molgenis.ui.settings.StaticContentFactory;
 import org.molgenis.ui.settings.StaticContentMeta;
@@ -20,7 +20,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -125,15 +124,9 @@ public class StaticContentServiceImplTest extends AbstractTestNGSpringContextTes
 	public static class Config extends WebSecurityConfigurerAdapter
 	{
 		@Bean
-		public StaticContentMeta staticContentMeta()
-		{
-			return null; // new StaticContentMeta(); // FIXME
-		}
-
-		@Bean
 		public StaticContentFactory staticContentFactory()
 		{
-			return new StaticContentFactory(staticContentMeta(), mock(EntityPopulator.class));
+			return new StaticContentFactory(mock(StaticContentMeta.class), mock(EntityPopulator.class));
 		}
 
 		@Bean
@@ -153,14 +146,14 @@ public class StaticContentServiceImplTest extends AbstractTestNGSpringContextTes
 		}
 
 		@Override
-		protected UserDetailsService userDetailsService()
+		protected org.springframework.security.core.userdetails.UserDetailsService userDetailsService()
 		{
-			return mock(MolgenisUserDetailsService.class);
+			return mock(UserDetailsService.class);
 		}
 
 		@Bean
 		@Override
-		public UserDetailsService userDetailsServiceBean() throws Exception
+		public org.springframework.security.core.userdetails.UserDetailsService userDetailsServiceBean() throws Exception
 		{
 			return userDetailsService();
 		}

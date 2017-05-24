@@ -1,9 +1,5 @@
 package org.molgenis.data.discovery.scoring.attributes;
 
-import static junit.framework.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 import org.molgenis.ontology.ic.TermFrequencyService;
 import org.molgenis.ontology.utils.Stemmer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +9,10 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import static junit.framework.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @ContextConfiguration(classes = VectorSpaceModelAttributeSimilarityTest.Config.class)
 public class VectorSpaceModelAttributeSimilarityTest extends AbstractTestNGSpringContextTests
@@ -47,8 +47,8 @@ public class VectorSpaceModelAttributeSimilarityTest extends AbstractTestNGSprin
 		assertEquals(0.905f,
 				vectorSpaceModelAttributeSimilarity.score("history of hypertension", "hypertension", true));
 
-		assertEquals(0.973f, vectorSpaceModelAttributeSimilarity.score("history of hypertension hypertension",
-				"hypertension", true));
+		assertEquals(0.973f, vectorSpaceModelAttributeSimilarity
+				.score("history of hypertension hypertension", "hypertension", true));
 
 		assertEquals(0.0f, vectorSpaceModelAttributeSimilarity.score("history of", "hypertension", false));
 	}

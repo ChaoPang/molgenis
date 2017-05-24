@@ -8,7 +8,7 @@ import java.util.List;
 public interface SortaService
 {
 	/**
-	 * Find a list of relevant {@link OntologyTermImpl}s using lexical matching (elasticsearch + ngram) based on given
+	 * Find a list of relevant {@link org.molgenis.ontology.core.model.OntologyTerm}s using lexical matching (elasticsearch + ngram) based on given
 	 * ontologyIri and a set of query inputs (name, synonym, ontology database id, e.g. hpo, omim).
 	 *
 	 * @param ontologyIri

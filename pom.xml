@@ -9,7 +9,7 @@
     </parent>
     <groupId>org.molgenis</groupId>
     <artifactId>molgenis</artifactId>
-    <version>2.0.0-SNAPSHOT</version>
+    <version>4.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <!-- More Project Information -->
@@ -35,14 +35,16 @@
         <slf4j.version>1.7.12</slf4j.version>
         <logback.version>1.1.3</logback.version>
 
-        <spring.version>4.1.8.RELEASE</spring.version>
-        <spring.security.version>4.0.3.RELEASE</spring.security.version>
+        <spring.version>4.3.7.RELEASE</spring.version>
+        <spring.security.version>4.2.0.RELEASE</spring.security.version>
         <hibernate.validator.version>4.2.0.Final</hibernate.validator.version>
         <httpclient.version>4.5.1</httpclient.version>
         <google.auto-value.version>1.3</google.auto-value.version>
-        <google.guava.version>19.0</google.guava.version>
+        <google.guava.version>21.0</google.guava.version>
         <maven.build.timestamp.format>yyyy-MM-dd HH:mm z</maven.build.timestamp.format>
         <molgenis.build.timestamp>${maven.build.timestamp}</molgenis.build.timestamp>
+        <apache.rdf4j.version>2.0.2</apache.rdf4j.version>
+        <apache.poi.version>3.15</apache.poi.version>
     </properties>
 
     <build>
@@ -85,22 +87,6 @@
                     <artifactId>maven-war-plugin</artifactId>
                     <version>2.4</version>
                     <configuration>
-                        <!--
-                            Copy the jdas and mydas jars to the molgenis-app WEB-INF/lib folder
-                            So Tomcat can use them.
-
-                            Including them with scope:system and systemPath only works @ compile time, not at runtime
-                          -->
-                        <webResources>
-                            <resource>
-                                <directory>../molgenis-das/src/main/resources</directory>
-                                <includes>
-                                    <include>**/*.jar</include>
-                                </includes>
-                                <targetPath>WEB-INF/lib</targetPath>
-                            </resource>
-                        </webResources>
-
                         <failOnMissingWebXml>false</failOnMissingWebXml>
                         <!--
                             Exclude JCL and LOG4J since all logging should go through SLF4J.
@@ -184,7 +170,7 @@
                     <artifactId>maven-javadoc-plugin</artifactId>
                     <version>2.10.1</version>
                     <configuration>
-                        <additionalparam>-Xdoclint:none</additionalparam>
+                        <additionalparam>-Xdoclint:none --allow-script-in-comments</additionalparam>
                     </configuration>
                 </plugin>
                 <!-- specify plugin version -->
@@ -501,7 +487,8 @@
                                 <nosuffix>false</nosuffix>
                                 <skipMerge>true</skipMerge>
                                 <skipMinify>false</skipMinify>
-                                <verbose>true</verbose>
+                                <!-- setting verbose to true will to output js warnings -->
+                                <verbose>false</verbose>
                             </configuration>
                         </execution>
                     </executions>
@@ -553,7 +540,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.18.1</version>
+                <version>2.19.1</version>
                 <configuration>
                     <argLine>${argLine}</argLine>
                 </configuration>
@@ -650,24 +637,6 @@
             <artifactId>jcl-over-slf4j</artifactId>
             <version>${slf4j.version}</version>
         </dependency>
-        <!-- scope: test -->
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <version>6.8</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-all</artifactId>
-            <version>1.9.5</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-test</artifactId>
-            <scope>test</scope>
-        </dependency>
         <!-- scope: provided -->
         <dependency>
             <groupId>javax.servlet</groupId>
@@ -678,6 +647,8 @@
     </dependencies>
 
     <modules>
+        <module>molgenis-apps</module>
+        <module>molgenis-bootstrap</module>
         <module>molgenis-core</module>
         <module>molgenis-core-ui</module>
         <module>molgenis-ontology-core</module>
@@ -693,15 +664,14 @@
         <module>molgenis-data-discovery</module>
         <module>molgenis-data-googlespreadsheet</module>
         <module>molgenis-data</module>
-        <module>molgenis-data-system</module>
         <module>molgenis-data-postgresql</module>
         <module>molgenis-data-vcf</module>
         <module>molgenis-data-rest</module>
         <module>molgenis-data-elasticsearch</module>
         <module>molgenis-data-semanticsearch</module>
         <module>molgenis-data-validation</module>
-        <module>molgenis-data-idcard</module>
         <module>molgenis-data-i18n</module>
+        <module>molgenis-fair</module>
         <module>molgenis-python</module>
         <module>molgenis-r</module>
         <module>molgenis-charts</module>
@@ -725,6 +695,8 @@
         <module>molgenis-test</module>
         <module>molgenis-data-cache</module>
         <module>molgenis-data-platform</module>
-        <module>molgenis-annotators-cmd</module>
+        <module>molgenis-util</module>
+        <module>molgenis-settings</module>
+        <module>molgenis-swagger</module>
     </modules>
 </project>

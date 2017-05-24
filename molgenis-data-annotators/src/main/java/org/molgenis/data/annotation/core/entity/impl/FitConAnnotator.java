@@ -6,7 +6,7 @@ import org.molgenis.data.annotation.core.RepositoryAnnotator;
 import org.molgenis.data.annotation.core.entity.AnnotatorConfig;
 import org.molgenis.data.annotation.core.entity.AnnotatorInfo;
 import org.molgenis.data.annotation.core.entity.EntityAnnotator;
-import org.molgenis.data.annotation.core.entity.impl.framework.AnnotatorImpl;
+import org.molgenis.data.annotation.core.entity.impl.framework.AbstractAnnotator;
 import org.molgenis.data.annotation.core.entity.impl.framework.RepositoryAnnotatorImpl;
 import org.molgenis.data.annotation.core.filter.MultiAllelicResultFilter;
 import org.molgenis.data.annotation.core.query.LocusQueryCreator;
@@ -17,20 +17,20 @@ import org.molgenis.data.annotation.core.resources.impl.ResourceImpl;
 import org.molgenis.data.annotation.core.resources.impl.SingleResourceConfig;
 import org.molgenis.data.annotation.core.resources.impl.tabix.TabixRepositoryFactory;
 import org.molgenis.data.annotation.web.settings.SingleFileLocationCmdLineAnnotatorSettingsConfigurer;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.vcf.model.VcfAttributes;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import static org.molgenis.MolgenisFieldTypes.AttributeType.STRING;
+import static com.google.common.collect.Lists.newArrayList;
 import static org.molgenis.data.annotation.web.settings.FitConAnnotatorSettings.Meta.FITCON_LOCATION;
+import static org.molgenis.data.meta.AttributeType.STRING;
 
 @Configuration
 public class FitConAnnotator implements AnnotatorConfig
@@ -54,10 +54,11 @@ public class FitConAnnotator implements AnnotatorConfig
 	private VcfAttributes vcfAttributes;
 
 	@Autowired
-	private EntityMetaDataFactory entityMetaDataFactory;
+	private EntityTypeFactory entityTypeFactory;
 
 	@Autowired
-	private AttributeMetaDataFactory attributeMetaDataFactory;
+	private AttributeFactory attributeFactory;
+
 	private RepositoryAnnotatorImpl annotator;
 
 	@Bean
@@ -70,12 +71,7 @@ public class FitConAnnotator implements AnnotatorConfig
 	@Override
 	public void init()
 	{
-		List<AttributeMetaData> attributes = new ArrayList<>();
-		AttributeMetaData dann_score = attributeMetaDataFactory.create().setName(FITCON_SCORE).setDataType(STRING)
-				.setDescription("fitness consequence score annotation of genetic variants using Fitcon scoring.")
-				.setLabel(FITCON_SCORE_LABEL);
-
-		attributes.add(dann_score);
+		List<Attribute> attributes = createFitconOutputAttributes();
 
 		AnnotatorInfo fitconInfo = AnnotatorInfo
 				.create(AnnotatorInfo.Status.READY, AnnotatorInfo.Type.EFFECT_PREDICTION, NAME,
@@ -96,18 +92,36 @@ public class FitConAnnotator implements AnnotatorConfig
 								+ " about a 14%relative increase in the area under the curve (AUC) metric over CADD’s SVMmethodology."
 								+ " All data and source code are available at https://cbcl.ics.uci.edu/ public_data/FITCON/. Contact:",
 						attributes);
-		EntityAnnotator entityAnnotator = new AnnotatorImpl(FITCON_TABIX_RESOURCE, fitconInfo,
+		EntityAnnotator entityAnnotator = new AbstractAnnotator(FITCON_TABIX_RESOURCE, fitconInfo,
 				new LocusQueryCreator(vcfAttributes), new MultiAllelicResultFilter(attributes, vcfAttributes),
 				dataService, resources,
-				new SingleFileLocationCmdLineAnnotatorSettingsConfigurer(FITCON_LOCATION, fitConAnnotatorSettings));
+				new SingleFileLocationCmdLineAnnotatorSettingsConfigurer(FITCON_LOCATION, fitConAnnotatorSettings))
+		{
+			@Override
+			public List<Attribute> createAnnotatorAttributes(AttributeFactory attributeFactory)
+			{
+				return createFitconOutputAttributes();
+			}
+		};
 
 		annotator.init(entityAnnotator);
+	}
+
+	private List<Attribute> createFitconOutputAttributes()
+	{
+		List<Attribute> attributes = newArrayList();
+		Attribute fitcon_score = attributeFactory.create().setName(FITCON_SCORE).setDataType(STRING)
+				.setDescription("fitness consequence score annotation of genetic variants using Fitcon scoring.")
+				.setLabel(FITCON_SCORE_LABEL);
+
+		attributes.add(fitcon_score);
+		return attributes;
 	}
 
 	@Bean
 	Resource fitconResource()
 	{
-		Resource fitConTabixResource = null;
+		Resource fitConTabixResource;
 		fitConTabixResource = new ResourceImpl(FITCON_TABIX_RESOURCE,
 				new SingleResourceConfig(FITCON_LOCATION, fitConAnnotatorSettings))
 		{
@@ -115,130 +129,127 @@ public class FitConAnnotator implements AnnotatorConfig
 			@Override
 			public RepositoryFactory getRepositoryFactory()
 			{
-
-				EntityMetaData repoMetaData = entityMetaDataFactory.create().setName(FITCON_TABIX_RESOURCE);
+				EntityType repoMetaData = entityTypeFactory.create(FITCON_TABIX_RESOURCE);
 				repoMetaData.addAttribute(vcfAttributes.getChromAttribute());
 				repoMetaData.addAttribute(vcfAttributes.getPosAttribute());
 				repoMetaData.addAttribute(vcfAttributes.getRefAttribute());
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("Anc"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("Anc"));
 				repoMetaData.addAttribute(vcfAttributes.getAltAttribute());
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("Type"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("Length"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("isTv"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("isDerived"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("AnnoType"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("Consequence"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("ConsScore"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("ConsDetail"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("GC"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("CpG"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("mapAbility20bp"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("mapAbility35bp"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("scoreSegDup"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("priPhCons"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("mamPhCons"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("verPhCons"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("priPhyloP"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("mamPhyloP"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("verPhyloP"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("GerpN"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("GerpS"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("GerpRS"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("GerpRSpval"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("bStatistic"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("mutIndex"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("dnaHelT"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("dnaMGW"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("dnaProT"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("dnaRoll"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("mirSVR-Score"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("mirSVR-E"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("mirSVR-Aln"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("targetScan"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("Type"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("Length"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("isTv"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("isDerived"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("AnnoType"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("Consequence"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("ConsScore"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("ConsDetail"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("GC"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("CpG"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("mapAbility20bp"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("mapAbility35bp"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("scoreSegDup"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("priPhCons"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("mamPhCons"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("verPhCons"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("priPhyloP"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("mamPhyloP"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("verPhyloP"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("GerpN"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("GerpS"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("GerpRS"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("GerpRSpval"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("bStatistic"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("mutIndex"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("dnaHelT"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("dnaMGW"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("dnaProT"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("dnaRoll"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("mirSVR-Score"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("mirSVR-E"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("mirSVR-Aln"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("targetScan"));
 				// fitcons can be NA so we need to catch the string value
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("FITCON_SCORE"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmTssA"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmTssAFlnk"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmTxFlnk"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmTx"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmTxWk"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmEnhG"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmEnh"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmZnfRpts"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmHet"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmTssBiv"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmBivFlnk"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmEnhBiv"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmReprPC"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmReprPCWk"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cHmmQuies"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncExp"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncH3K27Ac"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncH3K4Me1"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncH3K4Me3"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncNucleo"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncOCC"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncOCCombPVal"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncOCDNasePVal"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncOCFairePVal"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncOCpolIIPVal"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncOCctcfPVal"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncOCmycPVal"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncOCDNaseSig"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncOCFaireSig"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncOCpolIISig"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncOCctcfSig"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("EncOCmycSig"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("Segway"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("tOverlapMotifs"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("motifDist"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("motifECount"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("motifEName"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("motifEHIPos"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("motifEScoreChng"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("TFBS"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("TFBSPeaks"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("TFBSPeaksMax"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("isKnownVariant"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("ESP_AF"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("ESP_AFR"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("ESP_EUR"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("TG_AF"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("TG_ASN"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("TG_AMR"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("TG_AFR"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("TG_EUR"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("minDistTSS"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("minDistTSE"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("GeneID"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("FeatureID"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("CCDS"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("GeneName"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("cDNApos"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("relcDNApos"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("CDSpos"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("relCDSpos"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("protPos"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("relProtPos"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("Domain"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("Dst2Splice"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("Dst2SplType"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("Exon"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("Intron"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("oAA"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("nAA"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("Grantham"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("PolyPhenCat"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("PolyPhenVal"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("SIFTcat"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("SIFTval"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("RawScore"));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName("PHRED"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("FITCON_SCORE"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmTssA"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmTssAFlnk"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmTxFlnk"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmTx"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmTxWk"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmEnhG"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmEnh"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmZnfRpts"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmHet"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmTssBiv"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmBivFlnk"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmEnhBiv"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmReprPC"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmReprPCWk"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cHmmQuies"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncExp"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncH3K27Ac"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncH3K4Me1"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncH3K4Me3"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncNucleo"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncOCC"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncOCCombPVal"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncOCDNasePVal"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncOCFairePVal"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncOCpolIIPVal"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncOCctcfPVal"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncOCmycPVal"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncOCDNaseSig"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncOCFaireSig"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncOCpolIISig"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncOCctcfSig"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("EncOCmycSig"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("Segway"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("tOverlapMotifs"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("motifDist"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("motifECount"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("motifEName"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("motifEHIPos"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("motifEScoreChng"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("TFBS"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("TFBSPeaks"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("TFBSPeaksMax"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("isKnownVariant"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("ESP_AF"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("ESP_AFR"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("ESP_EUR"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("TG_AF"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("TG_ASN"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("TG_AMR"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("TG_AFR"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("TG_EUR"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("minDistTSS"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("minDistTSE"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("GeneID"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("FeatureID"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("CCDS"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("GeneName"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("cDNApos"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("relcDNApos"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("CDSpos"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("relCDSpos"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("protPos"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("relProtPos"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("Domain"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("Dst2Splice"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("Dst2SplType"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("Exon"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("Intron"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("oAA"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("nAA"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("Grantham"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("PolyPhenCat"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("PolyPhenVal"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("SIFTcat"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("SIFTval"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("RawScore"));
+				repoMetaData.addAttribute(attributeFactory.create().setName("PHRED"));
 
-				AttributeMetaData idAttributeMetaData = attributeMetaDataFactory.create().setName("id")
-						.setVisible(false);
-				repoMetaData.addAttribute(idAttributeMetaData);
-				repoMetaData.setIdAttribute(idAttributeMetaData);
+				Attribute idAttribute = attributeFactory.create().setName("id").setVisible(false).setIdAttribute(true);
+				repoMetaData.addAttribute(idAttribute);
 
 				return new TabixRepositoryFactory(repoMetaData);
 			}

@@ -4,8 +4,8 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import org.apache.commons.lang3.StringUtils;
-import org.molgenis.auth.MolgenisUser;
-import org.molgenis.auth.MolgenisUserMetaData;
+import org.molgenis.auth.User;
+import org.molgenis.auth.UserMetaData;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
@@ -15,6 +15,8 @@ import org.molgenis.data.discovery.model.matching.MatchedOntologyTermHit;
 import org.molgenis.data.discovery.model.matching.MatchingExplanation;
 import org.molgenis.data.discovery.service.OntologyBasedExplainService;
 import org.molgenis.data.discovery.utils.MatchingExplanationHit;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.model.Attribute;
 import org.molgenis.data.populate.IdGenerator;
 import org.molgenis.data.semanticsearch.explain.bean.OntologyTermHit;
 import org.molgenis.data.semanticsearch.service.bean.SearchParam;
@@ -36,6 +38,7 @@ import java.util.List;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singleton;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData.BiobankAttributeDataType.CATEGORICAL;
@@ -57,7 +60,7 @@ public class OntologyBasedExplainServiceImplTest extends AbstractTestNGSpringCon
 	AttributeCandidateScoringImpl attributeCandidateScoringImpl;
 
 	@Autowired
-	MolgenisUserMetaData molgenisUserMetaData;
+	UserMetaData userMetaData;
 
 	@BeforeMethod
 	public void setup()
@@ -93,9 +96,15 @@ public class OntologyBasedExplainServiceImplTest extends AbstractTestNGSpringCon
 		List<MatchedOntologyTermHit> matchedOntologyTermHits = Arrays
 				.asList(MatchedOntologyTermHit.create(targetOntologyTermHit, sourceOntologyTermHit, 0.5));
 
+		Attribute idAttribute = mock(Attribute.class);
+		when(idAttribute.getName()).thenReturn(UserMetaData.ID);
+		when(idAttribute.getDataType()).thenReturn(AttributeType.STRING);
+		when(userMetaData.getAttribute(UserMetaData.ID)).thenReturn(idAttribute);
+		when(userMetaData.getId()).thenReturn("1");
+		when(userMetaData.getAtomicAttributes()).thenReturn(singleton(idAttribute));
+
 		BiobankUniverse biobankUniverse = BiobankUniverse
-				.create("1", "test universe", emptyList(), new MolgenisUser(molgenisUserMetaData), emptyList(),
-						emptyList());
+				.create("1", "test universe", emptyList(), new User("1", userMetaData), emptyList(), emptyList());
 
 		BiobankSampleCollection collection = BiobankSampleCollection.create("test collection");
 
@@ -184,9 +193,9 @@ public class OntologyBasedExplainServiceImplTest extends AbstractTestNGSpringCon
 		}
 
 		@Bean
-		public MolgenisUserMetaData molgenisUserMetaData()
+		public UserMetaData molgenisUserMetaData()
 		{
-			return mock(MolgenisUserMetaData.class);
+			return mock(UserMetaData.class);
 		}
 
 		@Bean

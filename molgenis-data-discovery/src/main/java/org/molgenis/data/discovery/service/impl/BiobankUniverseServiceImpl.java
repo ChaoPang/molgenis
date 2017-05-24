@@ -3,9 +3,9 @@ package org.molgenis.data.discovery.service.impl;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Table;
-import org.molgenis.auth.MolgenisUser;
-import org.molgenis.data.AggregateResult;
+import org.molgenis.auth.User;
 import org.molgenis.data.Entity;
+import org.molgenis.data.aggregation.AggregateResult;
 import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData;
 import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData.BiobankAttributeDataType;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
@@ -82,7 +82,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	}
 
 	@Override
-	public BiobankUniverse addBiobankUniverse(String universeName, List<String> semanticTypeNames, MolgenisUser owner)
+	public BiobankUniverse addBiobankUniverse(String universeName, List<String> semanticTypeNames, User owner)
 	{
 		List<SemanticType> semanticTypes = ontologyService.getSemanticTypesByNames(semanticTypeNames);
 
@@ -220,7 +220,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	@Override
 	public Table<BiobankSampleAttribute, BiobankSampleCollection, AttributeMatchStatus> getAttributeMatchStatus(
 			BiobankUniverse biobankUniverse, BiobankSampleCollection targetBiobankSampleCollection,
-			AttributeMappingTablePager pager, MolgenisUser owner)
+			AttributeMappingTablePager pager, User owner)
 	{
 		List<BiobankSampleAttribute> targetAttributes = biobankUniverseRepository
 				.getBiobankSampleAttributes(targetBiobankSampleCollection, pager);
@@ -293,7 +293,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	@Override
 	public Table<BiobankSampleAttribute, BiobankSampleCollection, List<AttributeMappingCandidate>> getCuratedAttributeMatchCandidates(
 			BiobankUniverse biobankUniverse, BiobankSampleCollection targetBiobankSampleCollection,
-			AttributeMappingTablePager pager, MolgenisUser owner)
+			AttributeMappingTablePager pager, User owner)
 	{
 		List<BiobankSampleAttribute> targetAttributes = biobankUniverseRepository
 				.getBiobankSampleAttributes(targetBiobankSampleCollection, pager);
@@ -433,7 +433,7 @@ public class BiobankUniverseServiceImpl implements BiobankUniverseService
 	@Override
 	public void curateAttributeMappingCandidates(BiobankUniverse biobankUniverse,
 			BiobankSampleAttribute targetAttrinute, List<BiobankSampleAttribute> sourceAttributes,
-			BiobankSampleCollection sourceSampleCollection, MolgenisUser molgenisUser)
+			BiobankSampleCollection sourceSampleCollection, User molgenisUser)
 	{
 		List<AttributeMappingCandidate> attributeMappingCandidates = stream(biobankUniverseRepository
 						.getAttributeMappingCandidates(biobankUniverse, targetAttrinute, sourceSampleCollection).spliterator(),

@@ -6,7 +6,7 @@ import org.molgenis.data.annotation.core.RepositoryAnnotator;
 import org.molgenis.data.annotation.core.entity.AnnotatorConfig;
 import org.molgenis.data.annotation.core.entity.AnnotatorInfo;
 import org.molgenis.data.annotation.core.entity.EntityAnnotator;
-import org.molgenis.data.annotation.core.entity.impl.framework.AnnotatorImpl;
+import org.molgenis.data.annotation.core.entity.impl.framework.AbstractAnnotator;
 import org.molgenis.data.annotation.core.entity.impl.framework.RepositoryAnnotatorImpl;
 import org.molgenis.data.annotation.core.filter.MultiAllelicResultFilter;
 import org.molgenis.data.annotation.core.query.LocusQueryCreator;
@@ -18,10 +18,10 @@ import org.molgenis.data.annotation.core.resources.impl.SingleResourceConfig;
 import org.molgenis.data.annotation.core.resources.impl.tabix.TabixRepositoryFactory;
 import org.molgenis.data.annotation.web.settings.CaddAnnotatorSettings;
 import org.molgenis.data.annotation.web.settings.SingleFileLocationCmdLineAnnotatorSettingsConfigurer;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.vcf.model.VcfAttributes;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -30,7 +30,7 @@ import org.springframework.context.annotation.Configuration;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.molgenis.MolgenisFieldTypes.AttributeType.STRING;
+import static org.molgenis.data.meta.AttributeType.STRING;
 
 @Configuration
 public class CaddAnnotator implements AnnotatorConfig
@@ -56,10 +56,10 @@ public class CaddAnnotator implements AnnotatorConfig
 	private VcfAttributes vcfAttributes;
 
 	@Autowired
-	private EntityMetaDataFactory entityMetaDataFactory;
+	private EntityTypeFactory entityTypeFactory;
 
 	@Autowired
-	private AttributeMetaDataFactory attributeMetaDataFactory;
+	private AttributeFactory attributeFactory;
 
 	private RepositoryAnnotatorImpl annotator;
 
@@ -73,12 +73,7 @@ public class CaddAnnotator implements AnnotatorConfig
 	@Override
 	public void init()
 	{
-		List<AttributeMetaData> attributes = new ArrayList<>();
-		AttributeMetaData cadd_abs = getCaddAbsAttr(attributeMetaDataFactory);
-		AttributeMetaData cadd_scaled = getCaddScaledAttr(attributeMetaDataFactory);
-
-		attributes.add(cadd_abs);
-		attributes.add(cadd_scaled);
+		List<Attribute> attributes = createCaddAnnotatorAttributes();
 
 		AnnotatorInfo caddInfo = AnnotatorInfo
 				.create(AnnotatorInfo.Status.READY, AnnotatorInfo.Type.PATHOGENICITY_ESTIMATE, NAME,
@@ -96,17 +91,35 @@ public class CaddAnnotator implements AnnotatorConfig
 								+ "effect sizes and genetic architectures and can be used prioritize "
 								+ "causal variation in both research and clinical settings. (source: http://cadd.gs.washington.edu/info)",
 						attributes);
-		EntityAnnotator entityAnnotator = new AnnotatorImpl(CADD_TABIX_RESOURCE, caddInfo,
+		EntityAnnotator entityAnnotator = new AbstractAnnotator(CADD_TABIX_RESOURCE, caddInfo,
 				new LocusQueryCreator(vcfAttributes), new MultiAllelicResultFilter(attributes, true, vcfAttributes),
 				dataService, resources,
 				new SingleFileLocationCmdLineAnnotatorSettingsConfigurer(CaddAnnotatorSettings.Meta.CADD_LOCATION,
-						caddAnnotatorSettings));
+						caddAnnotatorSettings))
+		{
+			@Override
+			public List<Attribute> createAnnotatorAttributes(AttributeFactory attributeFactory)
+			{
+				return createCaddAnnotatorAttributes();
+			}
+		};
 		annotator.init(entityAnnotator);
 	}
 
-	public static AttributeMetaData getCaddScaledAttr(AttributeMetaDataFactory attributeMetaDataFactory)
+	private List<Attribute> createCaddAnnotatorAttributes()
 	{
-		return attributeMetaDataFactory.create().setName(CADD_SCALED).setDataType(STRING).setDescription(
+		List<Attribute> attributes = new ArrayList<>();
+		Attribute cadd_abs = createCaddAbsAttr(attributeFactory);
+		Attribute cadd_scaled = createCaddScaledAttr(attributeFactory);
+
+		attributes.add(cadd_abs);
+		attributes.add(cadd_scaled);
+		return attributes;
+	}
+
+	public static Attribute createCaddScaledAttr(AttributeFactory attributeFactory)
+	{
+		return attributeFactory.create().setName(CADD_SCALED).setDataType(STRING).setDescription(
 				"Since the raw scores do have relative meaning, one can take a specific group of variants, define the rank for each variant within that group, and then use "
 						+ "that value as a \"normalized\" and now externally comparable unit of analysis. In our case, we scored and ranked all ~8.6 billion SNVs of the "
 						+ "GRCh37/hg19 reference and then \"PHRED-scaled\" those values by expressing the rank in order of magnitude terms rather than the precise rank itself. "
@@ -115,9 +128,9 @@ public class CaddAnnotator implements AnnotatorConfig
 				.setLabel(CADD_SCALED_LABEL);
 	}
 
-	public static AttributeMetaData getCaddAbsAttr(AttributeMetaDataFactory attributeMetaDataFactory)
+	static Attribute createCaddAbsAttr(AttributeFactory attributeFactory)
 	{
-		return attributeMetaDataFactory.create().setName(CADD_ABS).setDataType(STRING).setDescription(
+		return attributeFactory.create().setName(CADD_ABS).setDataType(STRING).setDescription(
 				"\"Raw\" CADD scores come straight from the model, and are interpretable as the extent to which the annotation profile for a given variant suggests that "
 						+ "that variant is likely to be \"observed\" (negative values) vs \"simulated\" (positive values). These values have no absolute unit of meaning and are "
 						+ "incomparable across distinct annotation combinations, training sets, or model parameters. However, raw values do have relative meaning, with higher values "
@@ -135,17 +148,16 @@ public class CaddAnnotator implements AnnotatorConfig
 			public RepositoryFactory getRepositoryFactory()
 			{
 				String idAttrName = "id";
-				EntityMetaData repoMetaData = entityMetaDataFactory.create().setName(CADD_TABIX_RESOURCE);
+				EntityType repoMetaData = entityTypeFactory.create(CADD_TABIX_RESOURCE);
 				repoMetaData.addAttribute(vcfAttributes.getChromAttribute());
 				repoMetaData.addAttribute(vcfAttributes.getPosAttribute());
 				repoMetaData.addAttribute(vcfAttributes.getRefAttribute());
 				repoMetaData.addAttribute(vcfAttributes.getAltAttribute());
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName(CADD_ABS).setDataType(STRING));
-				repoMetaData.addAttribute(attributeMetaDataFactory.create().setName(CADD_SCALED).setDataType(STRING));
-				AttributeMetaData idAttributeMetaData = attributeMetaDataFactory.create().setName(idAttrName)
-						.setVisible(false);
-				repoMetaData.addAttribute(idAttributeMetaData);
-				repoMetaData.setIdAttribute(idAttributeMetaData);
+				repoMetaData.addAttribute(attributeFactory.create().setName(CADD_ABS).setDataType(STRING));
+				repoMetaData.addAttribute(attributeFactory.create().setName(CADD_SCALED).setDataType(STRING));
+				Attribute idAttribute = attributeFactory.create().setName(idAttrName).setVisible(false)
+						.setIdAttribute(true);
+				repoMetaData.addAttribute(idAttribute);
 				return new TabixRepositoryFactory(repoMetaData);
 			}
 		};

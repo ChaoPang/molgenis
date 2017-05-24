@@ -7,9 +7,10 @@ import org.molgenis.data.elasticsearch.index.job.IndexJobFactory;
 import org.molgenis.data.elasticsearch.index.job.IndexService;
 import org.molgenis.data.elasticsearch.index.job.IndexServiceImpl;
 import org.molgenis.data.elasticsearch.transaction.IndexTransactionListener;
+import org.molgenis.data.index.IndexActionRegisterService;
 import org.molgenis.data.jobs.JobExecutionUpdater;
 import org.molgenis.data.jobs.JobExecutionUpdaterImpl;
-import org.molgenis.data.index.IndexActionRegisterService;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.transaction.MolgenisTransactionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -41,6 +42,9 @@ public class IndexConfig
 	@Autowired
 	private IndexJobExecutionFactory indexJobExecutionFactory;
 
+	@Autowired
+	private EntityTypeFactory entityTypeFactory;
+
 	private ExecutorService executorService = Executors.newSingleThreadExecutor();
 
 	@PostConstruct
@@ -52,8 +56,8 @@ public class IndexConfig
 	@Bean
 	public IndexTransactionListener indexTransactionListener()
 	{
-		final IndexTransactionListener indexTransactionListener = new IndexTransactionListener(
-				rebuildIndexService(), indexActionRegisterService);
+		final IndexTransactionListener indexTransactionListener = new IndexTransactionListener(rebuildIndexService(),
+				indexActionRegisterService);
 		molgenisTransactionManager.addTransactionListener(indexTransactionListener);
 		return indexTransactionListener;
 	}
@@ -67,7 +71,7 @@ public class IndexConfig
 	@Bean
 	public IndexJobFactory indexJobFactory()
 	{
-		return new IndexJobFactory(dataService, searchService);
+		return new IndexJobFactory(dataService, searchService, entityTypeFactory);
 	}
 
 	@Bean

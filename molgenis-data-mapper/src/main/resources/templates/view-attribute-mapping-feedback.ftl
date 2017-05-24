@@ -15,7 +15,7 @@
             <tr>
             <#-- Dataexplorer can't be initialized with query at the moment, for forward compatibility already construct URL -->
                 <td><a class="btn btn-default btn-xs"
-                       href="javascript:window.location='${dataexplorerUri?html}?entity=${source?html}&q=' + molgenis.createRsqlQuery([{field: '${feedbackRow.sourceEntity.getEntityMetaData().getIdAttribute().getName()?html}', operator: 'EQUALS', value: '${feedbackRow.sourceEntity.getIdValue()?string?html}' }]);"
+                       href="javascript:window.location='${dataexplorerUri?html}?entity=${source?html}&q=' + molgenis.createRsqlQuery([{field: '${feedbackRow.sourceEntity.getEntityType().getIdAttribute().getName()?html}', operator: 'EQUALS', value: '${feedbackRow.sourceEntity.getIdValue()?string?html}' }]);"
                        role="button"><span class="glyphicon glyphicon-search"></span></a></td>
                 <#if (sourceAttributes)?has_content>
                     <#list sourceAttributes as sourceAttribute>
@@ -23,8 +23,8 @@
                             <#if feedbackRow.sourceEntity.get(sourceAttribute.name)??>
                                 <td>
                                     <#assign refEntity = feedbackRow.sourceEntity.get(sourceAttribute.name)>
-                                    <#assign refEntityMetaData = sourceAttribute.refEntity>
-                                    <#list refEntityMetaData.attributes as refAttribute>
+                                    <#assign refEntityType = sourceAttribute.refEntity>
+                                    <#list refEntityType.attributes as refAttribute>
                                         <#assign refAttributeName = refAttribute.name>
                                         <#if (refEntity[refAttributeName])??>
                                             <#assign value = refEntity[refAttributeName]>
@@ -32,17 +32,26 @@
                                             = </#if>
                                         </#if>
                                     </#list>
+
                                 </td>
                             </#if>
                         <#elseif sourceAttribute.dataType == "mref">
                             <#if feedbackRow.sourceEntity.get(sourceAttribute.name)??>
                                 <td>
                                     <#assign refEntity = feedbackRow.sourceEntity.get(sourceAttribute.name)>
-											<#assign refEntityMetaData = sourceAttribute.refEntity>
+											<#assign refEntityType = sourceAttribute.refEntity>
                                             <#list refEntity as entity>
                                 ${entity.getIdValue()}
                                 </#list>
                                 </td>
+                            </#if>
+                        <#elseif sourceAttribute.dataType == "DATE">
+                            <#if feedbackRow.sourceEntity.get(sourceAttribute.name)??>
+                                <td>${feedbackRow.sourceEntity.get(sourceAttribute.name).format('MMM d, yyyy')}</td>
+                            </#if>
+                        <#elseif sourceAttribute.dataType == "DATE_TIME">
+                            <#if feedbackRow.sourceEntity.get(sourceAttribute.name)??>
+                                <td>${feedbackRow.sourceEntity.get(sourceAttribute.name).format('MMM d, yyyy HH:mm:SS a')}</td>
                             </#if>
                         <#else>
                             <#if feedbackRow.sourceEntity.get(sourceAttribute.name)??>
@@ -58,14 +67,18 @@
                                 <#else>
                                     <td>${value?html}</td>
                                 </#if>
+                            <#else>
+                                <td></td>
                             </#if>
                         </#if>
                     </#list>
                 </#if>
                 <#if feedbackRow.success>
                     <#if feedbackRow.value??>
-                        <#if feedbackRow.value?is_date_like> <!-- its a date or datetime -->
-                            <td>${feedbackRow.value?datetime}</td>
+                        <#if targetAttribute.dataType == 'DATE'> <!-- its a date -->
+                            <td>${feedbackRow.value.format('MMM d, yyyy')}</td>
+                        <#elseif targetAttribute.dataType == 'DATE_TIME'> <!-- its a date_time -->
+                            <td>${feedbackRow.value.format('MMM d, yyyy HH:mm:SS a')}</td>
                         <#elseif feedbackRow.value?is_hash> <!-- its an entity -->
                             <td>${feedbackRow.value.getLabelValue()?html}</td>
                         <#elseif feedbackRow.value?is_sequence> <!-- its mref values -->
@@ -74,6 +87,8 @@
                                     <#if row?has_content>${row.labelValue?html}<#if row?has_next>, </#if></#if>
                                 </#list>
                             </td>
+                        <#elseif feedbackRow.value?is_boolean> <!-- its a boolean -->
+                            <td>${feedbackRow.value?c}</td>
                         <#else> <!-- its string or int value -->
                             <td>${feedbackRow.value?html}</td>
                         </#if>

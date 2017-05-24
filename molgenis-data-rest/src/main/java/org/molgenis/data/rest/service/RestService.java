@@ -1,36 +1,45 @@
 package org.molgenis.data.rest.service;
 
 import org.apache.commons.lang3.StringUtils;
-import org.molgenis.MolgenisFieldTypes.AttributeType;
-import org.molgenis.data.*;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.DataService;
+import org.molgenis.data.Entity;
+import org.molgenis.data.EntityManager;
+import org.molgenis.data.MolgenisDataException;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.populate.IdGenerator;
 import org.molgenis.file.FileDownloadController;
 import org.molgenis.file.FileStore;
 import org.molgenis.file.model.FileMeta;
 import org.molgenis.file.model.FileMetaFactory;
-import org.molgenis.util.MolgenisDateFormat;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
-import java.text.ParseException;
-import java.util.Date;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
+import static java.util.stream.StreamSupport.stream;
 import static org.molgenis.data.EntityManager.CreationMode.POPULATE;
+import static org.molgenis.data.meta.AttributeType.ONE_TO_MANY;
 import static org.molgenis.file.model.FileMetaMetaData.FILE_META;
-import static org.molgenis.util.MolgenisDateFormat.getDateFormat;
-import static org.molgenis.util.MolgenisDateFormat.getDateTimeFormat;
+import static org.molgenis.util.MolgenisDateFormat.*;
 
 @Service
 public class RestService
@@ -60,16 +69,16 @@ public class RestService
 	 * @param request HTTP request parameters
 	 * @return entity created from HTTP request parameters
 	 */
-	public Entity toEntity(final EntityMetaData meta, final Map<String, Object> request)
+	public Entity toEntity(final EntityType meta, final Map<String, Object> request)
 	{
 		final Entity entity = entityManager.create(meta, POPULATE);
 
-		for (AttributeMetaData attr : meta.getAtomicAttributes())
+		for (Attribute attr : meta.getAtomicAttributes())
 		{
 			if (attr.getExpression() == null)
 			{
 				String paramName = attr.getName();
-				if(request.containsKey(paramName))
+				if (request.containsKey(paramName))
 				{
 					final Object paramValue = request.get(paramName);
 					final Object value = this.toEntityValue(attr, paramValue);
@@ -89,7 +98,7 @@ public class RestService
 	 * @param paramValue HTTP parameter value
 	 * @return Object
 	 */
-	public Object toEntityValue(AttributeMetaData attr, Object paramValue)
+	public Object toEntityValue(Attribute attr, Object paramValue)
 	{
 		// Treat empty strings as null
 		if (paramValue != null && (paramValue instanceof String) && ((String) paramValue).isEmpty())
@@ -119,6 +128,7 @@ public class RestService
 				break;
 			case CATEGORICAL_MREF:
 			case MREF:
+			case ONE_TO_MANY:
 				value = convertMref(attr, paramValue);
 				break;
 			case DATE:
@@ -147,7 +157,7 @@ public class RestService
 		return value;
 	}
 
-	private static Long convertLong(AttributeMetaData attr, Object paramValue)
+	private static Long convertLong(Attribute attr, Object paramValue)
 	{
 		Long value;
 		if (paramValue != null)
@@ -176,7 +186,7 @@ public class RestService
 		return value;
 	}
 
-	private static Integer convertInt(AttributeMetaData attr, Object paramValue)
+	private static Integer convertInt(Attribute attr, Object paramValue)
 	{
 		Integer value;
 		if (paramValue != null)
@@ -205,7 +215,7 @@ public class RestService
 		return value;
 	}
 
-	private FileMeta convertFile(AttributeMetaData attr, Object paramValue)
+	private FileMeta convertFile(Attribute attr, Object paramValue)
 	{
 		FileMeta value;
 		if (paramValue != null)
@@ -245,7 +255,7 @@ public class RestService
 		return value;
 	}
 
-	private static Double convertDecimal(AttributeMetaData attr, Object paramValue)
+	private static Double convertDecimal(Attribute attr, Object paramValue)
 	{
 		Double value;
 		if (paramValue != null)
@@ -274,27 +284,27 @@ public class RestService
 		return value;
 	}
 
-	private static Date convertDateTime(AttributeMetaData attr, Object paramValue)
+	private static Instant convertDateTime(Attribute attr, Object paramValue)
 	{
-		Date value;
+		Instant value;
 		if (paramValue != null)
 		{
-			if (paramValue instanceof Date)
+			if (paramValue instanceof Instant)
 			{
-				value = (Date) paramValue;
+				value = (Instant) paramValue;
 			}
 			else if (paramValue instanceof String)
 			{
 				String paramStrValue = (String) paramValue;
 				try
 				{
-					value = getDateTimeFormat().parse(paramStrValue);
+					value = parseInstant(paramStrValue);
 				}
-				catch (ParseException e)
+				catch (DateTimeParseException e)
 				{
 					throw new MolgenisDataException(
-							format("Attribute [%s] value [%s] does not match date format [%s]", attr.getName(),
-									paramStrValue, MolgenisDateFormat.DATEFORMAT_DATETIME));
+							format(FAILED_TO_PARSE_ATTRIBUTE_AS_DATETIME_MESSAGE, attr.getName(),
+									paramStrValue));
 				}
 			}
 			else
@@ -302,7 +312,7 @@ public class RestService
 				throw new MolgenisDataException(
 						format("Attribute [%s] value is of type [%s] instead of [%s] or [%s]", attr.getName(),
 								paramValue.getClass().getSimpleName(), String.class.getSimpleName(),
-								Date.class.getSimpleName()));
+								Instant.class.getSimpleName()));
 			}
 		}
 		else
@@ -312,34 +322,34 @@ public class RestService
 		return value;
 	}
 
-	private static Date convertDate(AttributeMetaData attr, Object paramValue)
+	private static LocalDate convertDate(Attribute attr, Object paramValue)
 	{
-		Date value;
+		LocalDate value;
 		if (paramValue != null)
 		{
-			if (paramValue instanceof Date)
+			if (paramValue instanceof LocalDate)
 			{
-				value = (Date) paramValue;
+				value = (LocalDate) paramValue;
 			}
 			else if (paramValue instanceof String)
 			{
 				String paramStrValue = (String) paramValue;
 				try
 				{
-					value = getDateFormat().parse(paramStrValue);
+					value = parseLocalDate(paramStrValue);
 				}
-				catch (ParseException e)
+				catch (DateTimeParseException e)
 				{
-					throw new MolgenisDataException(
-							format("Attribute [%s] value [%s] does not match date format [%s]", attr.getName(),
-									paramStrValue, MolgenisDateFormat.DATEFORMAT_DATE));
+					throw new MolgenisDataException(format(FAILED_TO_PARSE_ATTRIBUTE_AS_DATE_MESSAGE, attr.getName(),
+									paramStrValue));
 				}
 			}
 			else
 			{
 				throw new MolgenisDataException(
-						format("Attribute [%s] value is of type [%s] instead of [%s]", attr.getName(),
-								paramValue.getClass().getSimpleName(), String.class.getSimpleName()));
+						format("Attribute [%s] value is of type [%s] instead of [%s] or [%s]", attr.getName(),
+								paramValue.getClass().getSimpleName(), String.class.getSimpleName(),
+								LocalDate.class.getSimpleName()));
 			}
 		}
 		else
@@ -349,7 +359,7 @@ public class RestService
 		return value;
 	}
 
-	private List<?> convertMref(AttributeMetaData attr, Object paramValue)
+	private List<?> convertMref(Attribute attr, Object paramValue)
 	{
 		List<?> value;
 		if (paramValue != null)
@@ -371,8 +381,8 @@ public class RestService
 								List.class.getSimpleName()));
 			}
 
-			EntityMetaData mrefEntity = attr.getRefEntity();
-			AttributeMetaData mrefEntityIdAttr = mrefEntity.getIdAttribute();
+			EntityType mrefEntity = attr.getRefEntity();
+			Attribute mrefEntityIdAttr = mrefEntity.getIdAttribute();
 			value = mrefParamValues.stream().map(mrefParamValue -> toEntityValue(mrefEntityIdAttr, mrefParamValue))
 					.map(mrefIdValue -> entityManager.getReference(mrefEntity, mrefIdValue)).collect(toList());
 		}
@@ -383,7 +393,7 @@ public class RestService
 		return value;
 	}
 
-	private Object convertRef(AttributeMetaData attr, Object paramValue)
+	private Object convertRef(Attribute attr, Object paramValue)
 	{
 		Object value;
 		if (paramValue != null)
@@ -398,7 +408,7 @@ public class RestService
 		return value;
 	}
 
-	private static String convertString(AttributeMetaData attr, Object paramValue)
+	private static String convertString(Attribute attr, Object paramValue)
 	{
 		String value;
 		if (paramValue != null)
@@ -421,7 +431,7 @@ public class RestService
 		return value;
 	}
 
-	private static Boolean convertBool(AttributeMetaData attr, Object paramValue)
+	private static Boolean convertBool(Attribute attr, Object paramValue)
 	{
 		Boolean value;
 		if (paramValue != null)
@@ -448,5 +458,103 @@ public class RestService
 			value = !attr.isNillable() ? false : null;
 		}
 		return value;
+	}
+
+	/**
+	 * For entities with attributes that are part of a bidirectional relationship update the other side of the relationship.
+	 *
+	 * @param entity         created entity
+	 */
+	public void updateMappedByEntities(@Nonnull Entity entity)
+	{
+		updateMappedByEntities(entity, null);
+	}
+
+	/**
+	 * For entities with attributes that are part of a bidirectional relationship update the other side of the relationship.
+	 *
+	 * @param entity         created or updated entity
+	 * @param existingEntity existing entity
+	 */
+	public void updateMappedByEntities(@Nonnull Entity entity, @Nullable Entity existingEntity)
+	{
+		entity.getEntityType().getMappedByAttributes().forEach(mappedByAttr ->
+		{
+			AttributeType type = mappedByAttr.getDataType();
+			switch (type)
+			{
+				case ONE_TO_MANY:
+					updateMappedByEntitiesOneToMany(entity, existingEntity, mappedByAttr);
+					break;
+				default:
+					throw new RuntimeException(
+							format("Attribute [%s] of type [%s] can't be mapped by another attribute",
+									mappedByAttr.getName(), type.toString()));
+			}
+		});
+	}
+
+	/**
+	 * For entities with the given attribute that is part of a bidirectional one-to-many relationship update the other side of the relationship.
+	 *
+	 * @param entity         created or updated entity
+	 * @param existingEntity existing entity
+	 * @param attr           bidirectional one-to-many attribute
+	 */
+	private void updateMappedByEntitiesOneToMany(@Nonnull Entity entity, @Nullable Entity existingEntity,
+			@Nonnull Attribute attr)
+	{
+		if (attr.getDataType() != ONE_TO_MANY || !attr.isMappedBy())
+		{
+			throw new IllegalArgumentException(
+					format("Attribute [%s] is not of type [%s] or not mapped by another attribute", attr.getName(),
+							attr.getDataType().toString()));
+		}
+
+		// update ref entities of created/updated entity
+		Attribute refAttr = attr.getMappedBy();
+		Stream<Entity> stream = stream(entity.getEntities(attr.getName()).spliterator(), false);
+		if (existingEntity != null)
+		{
+			// filter out unchanged ref entities
+			Set<Object> refEntityIds = stream(existingEntity.getEntities(attr.getName()).spliterator(), false)
+					.map(Entity::getIdValue).collect(toSet());
+			stream = stream.filter(refEntity -> !refEntityIds.contains(refEntity.getIdValue()));
+		}
+		List<Entity> updatedRefEntities = stream.map(refEntity ->
+		{
+			if (refEntity.getEntity(refAttr.getName()) != null)
+			{
+				throw new MolgenisDataException(
+						format("Updating [%s] with id [%s] not allowed: [%s] is already referred to by another [%s]",
+								attr.getRefEntity().getId(), refEntity.getIdValue().toString(), refAttr.getName(),
+								entity.getEntityType().getId()));
+			}
+
+			refEntity.set(refAttr.getName(), entity);
+			return refEntity;
+		}).collect(toList());
+
+		// update ref entities of existing entity
+		if (existingEntity != null)
+		{
+			Set<Object> refEntityIds = stream(entity.getEntities(attr.getName()).spliterator(), false)
+					.map(Entity::getIdValue).collect(toSet());
+			List<Entity> updatedRefEntitiesExistingEntity = stream(
+					existingEntity.getEntities(attr.getName()).spliterator(), false)
+					.filter(refEntity -> !refEntityIds.contains(refEntity.getIdValue())).map(refEntity ->
+					{
+						refEntity.set(refAttr.getName(), null);
+						return refEntity;
+					}).collect(toList());
+
+			updatedRefEntities = Stream.concat(updatedRefEntities.stream(), updatedRefEntitiesExistingEntity.stream())
+					.collect(toList());
+		}
+
+		if (!updatedRefEntities.isEmpty())
+		{
+			dataService.update(attr.getRefEntity().getId(), updatedRefEntities.stream());
+		}
 	}
 }

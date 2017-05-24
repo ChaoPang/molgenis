@@ -2,12 +2,11 @@ package org.molgenis.data.annotation.core.entity.impl.omim;
 
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
-import org.molgenis.data.Repository;
 import org.molgenis.data.annotation.core.RepositoryAnnotator;
 import org.molgenis.data.annotation.core.entity.AnnotatorConfig;
 import org.molgenis.data.annotation.core.entity.AnnotatorInfo;
 import org.molgenis.data.annotation.core.entity.EntityAnnotator;
-import org.molgenis.data.annotation.core.entity.impl.framework.AnnotatorImpl;
+import org.molgenis.data.annotation.core.entity.impl.framework.AbstractAnnotator;
 import org.molgenis.data.annotation.core.entity.impl.framework.RepositoryAnnotatorImpl;
 import org.molgenis.data.annotation.core.query.GeneNameQueryCreator;
 import org.molgenis.data.annotation.core.resources.Resource;
@@ -16,22 +15,19 @@ import org.molgenis.data.annotation.core.resources.impl.RepositoryFactory;
 import org.molgenis.data.annotation.core.resources.impl.ResourceImpl;
 import org.molgenis.data.annotation.core.resources.impl.SingleResourceConfig;
 import org.molgenis.data.annotation.web.settings.SingleFileLocationCmdLineAnnotatorSettingsConfigurer;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
-import org.molgenis.data.vcf.model.VcfAttributes;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.molgenis.MolgenisFieldTypes.AttributeType.TEXT;
 import static org.molgenis.data.annotation.web.settings.OmimAnnotatorSettings.Meta.OMIM_LOCATION;
+import static org.molgenis.data.meta.AttributeType.TEXT;
 
 @Configuration
 public class OmimAnnotator implements AnnotatorConfig
@@ -57,49 +53,46 @@ public class OmimAnnotator implements AnnotatorConfig
 	private Resources resources;
 
 	@Autowired
-	private VcfAttributes vcfAttributes;
+	private EntityTypeFactory entityTypeFactory;
 
 	@Autowired
-	private EntityMetaDataFactory entityMetaDataFactory;
-
-	@Autowired
-	private AttributeMetaDataFactory attributeMetaDataFactory;
+	private AttributeFactory attributeFactory;
 
 	@Autowired
 	GeneNameQueryCreator geneNameQueryCreator;
 
 	private RepositoryAnnotatorImpl annotator;
 
-	public AttributeMetaData getPhenotypeAttr()
+	public Attribute getPhenotypeAttr()
 	{
-		return attributeMetaDataFactory.create().setName(OMIM_DISORDER).setDataType(TEXT)
-				.setDescription("OMIM phenotype").setLabel("OMIM_Disorders");
+		return attributeFactory.create().setName(OMIM_DISORDER).setDataType(TEXT).setDescription("OMIM phenotype")
+				.setLabel("OMIM_Disorders");
 	}
 
-	public AttributeMetaData getMimNumberAttr()
+	public Attribute getMimNumberAttr()
 	{
-		return attributeMetaDataFactory.create().setName(OMIM_CAUSAL_IDENTIFIER).setDataType(TEXT)
+		return attributeFactory.create().setName(OMIM_CAUSAL_IDENTIFIER).setDataType(TEXT)
 				.setDescription("Number that represents the MIM database dataType for the Locus / Gene")
 				.setLabel("OMIM_Causal_ID");
 	}
 
-	public AttributeMetaData getEntryAttr()
+	public Attribute getEntryAttr()
 	{
-		return attributeMetaDataFactory.create().setName(OMIM_CYTO_LOCATIONS).setDataType(TEXT)
+		return attributeFactory.create().setName(OMIM_CYTO_LOCATIONS).setDataType(TEXT)
 				.setDescription("Cytogenic location associated with an OMIM phenotype")
 				.setLabel("OMIM_Cytogenic_Location");
 	}
 
-	public AttributeMetaData getTypeAttr()
+	public Attribute getTypeAttr()
 	{
-		return attributeMetaDataFactory.create().setName(OMIM_ENTRY).setDataType(TEXT)
+		return attributeFactory.create().setName(OMIM_ENTRY).setDataType(TEXT)
 				.setDescription("Number that represents the MIM database dataType for the phenotype")
 				.setLabel("OMIM_Entry");
 	}
 
-	public AttributeMetaData getOmimLocationAttr()
+	public Attribute getOmimLocationAttr()
 	{
-		return attributeMetaDataFactory.create().setName(OMIM_TYPE).setDataType(TEXT).setDescription(
+		return attributeFactory.create().setName(OMIM_TYPE).setDataType(TEXT).setDescription(
 				"Phenotype Mapping key: 1 - the disorder is placed on the map based on its "
 						+ "association witha gene, but the underlying defect is not known. 2 - the disorder "
 						+ "has been placed on the map by linkage or other statistical method; no mutation has "
@@ -118,22 +111,35 @@ public class OmimAnnotator implements AnnotatorConfig
 	@Override
 	public void init()
 	{
-		List<AttributeMetaData> outputAttributes = new ArrayList<>();
-		outputAttributes.addAll(Arrays
-				.asList(getPhenotypeAttr(), getMimNumberAttr(), getOmimLocationAttr(), getEntryAttr(), getTypeAttr()));
+		List<Attribute> attributes = createOmimOutputAttributes();
 
 		AnnotatorInfo omimInfo = AnnotatorInfo
 				.create(AnnotatorInfo.Status.READY, AnnotatorInfo.Type.PHENOTYPE_ASSOCIATION, NAME,
 						"OMIM is a comprehensive, authoritative compendium of human genes and genetic phenotypes that is "
 								+ "freely available and updated daily. The full-text, referenced overviews in OMIM contain information on all "
 								+ "known mendelian disorders and over 15,000 genes. OMIM focuses on the relationship between phenotype and genotype.",
-						outputAttributes);
+						attributes);
 
-		EntityAnnotator entityAnnotator = new AnnotatorImpl(OMIM_RESOURCE, omimInfo, geneNameQueryCreator,
-				new OmimResultFilter(entityMetaDataFactory, attributeMetaDataFactory, this), dataService, resources,
-				new SingleFileLocationCmdLineAnnotatorSettingsConfigurer(OMIM_LOCATION, omimAnnotatorSettings));
+		EntityAnnotator entityAnnotator = new AbstractAnnotator(OMIM_RESOURCE, omimInfo, geneNameQueryCreator,
+				new OmimResultFilter(entityTypeFactory, attributeFactory, this), dataService, resources,
+				new SingleFileLocationCmdLineAnnotatorSettingsConfigurer(OMIM_LOCATION, omimAnnotatorSettings))
+		{
+			@Override
+			public List<Attribute> createAnnotatorAttributes(AttributeFactory attributeFactory)
+			{
+				return createOmimOutputAttributes();
+			}
+		};
 
 		annotator.init(entityAnnotator);
+	}
+
+	private List<Attribute> createOmimOutputAttributes()
+	{
+		List<Attribute> outputAttributes = new ArrayList<>();
+		outputAttributes.addAll(Arrays
+				.asList(getPhenotypeAttr(), getMimNumberAttr(), getOmimLocationAttr(), getEntryAttr(), getTypeAttr()));
+		return outputAttributes;
 	}
 
 	@Bean
@@ -144,14 +150,7 @@ public class OmimAnnotator implements AnnotatorConfig
 			@Override
 			public RepositoryFactory getRepositoryFactory()
 			{
-				return new RepositoryFactory()
-				{
-					@Override
-					public Repository<Entity> createRepository(File file) throws IOException
-					{
-						return new OmimRepository(file, entityMetaDataFactory, attributeMetaDataFactory);
-					}
-				};
+				return file -> new OmimRepository(file, entityTypeFactory, attributeFactory);
 			}
 		};
 

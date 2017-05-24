@@ -8,13 +8,11 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.molgenis.data.*;
 import org.molgenis.data.cache.utils.EntityHydration;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.DynamicEntity;
 import org.molgenis.data.support.EntityWithComputedAttributes;
 import org.molgenis.data.transaction.MolgenisTransactionManager;
 import org.molgenis.data.transaction.TransactionInformation;
-import org.molgenis.test.data.AbstractMolgenisSpringTest;
-import org.molgenis.test.data.EntityTestHarness;
 import org.molgenis.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -67,15 +65,14 @@ public class L2CacheTest extends AbstractMolgenisSpringTest
 	private ArgumentCaptor<Stream<Object>> idStreamCaptor;
 
 	private List<Entity> testEntities;
-	private EntityMetaData emd;
+	private EntityType emd;
 
 	@BeforeClass
 	public void beforeClass()
 	{
-		initMocks(this);
-		EntityMetaData refEntityMetaData = entityTestHarness.createDynamicRefEntityMetaData();
-		emd = entityTestHarness.createDynamicTestEntityMetaData();
-		List<Entity> refEntities = entityTestHarness.createTestRefEntities(refEntityMetaData, 2);
+		EntityType refEntityType = entityTestHarness.createDynamicRefEntityType();
+		emd = entityTestHarness.createDynamicTestEntityType(refEntityType);
+		List<Entity> refEntities = entityTestHarness.createTestRefEntities(refEntityType, 2);
 		testEntities = entityTestHarness.createTestEntities(emd, 4, refEntities).collect(toList());
 
 		when(entityManager.create(emd, NO_POPULATE)).thenAnswer(new Answer<Entity>()
@@ -86,20 +83,19 @@ public class L2CacheTest extends AbstractMolgenisSpringTest
 				return new EntityWithComputedAttributes(new DynamicEntity(emd));
 			}
 		});
-		when(entityManager.getReference(any(EntityMetaData.class), eq("0"))).thenReturn(refEntities.get(0));
-		when(entityManager.getReference(any(EntityMetaData.class), eq("1"))).thenReturn(refEntities.get(1));
-		when(entityManager.getReferences(any(EntityMetaData.class), eq(newArrayList("0"))))
+		when(entityManager.getReference(any(EntityType.class), eq("0"))).thenReturn(refEntities.get(0));
+		when(entityManager.getReference(any(EntityType.class), eq("1"))).thenReturn(refEntities.get(1));
+		when(entityManager.getReferences(any(EntityType.class), eq(newArrayList("0"))))
 				.thenReturn(newArrayList(refEntities.get(0)));
-		when(entityManager.getReferences(any(EntityMetaData.class), eq(newArrayList("1"))))
+		when(entityManager.getReferences(any(EntityType.class), eq(newArrayList("1"))))
 				.thenReturn(newArrayList(refEntities.get(1)));
 	}
 
 	@BeforeMethod
 	public void beforeMethod()
 	{
-		reset(repository, transactionInformation);
-		when(repository.getEntityMetaData()).thenReturn(emd);
-		when(repository.getName()).thenReturn(emd.getName());
+		when(repository.getEntityType()).thenReturn(emd);
+		when(repository.getName()).thenReturn(emd.getId());
 
 		l2Cache = new L2Cache(molgenisTransactionManager, entityHydration, transactionInformation);
 	}
@@ -119,7 +115,7 @@ public class L2CacheTest extends AbstractMolgenisSpringTest
 		verify(repository, times(1)).findOneById("2");
 
 		// Commit a transaction that has dirtied the repository
-		when(transactionInformation.getEntirelyDirtyRepositories()).thenReturn(singleton(emd.getName()));
+		when(transactionInformation.getEntirelyDirtyRepositories()).thenReturn(singleton(emd.getId()));
 		l2Cache.afterCommitTransaction("transactionID");
 
 		// get the entity a third time
@@ -197,11 +193,11 @@ public class L2CacheTest extends AbstractMolgenisSpringTest
 		l2Cache.get(repository, "2");
 	}
 
+	@SuppressWarnings("unchecked")
 	@Test(expectedExceptions = UncheckedExecutionException.class)
 	public void testGetBatchIdLoaderThrowsException()
 	{
-		when(repository.findAll(any(Stream.class)))
-				.thenThrow(new MolgenisDataException("Table is missing for entity TestEntity"));
+		when(repository.findAll(any(Stream.class))).thenThrow(new MolgenisDataException("Table is missing for entity TestEntity"));
 		l2Cache.getBatch(repository, newArrayList("1", "2"));
 	}
 
@@ -217,7 +213,7 @@ public class L2CacheTest extends AbstractMolgenisSpringTest
 	}
 
 	@Configuration
-	@Import({ EntityTestHarness.class, EntityHydration.class })
+	@Import({ EntityHydration.class, TestHarnessConfig.class })
 	public static class Config
 	{
 		@Mock

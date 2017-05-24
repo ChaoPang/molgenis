@@ -1,63 +1,60 @@
 package org.molgenis.gavin.controller;
 
-import com.google.common.collect.ImmutableMap;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
-import org.molgenis.auth.MolgenisUser;
+import org.molgenis.auth.User;
+import org.molgenis.data.AbstractMolgenisSpringTest;
 import org.molgenis.data.DataService;
-import org.molgenis.data.MolgenisDataException;
-import org.molgenis.data.annotation.core.EffectsAnnotator;
+import org.molgenis.data.annotation.core.EffectBasedAnnotator;
 import org.molgenis.data.annotation.core.RepositoryAnnotator;
 import org.molgenis.data.annotation.web.CrudRepositoryAnnotator;
-import org.molgenis.data.jobs.JobExecutionUpdater;
 import org.molgenis.data.index.meta.IndexPackage;
+import org.molgenis.data.jobs.JobExecutionUpdater;
 import org.molgenis.file.FileStore;
 import org.molgenis.framework.ui.MolgenisPluginRegistry;
+import org.molgenis.gavin.config.GavinTestConfig;
 import org.molgenis.gavin.job.GavinJob;
 import org.molgenis.gavin.job.GavinJobExecution;
 import org.molgenis.gavin.job.GavinJobFactory;
 import org.molgenis.gavin.job.meta.GavinJobExecutionMetaData;
 import org.molgenis.security.user.UserAccountService;
-import org.molgenis.test.data.AbstractMolgenisSpringTest;
+import org.molgenis.ui.controller.StaticContentService;
 import org.molgenis.ui.menu.MenuReaderService;
 import org.molgenis.util.ResourceUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.mail.MailSender;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.ui.ExtendedModelMap;
 import org.springframework.ui.Model;
 import org.springframework.web.multipart.MultipartFile;
-import org.testng.Assert;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.FileFilter;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
-import java.util.Collections;
+import java.net.URI;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static java.io.File.separator;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.mockito.Mockito.*;
-import static org.molgenis.gavin.job.meta.GavinJobExecutionMetaData.GAVIN_JOB_EXECUTION;
-import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.*;
 
 @ContextConfiguration(classes = { GavinControllerTest.Config.class, GavinController.class })
 public class GavinControllerTest extends AbstractMolgenisSpringTest
 {
 	@Autowired
 	private GavinController gavinController;
-
-	@Autowired
-	private DataService dataService;
 
 	@Autowired
 	private ExecutorService executorService;
@@ -74,12 +71,6 @@ public class GavinControllerTest extends AbstractMolgenisSpringTest
 	@Autowired
 	GavinJobExecutionMetaData gavinJobExecutionMetaData;
 
-	@BeforeClass
-	public void init()
-	{
-		gavinJobExecutionMetaData.init();
-	}
-
 	@Test
 	public void testInitResourcesPresent() throws Exception
 	{
@@ -88,7 +79,7 @@ public class GavinControllerTest extends AbstractMolgenisSpringTest
 
 		gavinController.init(model);
 
-		assertEquals(model.asMap(), Collections.emptyMap());
+		assertFalse(model.containsAttribute("annotatorsWithMissingResources"));
 	}
 
 	@Test
@@ -99,7 +90,7 @@ public class GavinControllerTest extends AbstractMolgenisSpringTest
 
 		gavinController.init(model);
 
-		assertEquals(model.asMap(), ImmutableMap.of("annotatorsWithMissingResources", singletonList("cadd")));
+		assertEquals(model.asMap().get("annotatorsWithMissingResources"), singletonList("cadd"));
 	}
 
 	@Test
@@ -109,7 +100,7 @@ public class GavinControllerTest extends AbstractMolgenisSpringTest
 		GavinJob job = mock(GavinJob.class);
 		File inputFile = mock(File.class);
 		File parentDir = mock(File.class);
-		MolgenisUser user = mock(MolgenisUser.class);
+		User user = mock(User.class);
 		when(user.getUsername()).thenReturn("tommy");
 
 		// Job Factory sets the Identifier in the JobExecution object.
@@ -123,17 +114,19 @@ public class GavinControllerTest extends AbstractMolgenisSpringTest
 		}).when(gavinJobFactory).createJob(captor.capture());
 
 		when(inputFile.getParentFile()).thenReturn(parentDir);
+		when(vcf.getOriginalFilename()).thenReturn(".vcf");
 
-		assertEquals(gavinController.annotateFile(vcf, "annotate-file"), "/api/v2/" + GAVIN_JOB_EXECUTION + "/ABCDE");
+		assertEquals(gavinController.annotateFile(vcf, "annotate-file"),
+				ResponseEntity.created(URI.create("/plugin/gavin-app/job/ABCDE")).body("/plugin/gavin-app/job/ABCDE"));
 
 		verify(fileStore).createDirectory("gavin-app");
 		verify(fileStore).createDirectory("gavin-app" + separator + "ABCDE");
 		verify(fileStore).writeToFile(Mockito.any(InputStream.class),
-				Mockito.eq("gavin-app" + separator + "ABCDE" + separator + "input.vcf"));
+				Mockito.eq("gavin-app" + separator + "ABCDE" + separator + "input.tsv"));
 
 		verify(executorService).submit(job);
 		GavinJobExecution jobExecution = captor.getValue();
-		assertEquals(jobExecution.getFilename(), "annotate-file-gavin.vcf");
+		assertEquals(jobExecution.getFilename(), "annotate-file");
 		assertEquals(jobExecution.getUser(), "tommy");
 	}
 
@@ -145,51 +138,59 @@ public class GavinControllerTest extends AbstractMolgenisSpringTest
 				.createTempFile("gavin", ".vcf", new File(ResourceUtils.getFile(getClass(), "/").getPath()));
 		resultFile.deleteOnExit();
 
-		when(gavinJobExecution.getFilename()).thenReturn("annotate-file-gavin.vcf");
-		when(dataService.findOneById(GAVIN_JOB_EXECUTION, "ABCDE", GavinJobExecution.class))
-				.thenReturn(gavinJobExecution);
+		when(gavinJobExecution.getFilename()).thenReturn("annotate-file");
+		when(gavinJobFactory.findGavinJobExecution("ABCDE")).thenReturn(gavinJobExecution);
 		when(fileStore.getFile("gavin-app" + separator + "ABCDE" + separator + "gavin-result.vcf"))
 				.thenReturn(resultFile);
 
 		HttpServletResponse response = mock(HttpServletResponse.class);
 
-		assertEquals(gavinController.result(response, "ABCDE"), new FileSystemResource(resultFile));
+		assertEquals(gavinController.download(response, "ABCDE"), new FileSystemResource(resultFile));
 
 		verify(response).setHeader("Content-Disposition", "inline; filename=\"annotate-file-gavin.vcf\"");
 	}
 
-	@Test
+	@Test(expectedExceptions = FileNotFoundException.class, expectedExceptionsMessageRegExp = "No result file found for this job\\. Results are removed every night\\.")
 	public void testResultNotFound() throws Exception
 	{
 		GavinJobExecution gavinJobExecution = mock(GavinJobExecution.class);
 		File file = mock(File.class);
 
 		when(gavinJobExecution.getFilename()).thenReturn("annotate-file-gavin.vcf");
-		when(dataService.findOneById(GAVIN_JOB_EXECUTION, "ABCDE", GavinJobExecution.class))
-				.thenReturn(gavinJobExecution);
+		when(gavinJobFactory.findGavinJobExecution("ABCDE")).thenReturn(gavinJobExecution);
 		when(fileStore.getFile("gavin-app" + separator + "ABCDE" + separator + "gavin-result.vcf")).thenReturn(file);
 		when(file.exists()).thenReturn(false);
 
-		try
-		{
-			gavinController.result(mock(HttpServletResponse.class), "ABCDE");
-			Assert.fail("Should throw exception cause file doesn't exist.");
-		}
-		catch (MolgenisDataException expected)
-		{
-			assertEquals(expected.getMessage(), "No output file found for this job.");
-		}
+		gavinController.download(mock(HttpServletResponse.class), "ABCDE");
 	}
 
 	@Test
 	public void testCleanUp() throws Exception
 	{
+		File gavinAppDir = Mockito.mock(File.class);
+
+		File oldJobDir = Mockito.mock(File.class);
+		File newJobDir = Mockito.mock(File.class);
+
+		when(fileStore.getFile("gavin-app")).thenReturn(gavinAppDir);
+		when(newJobDir.lastModified()).thenReturn(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(23));
+		when(newJobDir.isDirectory()).thenReturn(true);
+		when(oldJobDir.lastModified()).thenReturn(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(24) - 1000);
+		when(oldJobDir.isDirectory()).thenReturn(true);
+		ArgumentCaptor<FileFilter> fileFilterCaptor = ArgumentCaptor.forClass(FileFilter.class);
+		when(gavinAppDir.listFiles(fileFilterCaptor.capture())).thenReturn(new File[] { oldJobDir });
+		when(oldJobDir.getName()).thenReturn("ASDFASDFASDF");
+
 		gavinController.cleanUp();
-		verify(fileStore).deleteDirectory("gavin-app");
+		verify(fileStore).deleteDirectory("gavin-app" + File.separator + "ASDFASDFASDF");
+		assertTrue(fileFilterCaptor.getValue().accept(oldJobDir),
+				"cleanUp should remove files that are more than 24 hours old");
+		assertFalse(fileFilterCaptor.getValue().accept(newJobDir),
+				"cleanUp should leave files that are less than 24 hours old");
 	}
 
 	@Configuration
-	@ComponentScan({ "org.molgenis.gavin.job.meta", "org.molgenis.data.jobs.model" })
+	@Import(GavinTestConfig.class)
 	public static class Config
 	{
 		@Bean
@@ -199,7 +200,7 @@ public class GavinControllerTest extends AbstractMolgenisSpringTest
 		}
 
 		@Bean
-		ExecutorService executorService()
+		ExecutorService gavinExecutors()
 		{
 			return mock(ExecutorService.class);
 		}
@@ -259,12 +260,6 @@ public class GavinControllerTest extends AbstractMolgenisSpringTest
 		}
 
 		@Bean
-		MailSender mailSender()
-		{
-			return mock(MailSender.class);
-		}
-
-		@Bean
 		FileStore fileStore()
 		{
 			return mock(FileStore.class);
@@ -289,9 +284,15 @@ public class GavinControllerTest extends AbstractMolgenisSpringTest
 		}
 
 		@Bean
-		EffectsAnnotator gavin()
+		EffectBasedAnnotator gavin()
 		{
-			return mock(EffectsAnnotator.class);
+			return mock(EffectBasedAnnotator.class);
+		}
+
+		@Bean
+		StaticContentService staticContentService()
+		{
+			return mock(StaticContentService.class);
 		}
 
 		@Bean

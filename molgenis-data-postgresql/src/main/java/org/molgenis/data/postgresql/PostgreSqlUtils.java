@@ -1,14 +1,17 @@
 package org.molgenis.data.postgresql;
 
-import org.molgenis.MolgenisFieldTypes;
 import org.molgenis.data.Entity;
 import org.molgenis.data.MolgenisDataException;
-import org.molgenis.data.meta.model.AttributeMetaData;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.model.Attribute;
 import org.molgenis.file.model.FileMeta;
 
-import java.util.Date;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 
@@ -28,10 +31,10 @@ class PostgreSqlUtils
 	 * @param attr   attribute
 	 * @return PostgreSQL value
 	 */
-	static Object getPostgreSqlValue(Entity entity, AttributeMetaData attr)
+	static Object getPostgreSqlValue(Entity entity, Attribute attr)
 	{
 		String attrName = attr.getName();
-		MolgenisFieldTypes.AttributeType attrType = attr.getDataType();
+		AttributeType attrType = attr.getDataType();
 
 		switch (attrType)
 		{
@@ -41,18 +44,20 @@ class PostgreSqlUtils
 			case XREF:
 				Entity xrefEntity = entity.getEntity(attrName);
 				return xrefEntity != null ? getPostgreSqlValue(xrefEntity,
-						xrefEntity.getEntityMetaData().getIdAttribute()) : null;
+						xrefEntity.getEntityType().getIdAttribute()) : null;
 			case CATEGORICAL_MREF:
 			case MREF:
+			case ONE_TO_MANY:
 				Iterable<Entity> entities = entity.getEntities(attrName);
-				return stream(entities.spliterator(), false).map(mrefEntity -> getPostgreSqlValue(mrefEntity,
-						mrefEntity.getEntityMetaData().getIdAttribute())).collect(toList());
+				return stream(entities.spliterator(), false)
+						.map(mrefEntity -> getPostgreSqlValue(mrefEntity, mrefEntity.getEntityType().getIdAttribute()))
+						.collect(toList());
 			case DATE:
-				Date date = entity.getUtilDate(attrName);
-				return date != null ? new java.sql.Date(date.getTime()) : null;
+				return entity.getLocalDate(attrName);
 			case DATE_TIME:
-				Date dateTime = entity.getUtilDate(attrName);
-				return dateTime != null ? new java.sql.Timestamp(dateTime.getTime()) : null;
+				// As a workaround for #5674, we don't store milliseconds
+				Instant instant = entity.getInstant(attrName);
+				return instant != null ? instant.truncatedTo(ChronoUnit.SECONDS).atOffset(UTC) : null;
 			case DECIMAL:
 				return entity.getDouble(attrName);
 			case EMAIL:
@@ -66,7 +71,7 @@ class PostgreSqlUtils
 			case FILE:
 				FileMeta fileEntity = entity.getEntity(attrName, FileMeta.class);
 				return fileEntity != null ? getPostgreSqlValue(fileEntity,
-						fileEntity.getEntityMetaData().getIdAttribute()) : null;
+						fileEntity.getEntityType().getIdAttribute()) : null;
 			case INT:
 				return entity.getInt(attrName);
 			case LONG:
@@ -86,12 +91,12 @@ class PostgreSqlUtils
 	 * @param attr       attribute
 	 * @return PostgreSQL value
 	 */
-	static Object getPostgreSqlQueryValue(Object queryValue, AttributeMetaData attr)
+	static Object getPostgreSqlQueryValue(Object queryValue, Attribute attr)
 	{
 		while (true)
 		{
 			String attrName = attr.getName();
-			MolgenisFieldTypes.AttributeType attrType = attr.getDataType();
+			AttributeType attrType = attr.getDataType();
 
 			switch (attrType)
 			{
@@ -108,6 +113,7 @@ class PostgreSqlUtils
 				case FILE:
 				case MREF: // one query value
 				case XREF:
+				case ONE_TO_MANY:
 					// queries values referencing an entity can either be the entity itself or the entity id
 					if (queryValue != null)
 					{
@@ -123,23 +129,25 @@ class PostgreSqlUtils
 						return null;
 					}
 				case DATE:
-					if (queryValue != null && !(queryValue instanceof Date))
+					if (queryValue != null && !(queryValue instanceof LocalDate))
 					{
 						throw new MolgenisDataException(
 								format("Attribute [%s] query value is of type [%s] instead of [%s]", attrName,
-										queryValue.getClass().getSimpleName(), Date.class.getSimpleName()));
+										queryValue.getClass().getSimpleName(), LocalDate.class.getSimpleName()));
 					}
-					Date date = (Date) queryValue;
-					return date != null ? new java.sql.Date(date.getTime()) : null;
+					return queryValue;
 				case DATE_TIME:
-					if (queryValue != null && !(queryValue instanceof Date))
+					if (queryValue == null)
+					{
+						return null;
+					}
+					if (!(queryValue instanceof Instant))
 					{
 						throw new MolgenisDataException(
 								format("Attribute [%s] query value is of type [%s] instead of [%s]", attrName,
-										queryValue.getClass().getSimpleName(), Date.class.getSimpleName()));
+										queryValue.getClass().getSimpleName(), Instant.class.getSimpleName()));
 					}
-					Date dateTime = (Date) queryValue;
-					return dateTime != null ? new java.sql.Timestamp(dateTime.getTime()) : null;
+					return ((Instant) queryValue).atOffset(UTC);
 				case DECIMAL:
 					if (queryValue != null && !(queryValue instanceof Double))
 					{

@@ -1,10 +1,10 @@
 package org.molgenis.data.support;
 
 import org.molgenis.data.Entity;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 
-import java.sql.Date;
-import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
 
 import static java.util.Objects.requireNonNull;
 
@@ -22,14 +22,14 @@ public abstract class StaticEntity implements Entity
 		this.entity = requireNonNull(entity);
 	}
 
-	public StaticEntity(EntityMetaData entityMeta)
+	public StaticEntity(EntityType entityType)
 	{
-		this.entity = new DynamicEntity(entityMeta);
+		this.entity = new DynamicEntity(entityType);
 	}
 
-	public StaticEntity(Object id, EntityMetaData entityMeta)
+	public StaticEntity(Object id, EntityType entityType)
 	{
-		this(entityMeta);
+		this(entityType);
 		setIdValue(id);
 	}
 
@@ -62,12 +62,6 @@ public abstract class StaticEntity implements Entity
 	}
 
 	@Override
-	public Date getDate(String attributeName)
-	{
-		return entity.getDate(attributeName);
-	}
-
-	@Override
 	public Double getDouble(String attributeName)
 	{
 		return entity.getDouble(attributeName);
@@ -97,10 +91,9 @@ public abstract class StaticEntity implements Entity
 		return entity.getEntity(attributeName, clazz);
 	}
 
-	@Override
-	public EntityMetaData getEntityMetaData()
+	public EntityType getEntityType()
 	{
-		return entity.getEntityMetaData();
+		return entity.getEntityType();
 	}
 
 	@Override
@@ -112,6 +105,7 @@ public abstract class StaticEntity implements Entity
 	@Override
 	public Integer getInt(String attributeName)
 	{
+		if (null == entity) return null;
 		return entity.getInt(attributeName);
 	}
 
@@ -134,15 +128,15 @@ public abstract class StaticEntity implements Entity
 	}
 
 	@Override
-	public Timestamp getTimestamp(String attributeName)
+	public LocalDate getLocalDate(String attributeName)
 	{
-		return entity.getTimestamp(attributeName);
+		return entity.getLocalDate(attributeName);
 	}
 
 	@Override
-	public java.util.Date getUtilDate(String attributeName)
+	public Instant getInstant(String attributeName)
 	{
-		return entity.getUtilDate(attributeName);
+		return entity.getInstant(attributeName);
 	}
 
 	@Override
@@ -161,5 +155,11 @@ public abstract class StaticEntity implements Entity
 	public void setIdValue(Object id)
 	{
 		entity.setIdValue(id);
+	}
+
+	@Override
+	public String toString()
+	{
+		return entity.toString();
 	}
 }

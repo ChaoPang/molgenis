@@ -1,20 +1,16 @@
 package org.molgenis.data.mapper.jobs.mappingservice;
 
-import static java.util.Objects.requireNonNull;
-import static org.molgenis.data.mapper.jobs.mappingservice.meta.MappingServiceJobExecutionMetaData.JOB_TYPE;
-import static org.molgenis.data.mapper.jobs.mappingservice.meta.MappingServiceJobExecutionMetaData.MAPPING_PROJECT;
-import static org.molgenis.data.mapper.jobs.mappingservice.meta.MappingServiceJobExecutionMetaData.SOURCE_ENTITIES;
-import static org.molgenis.data.mapper.jobs.mappingservice.meta.MappingServiceJobExecutionMetaData.TARGET_ENTITY;
-
-import java.util.List;
-
+import com.google.common.collect.Lists;
 import org.molgenis.data.Entity;
 import org.molgenis.data.jobs.model.JobExecution;
 import org.molgenis.data.mapper.mapping.model.MappingProject;
 import org.molgenis.data.mapper.service.MappingService;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 
-import com.google.common.collect.Lists;
+import java.util.List;
+
+import static java.util.Objects.requireNonNull;
+import static org.molgenis.data.mapper.jobs.mappingservice.meta.MappingServiceJobExecutionMetaData.*;
 
 public class MappingServiceJobExecution extends JobExecution
 {
@@ -22,29 +18,29 @@ public class MappingServiceJobExecution extends JobExecution
 
 	private final MappingService mappingService;
 
-	public MappingServiceJobExecution(EntityMetaData entityMetaData, MappingService mappingService)
+	public MappingServiceJobExecution(EntityType entityType, MappingService mappingService)
 	{
-		super(entityMetaData);
+		super(entityType);
 		setType(JOB_TYPE);
 		this.mappingService = requireNonNull(mappingService);
 	}
 
-	public EntityMetaData getTargetEntity()
+	public EntityType getTargetEntity()
 	{
-		return getEntity(TARGET_ENTITY, EntityMetaData.class);
+		return getEntity(TARGET_ENTITY, EntityType.class);
 	}
 
-	public void setTargetEntity(EntityMetaData targetEntityMetaData)
+	public void setTargetEntity(EntityType targetEntitType)
 	{
-		set(TARGET_ENTITY, targetEntityMetaData);
+		set(TARGET_ENTITY, targetEntitType);
 	}
 
-	public List<EntityMetaData> getSourceEntities()
+	public List<EntityType> getSourceEntities()
 	{
-		return Lists.newArrayList(getEntities(SOURCE_ENTITIES, EntityMetaData.class));
+		return Lists.newArrayList(getEntities(SOURCE_ENTITIES, EntityType.class));
 	}
 
-	public void setSourceEntity(List<EntityMetaData> sourceEntityMetaDatas)
+	public void setSourceEntity(List<EntityType> sourceEntityMetaDatas)
 	{
 		set(SOURCE_ENTITIES, sourceEntityMetaDatas);
 	}

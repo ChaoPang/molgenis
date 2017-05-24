@@ -1,6 +1,7 @@
 package org.molgenis.data.mapper.config;
 
 import org.molgenis.data.DataService;
+import org.molgenis.data.EntityManager;
 import org.molgenis.data.mapper.algorithmgenerator.service.AlgorithmGeneratorService;
 import org.molgenis.data.mapper.algorithmgenerator.service.impl.AlgorithmGeneratorServiceImpl;
 import org.molgenis.data.mapper.meta.AttributeMappingMetaData;
@@ -14,20 +15,19 @@ import org.molgenis.data.mapper.repository.impl.MappingTargetRepositoryImpl;
 import org.molgenis.data.mapper.service.AlgorithmService;
 import org.molgenis.data.mapper.service.MappingService;
 import org.molgenis.data.mapper.service.UnitResolver;
-import org.molgenis.data.mapper.service.impl.AlgorithmServiceImpl;
-import org.molgenis.data.mapper.service.impl.AlgorithmTemplateService;
-import org.molgenis.data.mapper.service.impl.AlgorithmTemplateServiceImpl;
-import org.molgenis.data.mapper.service.impl.MappingServiceImpl;
-import org.molgenis.data.mapper.service.impl.UnitResolverImpl;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
+import org.molgenis.data.mapper.service.impl.*;
+import org.molgenis.data.meta.DefaultPackage;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.system.SystemPackageRegistry;
 import org.molgenis.data.populate.IdGenerator;
 import org.molgenis.data.semanticsearch.service.OntologyTagService;
 import org.molgenis.data.semanticsearch.service.SemanticSearchService;
+import org.molgenis.js.magma.JsMagmaScriptEvaluator;
 import org.molgenis.ontology.core.config.OntologyConfig;
 import org.molgenis.ontology.core.repository.OntologyTermRepository;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.security.permission.PermissionSystemService;
-import org.molgenis.security.user.MolgenisUserService;
+import org.molgenis.security.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,7 +41,7 @@ public class MappingConfig
 	DataService dataService;
 
 	@Autowired
-	MolgenisUserService userService;
+	UserService userService;
 
 	@Autowired
 	OntologyTagService ontologyTagService;
@@ -71,20 +71,29 @@ public class MappingConfig
 	MappingTargetMetaData mappingTargetMetaData;
 
 	@Autowired
-	AttributeMetaDataFactory attrMetaFactory;
-
-	@Autowired
-	MolgenisUserService molgenisUserService;
+	AttributeFactory attrMetaFactory;
 
 	@Autowired
 	MappingProjectMetaData mappingProjectMeta;
+
+	@Autowired
+	EntityManager entityManager;
+
+	@Autowired
+	JsMagmaScriptEvaluator jsMagmaScriptEvaluator;
+
+	@Autowired
+	DefaultPackage defaultPackage;
+
+	@Autowired
+	SystemPackageRegistry systemPackageRegistry;
 
 	@Bean
 	public MappingService mappingService()
 	{
 		return new MappingServiceImpl(dataService, algorithmServiceImpl(), idGenerator, mappingProjectRepository(),
 				mappingTargetRepository(), entityMappingRepository(), attributeMappingRepository(),
-				permissionSystemService, attrMetaFactory);
+				permissionSystemService, attrMetaFactory, defaultPackage);
 	}
 
 	@Bean
@@ -96,8 +105,8 @@ public class MappingConfig
 	@Bean
 	public AlgorithmService algorithmServiceImpl()
 	{
-		return new AlgorithmServiceImpl(dataService, ontologyTagService, semanticSearchService,
-				algorithmGeneratorService());
+		return new AlgorithmServiceImpl(ontologyTagService, semanticSearchService, algorithmGeneratorService(),
+				entityManager, jsMagmaScriptEvaluator);
 	}
 
 	@Bean

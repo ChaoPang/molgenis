@@ -2,7 +2,8 @@ package org.molgenis.data.discovery.meta.matching;
 
 import org.molgenis.data.discovery.meta.BiobankUniversePackage;
 import org.molgenis.data.discovery.meta.biobank.BiobankUniverseMetaData;
-import org.molgenis.data.meta.SystemEntityMetaData;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.SystemEntityType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -13,14 +14,12 @@ import java.util.stream.Stream;
 import static com.google.common.collect.Maps.newHashMapWithExpectedSize;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.*;
 import static org.molgenis.data.discovery.meta.BiobankUniversePackage.PACKAGE_UNIVERSE;
 import static org.molgenis.data.discovery.meta.matching.AttributeMappingDecisionMetaData.DecisionOptions.getEnumValues;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.ROLE_ID;
 import static org.molgenis.data.meta.model.Package.PACKAGE_SEPARATOR;
 
 @Component
-public class AttributeMappingDecisionMetaData extends SystemEntityMetaData
+public class AttributeMappingDecisionMetaData extends SystemEntityType
 {
 	public static final String SIMPLE_NAME = "AttributeMappingDecision";
 	public static final String ATTRIBUTE_MAPPING_DECISION = PACKAGE_UNIVERSE + PACKAGE_SEPARATOR + SIMPLE_NAME;
@@ -90,10 +89,10 @@ public class AttributeMappingDecisionMetaData extends SystemEntityMetaData
 		setLabel("Attribute mapping decision");
 		setPackage(biobankUniversePackage);
 
-		addAttribute(IDENTIFIER, ROLE_ID);
-		addAttribute(DECISION).setDataType(ENUM).setEnumOptions(getEnumValues());
-		addAttribute(COMMENT).setDataType(TEXT).setNillable(true);
+		addAttribute(IDENTIFIER, AttributeRole.ROLE_ID);
+		addAttribute(DECISION).setDataType(AttributeType.ENUM).setEnumOptions(getEnumValues());
+		addAttribute(COMMENT).setDataType(AttributeType.TEXT).setNillable(true);
 		addAttribute(OWNER);
-		addAttribute(UNIVERSE).setDataType(XREF).setRefEntity(biobankUniverseMetaData);
+		addAttribute(UNIVERSE).setDataType(AttributeType.XREF).setRefEntity(biobankUniverseMetaData);
 	}
 }

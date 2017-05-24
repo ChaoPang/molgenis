@@ -1,6 +1,7 @@
 import {Table} from "./Table";
 import React, {Component} from "react";
 import $ from "jquery";
+import {packageSeparator} from "rest-client";
 
 class FileIngestPlugin extends Component {
     constructor(props) {
@@ -18,8 +19,8 @@ class FileIngestPlugin extends Component {
         return <div>
             <legend>Automatic imports</legend>
             <div className='ingest-table'>
-                <Table entity='sys_FileIngest'
-                       attrs={{name: null, url: null, entityMetaData: null, cronexpression: null, active: null}}
+                <Table entity={'sys' + packageSeparator + 'FileIngest'}
+                       attrs={{name: null, url: null, entityType: null, cronexpression: null, active: null}}
                        defaultSelectFirstRow={true}
                        selectedRow={this.state.selectedFileIngest}
                        onRowClick={this.onFileIngestSelect}
@@ -32,11 +33,11 @@ class FileIngestPlugin extends Component {
                     <legend>
                         '{fileIngest.name}' import jobs
                         <span> (Target: <a
-                            href={'/menu/main/dataexplorer?entity=' + fileIngest.entityMetaData.fullName}>{fileIngest.entityMetaData.simpleName}</a>)</span>
+                            href={'/menu/main/dataexplorer?entityId=' + fileIngest.entityType.id}> {fileIngest.entityType.label}</a >)</span>
                     </legend>
 
                     <div className='ingest-table'>
-                        <Table entity='sys_FileIngestJobExecution'
+                        <Table entity={'sys' + packageSeparator + 'FileIngestJobExecution'}
                                enableAdd={false}
                                sort={{attr: {name: 'startDate'}, order: 'desc', path: []}}
                                attrs={{status: null, startDate: null, endDate: null, progressMessage: null, file: null}}

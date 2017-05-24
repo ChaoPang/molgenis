@@ -1,8 +1,9 @@
 package org.molgenis.data.semanticsearch.config;
 
 import org.molgenis.data.DataService;
+import org.molgenis.data.elasticsearch.util.DocumentIdGenerator;
 import org.molgenis.data.meta.model.TagFactory;
-import org.molgenis.data.meta.model.TagMetaData;
+import org.molgenis.data.meta.model.TagMetadata;
 import org.molgenis.data.populate.IdGenerator;
 import org.molgenis.data.semantic.LabeledResource;
 import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
@@ -32,15 +33,18 @@ public class SemanticSearchConfig
 	TermFrequencyService termFrequencyService;
 
 	@Autowired
-	TagMetaData tagMetaData;
+	TagMetadata tagMetadata;
 
 	@Autowired
 	TagFactory tagFactory;
 
+	@Autowired
+	DocumentIdGenerator documentIdGenerator;
+
 	@Bean
 	public OntologyTagService ontologyTagService()
 	{
-		return new OntologyTagServiceImpl(dataService, ontologyService, tagRepository(), idGenerator, tagMetaData);
+		return new OntologyTagServiceImpl(dataService, ontologyService, tagRepository(), idGenerator, tagMetadata);
 	}
 
 	@Bean

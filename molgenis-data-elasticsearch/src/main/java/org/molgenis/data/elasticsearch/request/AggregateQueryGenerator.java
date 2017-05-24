@@ -7,9 +7,10 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.nested.NestedBuilder;
 import org.elasticsearch.search.aggregations.bucket.nested.ReverseNestedBuilder;
 import org.elasticsearch.search.aggregations.metrics.cardinality.CardinalityBuilder;
-import org.molgenis.MolgenisFieldTypes.AttributeType;
 import org.molgenis.data.elasticsearch.index.MappingsBuilder;
-import org.molgenis.data.meta.model.AttributeMetaData;
+import org.molgenis.data.elasticsearch.util.DocumentIdGenerator;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.model.Attribute;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,7 +18,8 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static java.lang.Integer.MAX_VALUE;
-import static org.molgenis.data.support.EntityMetaDataUtils.isReferenceType;
+import static java.util.Objects.requireNonNull;
+import static org.molgenis.data.support.EntityTypeUtils.isReferenceType;
 
 public class AggregateQueryGenerator
 {
@@ -27,33 +29,40 @@ public class AggregateQueryGenerator
 	public static final String AGGREGATION_DISTINCT_POSTFIX = "_distinct";
 	public static final String AGGREGATION_TERMS_POSTFIX = "_terms";
 
-	public void generate(SearchRequestBuilder searchRequestBuilder, AttributeMetaData aggAttr1,
-			AttributeMetaData aggAttr2, AttributeMetaData aggAttrDistinct)
+	private final DocumentIdGenerator documentIdGenerator;
+
+	public AggregateQueryGenerator(DocumentIdGenerator documentIdGenerator)
+	{
+		this.documentIdGenerator = requireNonNull(documentIdGenerator);
+	}
+
+	public void generate(SearchRequestBuilder searchRequestBuilder, Attribute aggAttr1,
+			Attribute aggAttr2, Attribute aggAttrDistinct)
 	{
 		// validate request
 		if (aggAttr1 == null)
 		{
-			throw new IllegalArgumentException("Aggregation requires at least one aggregateable attribute");
+			throw new IllegalArgumentException("Aggregation requires at least one isAggregatable attribute");
 		}
 		if (!aggAttr1.isAggregatable())
 		{
-			throw new IllegalArgumentException("Attribute is not aggregateable [ " + aggAttr1.getName() + "]");
+			throw new IllegalArgumentException("Attribute is not isAggregatable [ " + aggAttr1.getName() + "]");
 		}
 		if (aggAttr2 != null && !aggAttr2.isAggregatable())
 		{
-			throw new IllegalArgumentException("Attribute is not aggregateable [ " + aggAttr2.getName() + "]");
+			throw new IllegalArgumentException("Attribute is not isAggregatable [ " + aggAttr2.getName() + "]");
 		}
 		if (aggAttrDistinct != null && aggAttrDistinct.isNillable())
 		{
 			// see: https://github.com/molgenis/molgenis/issues/1938
-			throw new IllegalArgumentException("Distinct aggregateable attribute cannot be nillable");
+			throw new IllegalArgumentException("Distinct isAggregatable attribute cannot be nillable");
 		}
 		AttributeType dataType1 = aggAttr1.getDataType();
 		if (aggAttr1.isNillable() && isReferenceType(aggAttr1))
 		{
 			// see: https://github.com/molgenis/molgenis/issues/1937
 			throw new IllegalArgumentException(
-					"Aggregateable attribute of type [" + dataType1 + "] cannot be nillable");
+					"Aggregatable attribute of type [" + dataType1 + "] cannot be nillable");
 		}
 		if (aggAttr2 != null)
 		{
@@ -62,14 +71,14 @@ public class AggregateQueryGenerator
 			if (aggAttr2.isNillable() && isReferenceType(aggAttr2))
 			{
 				throw new IllegalArgumentException(
-						"Aggregateable attribute of type [" + dataType2 + "] cannot be nillable");
+						"Aggregatable attribute of type [" + dataType2 + "] cannot be nillable");
 			}
 		}
 
 		// collect aggregates
 		searchRequestBuilder.setSize(0);
 
-		LinkedList<AttributeMetaData> aggAttrs = new LinkedList<AttributeMetaData>();
+		LinkedList<Attribute> aggAttrs = new LinkedList<Attribute>();
 		aggAttrs.add(aggAttr1);
 		if (aggAttr2 != null)
 		{
@@ -84,10 +93,10 @@ public class AggregateQueryGenerator
 		}
 	}
 
-	private List<AggregationBuilder<?>> createAggregations(LinkedList<AttributeMetaData> attrs,
-			AttributeMetaData parentAttr, AttributeMetaData distinctAttr)
+	private List<AggregationBuilder<?>> createAggregations(LinkedList<Attribute> attrs,
+			Attribute parentAttr, Attribute distinctAttr)
 	{
-		AttributeMetaData attr = attrs.pop();
+		Attribute attr = attrs.pop();
 
 		List<AggregationBuilder<?>> aggs = new ArrayList<AggregationBuilder<?>>();
 
@@ -102,7 +111,7 @@ public class AggregateQueryGenerator
 		if (attr.isNillable())
 		{
 			String missingAggName = attr.getName() + AGGREGATION_MISSING_POSTFIX;
-			String missingAggFieldName = attr.getName();
+			String missingAggFieldName = getAggregateFieldName(attr);
 			AggregationBuilder<?> missingTermsAgg = AggregationBuilders.missing(missingAggName)
 					.field(missingAggFieldName);
 			aggs.add(missingTermsAgg);
@@ -126,7 +135,7 @@ public class AggregateQueryGenerator
 			if (isNestedType(distinctAttr))
 			{
 				String nestedAggName = distinctAttr.getName() + AGGREGATION_NESTED_POSTFIX;
-				String nestedAggFieldName = distinctAttr.getName();
+				String nestedAggFieldName = getAggregatePathName(distinctAttr);
 				NestedBuilder nestedBuilder = AggregationBuilders.nested(nestedAggName).path(nestedAggFieldName);
 				nestedBuilder.subAggregation(distinctAgg);
 
@@ -181,7 +190,7 @@ public class AggregateQueryGenerator
 		if (isNestedType(attr))
 		{
 			String nestedAggName = attr.getName() + AGGREGATION_NESTED_POSTFIX;
-			String nestedAggFieldName = attr.getName();
+			String nestedAggFieldName = getAggregatePathName(attr);
 			NestedBuilder nestedAgg = AggregationBuilders.nested(nestedAggName).path(nestedAggFieldName);
 			for (AggregationBuilder<?> agg : aggs)
 			{
@@ -205,14 +214,19 @@ public class AggregateQueryGenerator
 		return aggs;
 	}
 
-	public static boolean isNestedType(AttributeMetaData attr)
+	public static boolean isNestedType(Attribute attr)
 	{
 		return isReferenceType(attr);
 	}
 
-	private String getAggregateFieldName(AttributeMetaData attr)
+	private String getAggregatePathName(Attribute attr)
 	{
-		String attrName = attr.getName();
+		return documentIdGenerator.generateId(attr);
+	}
+
+	private String getAggregateFieldName(Attribute attr)
+	{
+		String fieldName = documentIdGenerator.generateId(attr);
 		AttributeType dataType = attr.getDataType();
 		switch (dataType)
 		{
@@ -220,7 +234,7 @@ public class AggregateQueryGenerator
 			case INT:
 			case LONG:
 			case DECIMAL:
-				return attrName;
+				return fieldName;
 			case DATE:
 			case DATE_TIME:
 			case EMAIL:
@@ -231,14 +245,15 @@ public class AggregateQueryGenerator
 			case STRING:
 			case TEXT:
 				// use non-analyzed field
-				return attrName + '.' + MappingsBuilder.FIELD_NOT_ANALYZED;
+				return fieldName + '.' + MappingsBuilder.FIELD_NOT_ANALYZED;
 			case CATEGORICAL:
 			case CATEGORICAL_MREF:
 			case XREF:
 			case MREF:
 			case FILE:
+			case ONE_TO_MANY:
 				// use id attribute of nested field
-				return attrName + '.' + getAggregateFieldName(attr.getRefEntity().getIdAttribute());
+				return fieldName + '.' + getAggregateFieldName(attr.getRefEntity().getIdAttribute());
 			case COMPOUND:
 				throw new UnsupportedOperationException();
 			default:

@@ -6,10 +6,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.DataService;
 import org.molgenis.data.DatabaseAction;
 import org.molgenis.data.Entity;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.QueryImpl;
-import org.molgenis.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +18,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
+import static java.util.Objects.requireNonNull;
+
 @Component
 public class DefaultEntityValidator implements EntityValidator
 {
@@ -26,16 +27,19 @@ public class DefaultEntityValidator implements EntityValidator
 
 	private final DataService dataService;
 	private final EntityAttributesValidator entityAttributesValidator;
+	private final ExpressionValidator expressionValidator;
 
 	@Autowired
-	public DefaultEntityValidator(DataService dataService, EntityAttributesValidator entityAttributesValidator)
+	public DefaultEntityValidator(DataService dataService, EntityAttributesValidator entityAttributesValidator,
+			ExpressionValidator expressionValidator)
 	{
 		this.dataService = dataService;
 		this.entityAttributesValidator = entityAttributesValidator;
+		this.expressionValidator = requireNonNull(expressionValidator);
 	}
 
 	@Override
-	public void validate(Iterable<? extends Entity> entities, EntityMetaData meta, DatabaseAction dbAction)
+	public void validate(Iterable<? extends Entity> entities, EntityType meta, DatabaseAction dbAction)
 			throws MolgenisValidationException
 	{
 		Set<ConstraintViolation> violations = checkNotNull(entities, meta);
@@ -60,11 +64,11 @@ public class DefaultEntityValidator implements EntityValidator
 		}
 	}
 
-	private Set<ConstraintViolation> checkNotNull(Iterable<? extends Entity> entities, EntityMetaData meta)
+	private Set<ConstraintViolation> checkNotNull(Iterable<? extends Entity> entities, EntityType meta)
 	{
 		Set<ConstraintViolation> violations = Sets.newLinkedHashSet();
 
-		for (AttributeMetaData attr : meta.getAtomicAttributes())
+		for (Attribute attr : meta.getAtomicAttributes())
 		{
 			if (!attr.isNillable() && !attr.equals(meta.getIdAttribute()) && !attr.isAuto())
 			{
@@ -76,7 +80,7 @@ public class DefaultEntityValidator implements EntityValidator
 					{
 						String message = String
 								.format("The attribute '%s' of entity '%s' with key '%s' can not be null.",
-										attr.getName(), meta.getName(),
+										attr.getName(), meta.getId(),
 										entity.getString(meta.getLabelAttribute().getName()));
 						violations.add(new ConstraintViolation(message, null, entity, attr, meta, rownr));
 					}
@@ -87,30 +91,27 @@ public class DefaultEntityValidator implements EntityValidator
 		return violations;
 	}
 
-	public boolean mustDoNotNullCheck(EntityMetaData entityMetaData, AttributeMetaData attr, Entity entity)
+	public boolean mustDoNotNullCheck(EntityType entityType, Attribute attr, Entity entity)
 	{
-		// Do not validate if Questionnaire status is not SUBMITTED
-		if (EntityUtils.doesExtend(entityMetaData, "Questionnaire") && entity.get("status") != "SUBMITTED")
-			return false;
-
 		// Do not validate is visibleExpression resolves to false
-		if (StringUtils.isNotBlank(attr.getVisibleExpression()) && !ValidationUtils
-				.resolveBooleanExpression(attr.getVisibleExpression(), entity, entityMetaData)) return false;
+		if (StringUtils.isNotBlank(attr.getVisibleExpression()) && !expressionValidator
+				.resolveBooleanExpression(attr.getVisibleExpression(), entity)) return false;
 
 		return true;
 	}
 
-	private Set<ConstraintViolation> checkUniques(Iterable<? extends Entity> entities, EntityMetaData meta,
+	private Set<ConstraintViolation> checkUniques(Iterable<? extends Entity> entities, EntityType meta,
 			DatabaseAction dbAction)
 	{
 		Set<ConstraintViolation> violations = Sets.newLinkedHashSet();
 
-		for (AttributeMetaData attr : meta.getAtomicAttributes())
+		for (Attribute attr : meta.getAtomicAttributes())
 		{
 			if (attr.isUnique() && !attr.equals(meta.getIdAttribute()) && !(attr.equals(meta.getLabelAttribute()) && (
 					dbAction == DatabaseAction.ADD_UPDATE_EXISTING)))
 			{
 				// Gather all attribute values
+				// FIXME: keeping everything in memory is not scaleable
 				List<Object> values = Lists.newArrayList();
 				for (Entity entity : entities)
 				{
@@ -121,12 +122,9 @@ public class DefaultEntityValidator implements EntityValidator
 				// Create 'in' query, should find only find itself or nothing
 				if (!values.isEmpty())
 				{
-					// TODO TBD: should an attribute be globally unique or unique per entity?
-					// For now workaround, identifier.
-					String entityName = attr.getName().equalsIgnoreCase("identifier") ? "Characteristic" : meta
-							.getName();
+					String entityTypeId = meta.getId();
 
-					long count = dataService.count(entityName, new QueryImpl<Entity>().in(attr.getName(), values));
+					long count = dataService.count(entityTypeId, new QueryImpl<Entity>().in(attr.getName(), values));
 					if (count > 0)
 					{
 						// Go through the list to find the violators
@@ -139,7 +137,7 @@ public class DefaultEntityValidator implements EntityValidator
 
 							Object value = entity.get(attr.getName());
 							Entity existing = dataService
-									.findOne(entityName, new QueryImpl<Entity>().eq(attr.getName(), value));
+									.findOne(entityTypeId, new QueryImpl<Entity>().eq(attr.getName(), value));
 
 							if (existing != null)
 							{
@@ -150,7 +148,7 @@ public class DefaultEntityValidator implements EntityValidator
 								{
 									String message = String
 											.format("The attribute '%s' of entity '%s' with key '%s' must be unique, but the value '%s' already exists.",
-													attr.getName(), meta.getName(),
+													attr.getName(), meta.getId(),
 													entity.getString(meta.getLabelAttribute().getName()), value);
 									violations.add(new ConstraintViolation(message, value, entity, attr, meta, null));
 								}
@@ -168,7 +166,7 @@ public class DefaultEntityValidator implements EntityValidator
 	}
 
 	// Check is two entities have the same id (pk)
-	private boolean idEquals(Entity e1, Entity e2, EntityMetaData meta)
+	private boolean idEquals(Entity e1, Entity e2, EntityType meta)
 	{
 		if (meta.getIdAttribute() != null)
 		{

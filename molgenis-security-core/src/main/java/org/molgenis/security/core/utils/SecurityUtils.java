@@ -80,6 +80,14 @@ public class SecurityUtils
 	}
 
 	/**
+	 * Returns whether the current user is a superuser or the system user.
+	 */
+	public static boolean currentUserIsSuOrSystem()
+	{
+		return currentUserIsSu() || currentUserisSystem();
+	}
+
+	/**
 	 * Returns whether the current user is a super user
 	 *
 	 * @return
@@ -150,27 +158,23 @@ public class SecurityUtils
 
 	public static String getPluginReadAuthority(String pluginId)
 	{
-		return AUTHORITY_PLUGIN_READ_PREFIX + pluginId.toUpperCase();
+		return AUTHORITY_PLUGIN_READ_PREFIX + pluginId;
 	}
 
 	public static String getPluginWriteAuthority(String pluginId)
 	{
-		return AUTHORITY_PLUGIN_WRITE_PREFIX + pluginId.toUpperCase();
+		return AUTHORITY_PLUGIN_WRITE_PREFIX + pluginId;
 	}
 
 	/**
 	 * Get all possible authorities (roles) for an entity
-	 *
-	 * @param entityName
-	 * @return
 	 */
-	public static List<String> getEntityAuthorities(String entityName)
+	public static List<String> getEntityAuthorities(String entityTypeId)
 	{
 		List<String> authorities = new ArrayList<>();
 		for (Permission permission : Permission.values())
 		{
-			String authority = String
-					.format("%s%s_%s", AUTHORITY_ENTITY_PREFIX, permission.name(), entityName.toUpperCase());
+			String authority = String.format("%s%s_%s", AUTHORITY_ENTITY_PREFIX, permission.name(), entityTypeId);
 			authorities.add(authority);
 		}
 

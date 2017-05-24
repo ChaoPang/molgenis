@@ -2,16 +2,14 @@ package org.molgenis.data.semanticsearch.service.impl;
 
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.common.collect.Lists;
-import org.molgenis.MolgenisFieldTypes;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.MolgenisDataAccessException;
 import org.molgenis.data.QueryRule;
 import org.molgenis.data.QueryRule.Operator;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.AttributeMetaDataMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.data.meta.model.EntityMetaDataMetaData;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.AttributeMetadata;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.semanticsearch.explain.bean.ExplainedMatchCandidate;
 import org.molgenis.data.semanticsearch.explain.service.ExplainMappingService;
 import org.molgenis.data.semanticsearch.semantic.Hit;
@@ -33,8 +31,9 @@ import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Objects.isNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.molgenis.data.meta.model.AttributeMetaDataMetaData.ATTRIBUTE_META_DATA;
-import static org.molgenis.data.meta.model.EntityMetaDataMetaData.ENTITY_META_DATA;
+import static org.molgenis.data.meta.AttributeType.COMPOUND;
+import static org.molgenis.data.meta.model.AttributeMetadata.ATTRIBUTE_META_DATA;
+import static org.molgenis.data.meta.model.EntityTypeMetadata.*;
 
 public class SemanticSearchServiceImpl implements SemanticSearchService
 {
@@ -60,9 +59,8 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		this.explainMappingService = requireNonNull(explainMappingService);
 	}
 
-	@Override
-	public Map<AttributeMetaData, ExplainedMatchCandidate<AttributeMetaData>> findAttributes(
-			EntityMetaData sourceEntityMetaData, Set<String> queryTerms, List<TagGroup> tagGroups)
+	public Map<Attribute, ExplainedMatchCandidate<Attribute>> findAttributes(EntityType sourceEntityMetaData,
+			Set<String> queryTerms, List<TagGroup> tagGroups)
 	{
 		SearchParam searchParam = SearchParam.create(queryTerms, tagGroups);
 
@@ -71,19 +69,18 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		Iterable<String> attributeIdentifiers = getAttributeIdentifiers(sourceEntityMetaData);
 
 		List<QueryRule> finalQueryRules = Lists
-				.newArrayList(new QueryRule(AttributeMetaDataMetaData.IDENTIFIER, Operator.IN, attributeIdentifiers));
+				.newArrayList(new QueryRule(AttributeMetadata.ID, Operator.IN, attributeIdentifiers));
 
 		if (disMaxQueryRule.getNestedRules().size() > 0)
 		{
 			finalQueryRules.addAll(Arrays.asList(new QueryRule(Operator.AND), disMaxQueryRule));
 		}
 
-		Stream<AttributeMetaData> attributeMetaDataEntities = dataService
-				.findAll(ATTRIBUTE_META_DATA, new QueryImpl<AttributeMetaData>(finalQueryRules),
-						AttributeMetaData.class);
+		Stream<Attribute> attributeMetaDataEntities = dataService
+				.findAll(ATTRIBUTE_META_DATA, new QueryImpl<Attribute>(finalQueryRules), Attribute.class);
 
 		// Because the explain-API can be computationally expensive we limit the explanation to the top 10 attributes
-		Map<AttributeMetaData, ExplainedMatchCandidate<AttributeMetaData>> explainedAttributes = new LinkedHashMap<>();
+		Map<Attribute, ExplainedMatchCandidate<Attribute>> explainedAttributes = new LinkedHashMap<>();
 
 		AtomicInteger count = new AtomicInteger(0);
 
@@ -102,6 +99,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 			else
 			{
 				explainedAttributes.put(attribute, ExplainedMatchCandidate.create(attribute));
+
 			}
 
 			count.incrementAndGet();
@@ -111,9 +109,10 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	}
 
 	@Override
-	public Map<AttributeMetaData, ExplainedMatchCandidate<AttributeMetaData>> decisionTreeToFindRelevantAttributes(
-			EntityMetaData sourceEntityMetaData, AttributeMetaData targetAttribute,
+	public Map<Attribute, ExplainedMatchCandidate<Attribute>> decisionTreeToFindRelevantAttributes(
+			EntityType sourceEntityType, Attribute targetAttribute,
 			Collection<OntologyTagObject> ontologyTagTermsFromTags, Set<String> searchTerms)
+
 	{
 		Set<String> queryTerms = createLexicalSearchQueryTerms(targetAttribute, searchTerms);
 
@@ -142,7 +141,7 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 					.collect(toList());
 		}
 
-		return findAttributes(sourceEntityMetaData, queryTerms, tagGroups);
+		return findAttributes(sourceEntityType, queryTerms, tagGroups);
 	}
 
 	/**
@@ -150,11 +149,12 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	 * user defined searchTerms. If the user defined searchTerms exist, the targetAttribute information will not be
 	 * used.
 	 *
-	 * @param targetAttribute the target {@link AttributeMetaData}
+	 * @param targetAttribute the target {@link Attribute}
 	 * @param searchTerms     Set of search terms
 	 * @return Set of queryTerms
 	 */
-	private Set<String> createLexicalSearchQueryTerms(AttributeMetaData targetAttribute, Set<String> searchTerms)
+	private Set<String> createLexicalSearchQueryTerms(Attribute targetAttribute, Set<String> searchTerms)
+
 	{
 		Set<String> queryTerms = new HashSet<>();
 
@@ -180,11 +180,11 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	}
 
 	@Override
-	public Map<AttributeMetaData, Hit<OntologyTagObject>> findTags(String entity, List<String> ontologyIds)
+	public Map<Attribute, Hit<OntologyTagObject>> findTags(String entity, List<String> ontologyIds)
 	{
-		Map<AttributeMetaData, Hit<OntologyTagObject>> result = new LinkedHashMap<>();
-		EntityMetaData emd = dataService.getEntityMetaData(entity);
-		for (AttributeMetaData amd : emd.getAtomicAttributes())
+		Map<Attribute, Hit<OntologyTagObject>> result = new LinkedHashMap<>();
+		EntityType entityType = dataService.getEntityType(entity);
+		for (Attribute amd : entityType.getAtomicAttributes())
 		{
 			List<TagGroup> generateTagGroups = tagGroupGenerator.generateTagGroups(amd.getLabel(), ontologyIds);
 			Hit<OntologyTagObject> tag = generateTagGroups.stream()
@@ -198,18 +198,17 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 		return result;
 	}
 
-	private List<String> getAttributeIdentifiers(EntityMetaData sourceEntityMetaData)
+	private List<String> getAttributeIdentifiers(EntityType entityType)
 	{
-		Entity entityMetaDataEntity = dataService.findOne(ENTITY_META_DATA,
-				new QueryImpl<>().eq(EntityMetaDataMetaData.FULL_NAME, sourceEntityMetaData.getName()));
+		Entity entityMetaDataEntity = dataService
+				.findOne(ENTITY_TYPE_META_DATA, new QueryImpl<>().eq(ID, entityType.getId()));
 
 		if (entityMetaDataEntity == null) throw new MolgenisDataAccessException(
-				"Could not find EntityMetaDataEntity by the name of " + sourceEntityMetaData.getName());
+				"Could not find EntityMetaDataEntity by the name of " + entityType.getId());
 
 		List<String> attributeIdentifiers = newArrayList();
 
-		recursivelyCollectAttributeIdentifiers(entityMetaDataEntity.getEntities(EntityMetaDataMetaData.ATTRIBUTES),
-				attributeIdentifiers);
+		recursivelyCollectAttributeIdentifiers(entityMetaDataEntity.getEntities(ATTRIBUTES), attributeIdentifiers);
 
 		return attributeIdentifiers;
 	}
@@ -219,12 +218,11 @@ public class SemanticSearchServiceImpl implements SemanticSearchService
 	{
 		for (Entity attributeEntity : attributeEntities)
 		{
-			if (!attributeEntity.getString(AttributeMetaDataMetaData.DATA_TYPE)
-					.equals(MolgenisFieldTypes.COMPOUND.toString()))
+			if (!attributeEntity.getString(AttributeMetadata.TYPE).equals(COMPOUND.toString()))
 			{
-				attributeIdentifiers.add(attributeEntity.getString(AttributeMetaDataMetaData.IDENTIFIER));
+				attributeIdentifiers.add(attributeEntity.getString(AttributeMetadata.ID));
 			}
-			Iterable<Entity> entities = attributeEntity.getEntities(AttributeMetaDataMetaData.PARTS);
+			Iterable<Entity> entities = attributeEntity.getEntities(AttributeMetadata.CHILDREN);
 
 			if (entities != null)
 			{

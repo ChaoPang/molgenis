@@ -1,21 +1,21 @@
 package org.molgenis.data.index.meta;
 
-import org.molgenis.data.meta.SystemEntityMetaData;
+import org.molgenis.data.meta.SystemEntityType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import static java.util.Objects.requireNonNull;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.*;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.ROLE_ID;
-import static org.molgenis.data.meta.model.Package.PACKAGE_SEPARATOR;
 import static org.molgenis.data.index.meta.IndexPackage.PACKAGE_INDEX;
+import static org.molgenis.data.meta.AttributeType.*;
+import static org.molgenis.data.meta.model.EntityType.AttributeRole.ROLE_ID;
+import static org.molgenis.data.meta.model.Package.PACKAGE_SEPARATOR;
 
 /**
  * The index action is used to describe the action that needs to be done to make a
  * {@link org.molgenis.data.Repository}'s index consistent again.
  */
 @Component
-public class IndexActionMetaData extends SystemEntityMetaData
+public class IndexActionMetaData extends SystemEntityType
 {
 	private static final String SIMPLE_NAME = "IndexAction";
 	public static final String INDEX_ACTION = PACKAGE_INDEX + PACKAGE_SEPARATOR + SIMPLE_NAME;
@@ -36,9 +36,9 @@ public class IndexActionMetaData extends SystemEntityMetaData
 	public static final String ACTION_ORDER = "actionOrder";
 
 	/**
-	 * The full name of the entity that needs to be indexed.
+	 * The name of the entity type ID that needs to be indexed
 	 */
-	public static final String ENTITY_FULL_NAME = "entityFullName";
+	public static final String ENTITY_TYPE_ID = "entityTypeId";
 
 	/**
 	 * Entity is filled when only one row of the entity "entityFullName" is indexed
@@ -75,10 +75,11 @@ public class IndexActionMetaData extends SystemEntityMetaData
 		addAttribute(ACTION_ORDER).setDataType(INT)
 				.setDescription("The order in which the action is registered within its IndexActionJob")
 				.setNillable(false);
-		addAttribute(ENTITY_FULL_NAME).setDescription("The full name of the entity that needs to be indexed.")
+		addAttribute(ENTITY_TYPE_ID)
+				.setDescription("The id of the entity type that needs to be indexed (e.g. myEntityType).")
 				.setNillable(false);
 		addAttribute(ENTITY_ID)
-				.setDescription("Filled when only one row of the entity \"" + ENTITY_FULL_NAME + "\" is indexed")
+				.setDescription("The id of the entity that needs to be indexed")
 				.setDataType(TEXT).setNillable(true);
 		addAttribute(INDEX_STATUS).setDescription("The status of index action").setDataType(ENUM)
 				.setEnumOptions(IndexStatus.class).setNillable(false);
@@ -92,22 +93,18 @@ public class IndexActionMetaData extends SystemEntityMetaData
 		/**
 		 * index action is finished
 		 */
-		FINISHED,
-		/**
-		 * index action is canceled
-		 */
-		CANCELED,
-		/**
-		 * index action failed
-		 */
-		FAILED,
-		/**
-		 * index action is started
-		 */
-		STARTED,
-		/**
-		 * index action is just created and is not yet processed
-		 */
-		PENDING
+		FINISHED, /**
+	 * index action is canceled
+	 */
+	CANCELED, /**
+	 * index action failed
+	 */
+	FAILED, /**
+	 * index action is started
+	 */
+	STARTED, /**
+	 * index action is just created and is not yet processed
+	 */
+	PENDING
 	}
 }

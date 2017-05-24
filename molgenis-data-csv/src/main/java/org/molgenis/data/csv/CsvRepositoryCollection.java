@@ -6,9 +6,9 @@ import org.molgenis.data.Entity;
 import org.molgenis.data.MolgenisDataException;
 import org.molgenis.data.MolgenisInvalidFormatException;
 import org.molgenis.data.Repository;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.processor.CellProcessor;
 import org.molgenis.data.support.FileRepositoryCollection;
 import org.molgenis.data.support.GenericImporterExtensions;
@@ -32,12 +32,12 @@ import java.util.zip.ZipFile;
 public class CsvRepositoryCollection extends FileRepositoryCollection
 {
 	public static final String NAME = "CSV";
-	private static final String MAC_ZIP = "__MACOSX";
+	static final String MAC_ZIP = "__MACOSX";
 	private final File file;
-	private EntityMetaDataFactory entityMetaFactory;
-	private AttributeMetaDataFactory attrMetaFactory;
-	private List<String> entityNames;
-	private List<String> entityNamesLowerCase;
+	private EntityTypeFactory entityTypeFactory;
+	private AttributeFactory attrMetaFactory;
+	private List<String> entityTypeIds;
+	private List<String> entityTypeIdsLowerCase;
 
 	public CsvRepositoryCollection(File file) throws MolgenisInvalidFormatException, IOException
 	{
@@ -60,27 +60,27 @@ public class CsvRepositoryCollection extends FileRepositoryCollection
 	}
 
 	@Override
-	public Iterable<String> getEntityNames()
+	public Iterable<String> getEntityTypeIds()
 	{
-		return entityNames;
+		return entityTypeIds;
 	}
 
 	@Override
-	public Repository<Entity> getRepository(String name)
+	public Repository<Entity> getRepository(String id)
 	{
-		if (!entityNamesLowerCase.contains(name.toLowerCase()))
+		if (!entityTypeIdsLowerCase.contains(id.toLowerCase()))
 		{
 			return null;
 		}
 
-		return new CsvRepository(file, entityMetaFactory, attrMetaFactory, name, cellProcessors);
+		return new CsvRepository(file, entityTypeFactory, attrMetaFactory, id, cellProcessors);
 	}
 
 	private void loadEntityNames()
 	{
 		String extension = StringUtils.getFilenameExtension(file.getName());
-		entityNames = Lists.newArrayList();
-		entityNamesLowerCase = Lists.newArrayList();
+		entityTypeIds = Lists.newArrayList();
+		entityTypeIdsLowerCase = Lists.newArrayList();
 
 		if (extension.equalsIgnoreCase(GenericImporterExtensions.ZIP.toString()))
 		{
@@ -88,14 +88,15 @@ public class CsvRepositoryCollection extends FileRepositoryCollection
 			try
 			{
 				zipFile = new ZipFile(file);
+
 				for (Enumeration<? extends ZipEntry> e = zipFile.entries(); e.hasMoreElements(); )
 				{
 					ZipEntry entry = e.nextElement();
-					if (!entry.getName().contains(MAC_ZIP))
+					if (!entry.getName().contains(MAC_ZIP) && !entry.isDirectory())
 					{
 						String name = getRepositoryName(entry.getName());
-						entityNames.add(name);
-						entityNamesLowerCase.add(name.toLowerCase());
+						entityTypeIds.add(name);
+						entityTypeIdsLowerCase.add(name.toLowerCase());
 					}
 				}
 			}
@@ -111,8 +112,8 @@ public class CsvRepositoryCollection extends FileRepositoryCollection
 		else
 		{
 			String name = getRepositoryName(file.getName());
-			entityNames.add(name);
-			entityNamesLowerCase.add(name.toLowerCase());
+			entityTypeIds.add(name);
+			entityTypeIdsLowerCase.add(name.toLowerCase());
 		}
 	}
 
@@ -132,7 +133,7 @@ public class CsvRepositoryCollection extends FileRepositoryCollection
 	{
 		return new Iterator<Repository<Entity>>()
 		{
-			Iterator<String> it = getEntityNames().iterator();
+			Iterator<String> it = getEntityTypeIds().iterator();
 
 			@Override
 			public boolean hasNext()
@@ -152,23 +153,23 @@ public class CsvRepositoryCollection extends FileRepositoryCollection
 	@Override
 	public boolean hasRepository(String name)
 	{
-		return entityNames.contains(name);
+		return entityTypeIds.contains(name);
 	}
 
 	@Override
-	public boolean hasRepository(EntityMetaData entityMeta)
+	public boolean hasRepository(EntityType entityType)
 	{
-		return hasRepository(entityMeta.getName());
+		return hasRepository(entityType.getId());
 	}
 
 	@Autowired
-	public void setEntityMetaDataFactory(EntityMetaDataFactory entityMetaFactory)
+	public void setEntityTypeFactory(EntityTypeFactory entityTypeFactory)
 	{
-		this.entityMetaFactory = entityMetaFactory;
+		this.entityTypeFactory = entityTypeFactory;
 	}
 
 	@Autowired
-	public void setAttributeMetaDataFactory(AttributeMetaDataFactory attrMetaFactory)
+	public void setAttributeFactory(AttributeFactory attrMetaFactory)
 	{
 		this.attrMetaFactory = attrMetaFactory;
 	}

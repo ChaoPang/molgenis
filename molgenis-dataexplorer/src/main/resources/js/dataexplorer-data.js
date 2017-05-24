@@ -49,7 +49,7 @@
      * @memberOf molgenis.dataexplorer.data
      */
     function createDataTable() {
-        $.get('/permission/FreemarkerTemplate/read').done(function (canRead) {
+        $.get('/permission/sys_FreemarkerTemplate/read').done(function (canRead) {
             Table = React.render(molgenis.ui.Table({
                 entity: getEntity().name,
                 attrs: getAttributesTree(),
@@ -78,9 +78,9 @@
 
     function onRowInspect(e) {
         var entityId = e.id;
-        var entityName = e.name;
+        var entityTypeId = e.name;
 
-        $('#entityReport').load("dataexplorer/details", {entityName: entityName, entityId: entityId}, function () {
+        $('#entityReport').load("dataexplorer/details", {entityTypeId: entityTypeId, entityId: entityId}, function () {
             $('#entityReportModal').modal("show");
         });
     }
@@ -112,7 +112,7 @@
         var entityQuery = getQuery();
 
         var dataRequest = {
-            entityName: getEntity().name,
+            entityTypeId: getEntity().name,
             attributeNames: [],
             query: {
                 rules: [entityQuery.q]

@@ -3,29 +3,29 @@ package org.molgenis.data.elasticsearch.index.job;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.index.meta.IndexActionGroup;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.security.core.runas.RunAsSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 
-import java.util.Date;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 
-import static java.time.OffsetDateTime.now;
-import static java.util.Date.from;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.counting;
 import static java.util.stream.Collectors.groupingBy;
 import static org.molgenis.data.elasticsearch.index.job.IndexJobExecutionMeta.INDEX_JOB_EXECUTION;
+import static org.molgenis.data.index.meta.IndexActionGroupMetaData.INDEX_ACTION_GROUP;
+import static org.molgenis.data.index.meta.IndexActionMetaData.*;
 import static org.molgenis.data.jobs.model.JobExecution.Status.SUCCESS;
 import static org.molgenis.data.jobs.model.JobExecutionMetaData.END_DATE;
 import static org.molgenis.data.jobs.model.JobExecutionMetaData.STATUS;
-import static org.molgenis.data.index.meta.IndexActionGroupMetaData.INDEX_ACTION_GROUP;
-import static org.molgenis.data.index.meta.IndexActionMetaData.*;
 import static org.molgenis.security.core.runas.RunAsSystemProxy.runAsSystem;
 
 public class IndexServiceImpl implements IndexService
@@ -64,7 +64,7 @@ public class IndexServiceImpl implements IndexService
 			Stream<Entity> indexActions = dataService
 					.findAll(INDEX_ACTION, new QueryImpl<>().eq(INDEX_ACTION_GROUP_ATTR, indexActionGroup));
 			Map<String, Long> numberOfActionsPerEntity = indexActions
-					.collect(groupingBy(indexAction -> indexAction.getString(ENTITY_FULL_NAME), counting()));
+					.collect(groupingBy(indexAction -> indexAction.getString(ENTITY_TYPE_ID), counting()));
 			indexStatus.addActionCounts(numberOfActionsPerEntity);
 
 			IndexJobExecution indexJobExecution = indexJobExecutionFactory.create();
@@ -89,34 +89,35 @@ public class IndexServiceImpl implements IndexService
 
 	@Override
 	@RunAsSystem
-	public void waitForIndexToBeStableIncludingReferences(String entityName) throws InterruptedException
+	public void waitForIndexToBeStableIncludingReferences(EntityType entityType) throws InterruptedException
 	{
-		indexStatus.waitForIndexToBeStableIncludingReferences(dataService.getEntityMetaData(entityName));
+		indexStatus.waitForIndexToBeStableIncludingReferences(entityType);
 	}
 
 	/**
 	 * Cleans up successful IndexJobExecutions that finished longer than five minutes ago.
+	 * delay for a minute to allow the transaction manager to become available
 	 */
-	@Scheduled(fixedRate = 5 * 60 * 1000)
+	@Scheduled(initialDelay = 1 * 60 * 1000, fixedRate = 5 * 60 * 1000)
 	public void cleanupJobExecutions()
 	{
-		runAsSystem(() ->
-		{
-			LOG.trace("Clean up Index job executions...");
-			Date fiveMinutesAgo = from(now().minusMinutes(5).toInstant());
-			boolean indexJobExecutionExists = dataService.hasRepository(INDEX_JOB_EXECUTION);
-			if (indexJobExecutionExists)
+			runAsSystem(() ->
 			{
-				Stream<Entity> executions = dataService.getRepository(INDEX_JOB_EXECUTION).query()
-						.lt(END_DATE, fiveMinutesAgo).and().eq(STATUS, SUCCESS.toString()).findAll();
-				dataService.delete(INDEX_JOB_EXECUTION, executions);
-				LOG.debug("Cleaned up Index job executions.");
-			}
-			else
-			{
-				LOG.warn(INDEX_JOB_EXECUTION + " does not exist");
-			}
-		});
+				LOG.trace("Clean up Index job executions...");
+				Instant fiveMinutesAgo = Instant.now().minus(5, ChronoUnit.MINUTES);
+				boolean indexJobExecutionExists = dataService.hasRepository(INDEX_JOB_EXECUTION);
+				if (indexJobExecutionExists)
+				{
+					Stream<Entity> executions = dataService.getRepository(INDEX_JOB_EXECUTION).query()
+							.lt(END_DATE, fiveMinutesAgo).and().eq(STATUS, SUCCESS.toString()).findAll();
+					dataService.delete(INDEX_JOB_EXECUTION, executions);
+					LOG.debug("Cleaned up Index job executions.");
+				}
+				else
+				{
+					LOG.warn(INDEX_JOB_EXECUTION + " does not exist");
+				}
+			});
 	}
 
 }

@@ -2,11 +2,11 @@ package org.molgenis.data.support;
 
 import org.molgenis.data.Entity;
 import org.molgenis.data.MolgenisDataException;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 
-import java.sql.Date;
-import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Map;
 
 import static com.google.common.collect.Maps.newHashMap;
@@ -28,14 +28,12 @@ public class EntityWithComputedAttributes implements Entity
 	{
 		this.decoratedEntity = requireNonNull(decoratedEntity);
 		expressionEvaluators = newHashMap();
-		EntityMetaData emd = decoratedEntity.getEntityMetaData();
-		for (AttributeMetaData amd : emd.getAtomicAttributes())
-		{
-			if (amd.getExpression() != null)
+		EntityType entityType = decoratedEntity.getEntityType();
+		for (Attribute attribute : entityType.getAtomicAttributes())
+			if (attribute.getExpression() != null)
 			{
-				expressionEvaluators.put(amd.getName(), createExpressionEvaluator(amd, emd));
+				expressionEvaluators.put(attribute.getName(), createExpressionEvaluator(attribute, entityType));
 			}
-		}
 	}
 
 	@Override
@@ -67,17 +65,6 @@ public class EntityWithComputedAttributes implements Entity
 	}
 
 	@Override
-	public Date getDate(String attributeName)
-	{
-		ExpressionEvaluator expressionEvaluator = expressionEvaluators.get(attributeName);
-		if (expressionEvaluator != null)
-		{
-			return (Date) expressionEvaluator.evaluate(this);
-		}
-		return decoratedEntity.getDate(attributeName);
-	}
-
-	@Override
 	public Double getDouble(String attributeName)
 	{
 		ExpressionEvaluator expressionEvaluator = expressionEvaluators.get(attributeName);
@@ -88,6 +75,7 @@ public class EntityWithComputedAttributes implements Entity
 		return decoratedEntity.getDouble(attributeName);
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public Iterable<Entity> getEntities(String attributeName)
 	{
@@ -99,6 +87,7 @@ public class EntityWithComputedAttributes implements Entity
 		return decoratedEntity.getEntities(attributeName);
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public <E extends Entity> Iterable<E> getEntities(String attributeName, Class<E> clazz)
 	{
@@ -121,6 +110,7 @@ public class EntityWithComputedAttributes implements Entity
 		return decoratedEntity.getEntity(attributeName);
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public <E extends Entity> E getEntity(String attributeName, Class<E> clazz)
 	{
@@ -132,10 +122,9 @@ public class EntityWithComputedAttributes implements Entity
 		return decoratedEntity.getEntity(attributeName, clazz);
 	}
 
-	@Override
-	public EntityMetaData getEntityMetaData()
+	public EntityType getEntityType()
 	{
-		return decoratedEntity.getEntityMetaData();
+		return decoratedEntity.getEntityType();
 	}
 
 	@Override
@@ -184,25 +173,25 @@ public class EntityWithComputedAttributes implements Entity
 	}
 
 	@Override
-	public Timestamp getTimestamp(String attributeName)
+	public LocalDate getLocalDate(String attributeName)
 	{
 		ExpressionEvaluator expressionEvaluator = expressionEvaluators.get(attributeName);
 		if (expressionEvaluator != null)
 		{
-			return (Timestamp) expressionEvaluator.evaluate(this);
+			return (LocalDate) expressionEvaluator.evaluate(this);
 		}
-		return decoratedEntity.getTimestamp(attributeName);
+		return decoratedEntity.getLocalDate(attributeName);
 	}
 
 	@Override
-	public java.util.Date getUtilDate(String attributeName)
+	public Instant getInstant(String attributeName)
 	{
 		ExpressionEvaluator expressionEvaluator = expressionEvaluators.get(attributeName);
 		if (expressionEvaluator != null)
 		{
-			return (java.util.Date) expressionEvaluator.evaluate(this);
+			return (Instant) expressionEvaluator.evaluate(this);
 		}
-		return decoratedEntity.getUtilDate(attributeName);
+		return decoratedEntity.getInstant(attributeName);
 	}
 
 	@Override

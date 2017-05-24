@@ -1,68 +1,57 @@
 package org.molgenis.data.mapper.repository.impl;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.molgenis.data.mapper.meta.MappingProjectMetaData.IDENTIFIER;
-import static org.molgenis.data.mapper.meta.MappingProjectMetaData.MAPPING_PROJECT;
-import static org.molgenis.data.mapper.meta.MappingProjectMetaData.MAPPING_TARGETS;
-import static org.molgenis.data.mapper.meta.MappingProjectMetaData.NAME;
-import static org.molgenis.data.mapper.meta.MappingProjectMetaData.OWNER;
-import static org.molgenis.data.meta.model.EntityMetaData.AttributeRole.ROLE_ID;
-import static org.molgenis.data.meta.model.TagMetaData.TAG;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.fail;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Stream;
-
 import org.mockito.ArgumentCaptor;
-import org.molgenis.auth.MolgenisUser;
-import org.molgenis.auth.MolgenisUserFactory;
-import org.molgenis.data.DataService;
-import org.molgenis.data.Entity;
-import org.molgenis.data.MolgenisDataException;
-import org.molgenis.data.Query;
+import org.molgenis.auth.User;
+import org.molgenis.auth.UserFactory;
+import org.molgenis.data.*;
+import org.molgenis.data.mapper.config.MapperTestConfig;
 import org.molgenis.data.mapper.mapping.model.MappingProject;
 import org.molgenis.data.mapper.mapping.model.MappingTarget;
 import org.molgenis.data.mapper.meta.MappingProjectMetaData;
 import org.molgenis.data.mapper.meta.MappingTargetMetaData;
 import org.molgenis.data.mapper.repository.MappingTargetRepository;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaData;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.populate.IdGenerator;
 import org.molgenis.data.support.DynamicEntity;
 import org.molgenis.data.support.QueryImpl;
-import org.molgenis.security.user.MolgenisUserService;
-import org.molgenis.test.data.AbstractMolgenisSpringTest;
+import org.molgenis.security.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ContextConfiguration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Stream;
+
+import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.*;
+import static org.molgenis.data.mapper.meta.MappingProjectMetaData.*;
+import static org.molgenis.data.meta.model.EntityType.AttributeRole.ROLE_ID;
+import static org.molgenis.data.meta.model.TagMetadata.TAG;
+import static org.testng.Assert.*;
 
 @ContextConfiguration(classes = MappingProjectRepositoryImplTest.Config.class)
 public class MappingProjectRepositoryImplTest extends AbstractMolgenisSpringTest
 {
 	@Autowired
-	private EntityMetaDataFactory entityMetaFactory;
+	private EntityTypeFactory entityTypeFactory;
 
 	@Autowired
-	private AttributeMetaDataFactory attrMetaFactory;
+	private AttributeFactory attrMetaFactory;
 
 	@Autowired
 	private MappingProjectRepositoryImpl mappingProjectRepositoryImpl;
 
 	@Autowired
-	private MolgenisUserFactory molgenisUserFactory;
+	private UserFactory userFactory;
 
 	@Autowired
 	private DataService dataService;
@@ -74,7 +63,7 @@ public class MappingProjectRepositoryImplTest extends AbstractMolgenisSpringTest
 	private IdGenerator idGenerator;
 
 	@Autowired
-	private MolgenisUserService userService;
+	private UserService userService;
 
 	@Autowired
 	private MappingProjectMetaData mappingProjectMeta;
@@ -82,7 +71,7 @@ public class MappingProjectRepositoryImplTest extends AbstractMolgenisSpringTest
 	@Autowired
 	private MappingTargetMetaData mappingTargetMeta;
 
-	private MolgenisUser owner;
+	private User owner;
 
 	private MappingTarget mappingTarget1;
 
@@ -97,7 +86,7 @@ public class MappingProjectRepositoryImplTest extends AbstractMolgenisSpringTest
 	@BeforeMethod
 	public void beforeMethod()
 	{
-		owner = molgenisUserFactory.create();
+		owner = userFactory.create();
 		owner.setUsername("flup");
 		owner.setPassword("geheim");
 		owner.setId("12345");
@@ -106,9 +95,9 @@ public class MappingProjectRepositoryImplTest extends AbstractMolgenisSpringTest
 		owner.setFirstName("Flup");
 		owner.setLastName("de Flap");
 
-		EntityMetaData target1 = entityMetaFactory.create("target1");
+		EntityType target1 = entityTypeFactory.create("target1");
 		target1.addAttribute(attrMetaFactory.create().setName("id"), ROLE_ID);
-		EntityMetaData target2 = entityMetaFactory.create("target2");
+		EntityType target2 = entityTypeFactory.create("target2");
 		target2.addAttribute(attrMetaFactory.create().setName("id"), ROLE_ID);
 
 		mappingProject = new MappingProject("My first mapping project", owner);
@@ -163,15 +152,14 @@ public class MappingProjectRepositoryImplTest extends AbstractMolgenisSpringTest
 	@Test
 	public void testDelete()
 	{
-		when(dataService.findOneById(mappingProjectMeta.getName(), "mappingProjectID"))
-				.thenReturn(mappingProjectEntity);
+		when(dataService.findOneById(mappingProjectMeta.getId(), "mappingProjectID")).thenReturn(mappingProjectEntity);
 
 		when(mappingTargetRepository.toMappingTargets(mappingTargetEntities))
 				.thenReturn(Arrays.asList(mappingTarget1, mappingTarget2));
 
 		mappingProjectRepositoryImpl.delete("mappingProjectID");
 
-		verify(dataService).deleteById(mappingProjectMeta.getName(), "mappingProjectID");
+		verify(dataService).deleteById(mappingProjectMeta.getId(), "mappingProjectID");
 
 		verify(mappingTargetRepository).delete(Arrays.asList(mappingTarget1, mappingTarget2));
 	}
@@ -221,18 +209,15 @@ public class MappingProjectRepositoryImplTest extends AbstractMolgenisSpringTest
 	}
 
 	@Configuration
-	@ComponentScan(
-	{ "org.molgenis.data.mapper.meta", "org.molgenis.auth" })
+
+	@Import(MapperTestConfig.class)
 	public static class Config
 	{
 		@Autowired
-		MappingProjectMetaData mappingProjectMeta;
+		private DataService dataService;
 
-		@Bean
-		public DataService dataService()
-		{
-			return mock(DataService.class);
-		}
+		@Autowired
+		private MappingProjectMetaData mappingProjectMeta;
 
 		@Bean
 		public MappingTargetRepository mappingTargetRepository()
@@ -241,9 +226,9 @@ public class MappingProjectRepositoryImplTest extends AbstractMolgenisSpringTest
 		}
 
 		@Bean
-		public MolgenisUserService molgenisUserService()
+		public UserService molgenisUserService()
 		{
-			return mock(MolgenisUserService.class);
+			return mock(UserService.class);
 		}
 
 		@Bean
@@ -255,8 +240,9 @@ public class MappingProjectRepositoryImplTest extends AbstractMolgenisSpringTest
 		@Bean
 		public MappingProjectRepositoryImpl mappingProjectRepositoryImpl()
 		{
-			return new MappingProjectRepositoryImpl(mappingTargetRepository(), dataService(), idGenerator(),
+			return new MappingProjectRepositoryImpl(mappingTargetRepository(), dataService, idGenerator(),
 					mappingProjectMeta);
+
 		}
 
 	}

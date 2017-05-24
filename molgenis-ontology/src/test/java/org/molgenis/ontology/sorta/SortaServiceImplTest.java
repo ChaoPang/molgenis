@@ -1,27 +1,29 @@
 package org.molgenis.ontology.sorta;
 
 import com.google.common.collect.ImmutableMap;
+import org.molgenis.data.AbstractMolgenisSpringTest;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.QueryRule;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.DynamicEntity;
 import org.molgenis.data.support.QueryImpl;
+import org.molgenis.ontology.core.config.OntologyTestConfig;
 import org.molgenis.ontology.core.meta.*;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.service.OntologyService;
 import org.molgenis.ontology.roc.InformationContentService;
 import org.molgenis.ontology.sorta.bean.SortaHit;
+import org.molgenis.ontology.sorta.meta.OntologyTermHitMetaData;
 import org.molgenis.ontology.sorta.service.SortaService;
 import org.molgenis.ontology.sorta.service.impl.SortaServiceImpl;
-import org.molgenis.test.data.AbstractMolgenisSpringTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ContextConfiguration;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -35,8 +37,8 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.molgenis.MolgenisFieldTypes.AttributeType.STRING;
 import static org.molgenis.data.QueryRule.Operator.*;
+import static org.molgenis.data.meta.AttributeType.STRING;
 import static org.molgenis.ontology.core.meta.OntologyMetaData.ONTOLOGY;
 import static org.molgenis.ontology.core.meta.OntologyTermMetaData.ONTOLOGY_TERM;
 import static org.testng.Assert.assertEquals;
@@ -67,8 +69,8 @@ public class SortaServiceImplTest extends AbstractMolgenisSpringTest
 	@Autowired
 	private OntologyTermDynamicAnnotationFactory ontologyTermDynamicAnnotationFactory;
 
-	@BeforeClass
-	public void beforeClass()
+	@BeforeMethod
+	public void beforeMethod()
 	{
 		// Mock ontology entity
 		OntologyEntity ontology = ontologyFactory.create();
@@ -237,18 +239,18 @@ public class SortaServiceImplTest extends AbstractMolgenisSpringTest
 	@Test
 	public void findOntologyTermEntities()
 	{
-		AttributeMetaData nameAttr = when(mock(AttributeMetaData.class).getName()).thenReturn("Name").getMock();
+		Attribute nameAttr = when(mock(Attribute.class).getName()).thenReturn("Name").getMock();
 		when(nameAttr.getDataType()).thenReturn(STRING);
-		AttributeMetaData omimAttr = when(mock(AttributeMetaData.class).getName()).thenReturn("OMIM").getMock();
+		Attribute omimAttr = when(mock(Attribute.class).getName()).thenReturn("OMIM").getMock();
 		when(omimAttr.getDataType()).thenReturn(STRING);
 
-		EntityMetaData entityMeta = mock(EntityMetaData.class);
-		when(entityMeta.getAtomicAttributes()).thenReturn(asList(nameAttr, omimAttr));
-		when(entityMeta.getAttribute("Name")).thenReturn(nameAttr);
-		when(entityMeta.getAttribute("OMIM")).thenReturn(omimAttr);
+		EntityType entityType = mock(EntityType.class);
+		when(entityType.getAtomicAttributes()).thenReturn(asList(nameAttr, omimAttr));
+		when(entityType.getAttribute("Name")).thenReturn(nameAttr);
+		when(entityType.getAttribute("OMIM")).thenReturn(omimAttr);
 
 		// Test one: match only the name of input with ontologyterms
-		Entity firstInput = new DynamicEntity(entityMeta,
+		Entity firstInput = new DynamicEntity(ontologyTermFactory.getEntityType(),
 				ImmutableMap.<String, Object>of("Name", "hearing impairment"));
 
 		List<SortaHit> ontologyTerms_test1 = sortaService.findOntologyTermEntities(ONTOLOGY_IRI, firstInput);
@@ -265,7 +267,8 @@ public class SortaServiceImplTest extends AbstractMolgenisSpringTest
 		assertEquals(iterator_test1.hasNext(), false);
 
 		// Test two: match the database annotation of input with ontologyterms
-		Entity secondInput = new DynamicEntity(entityMeta, ImmutableMap.of("Name", "input", "OMIM", "123456"));
+		Entity secondInput = new DynamicEntity(ontologyTermFactory.getEntityType(),
+				ImmutableMap.of("Name", "input", "OMIM", "123456"));
 
 		Iterable<SortaHit> ontologyTerms_test2 = sortaService.findOntologyTermEntities(ONTOLOGY_IRI, secondInput);
 		Iterator<SortaHit> iterator_test2 = ontologyTerms_test2.iterator();
@@ -278,7 +281,7 @@ public class SortaServiceImplTest extends AbstractMolgenisSpringTest
 
 		// Test three: match only the name of input with ontologyterms, since the name contains multiple synonyms
 		// therefore add up all the scores from synonyms
-		Entity thirdInput = new DynamicEntity(entityMeta,
+		Entity thirdInput = new DynamicEntity(ontologyTermFactory.getEntityType(),
 				ImmutableMap.of("Name", "proptosis, protruding eye, Exophthalmos "));
 		Iterable<SortaHit> ontologyTerms_test3 = sortaService.findOntologyTermEntities(ONTOLOGY_IRI, thirdInput);
 		Iterator<SortaHit> iterator_test3 = ontologyTerms_test3.iterator();
@@ -291,8 +294,7 @@ public class SortaServiceImplTest extends AbstractMolgenisSpringTest
 	}
 
 	@Configuration
-	@ComponentScan({ "org.molgenis.ontology.core.meta", "org.molgenis.ontology.core.model",
-			"org.molgenis.ontology.sorta.meta", "org.molgenis.data.jobs.model" })
+	@Import({ OntologyTestConfig.class, OntologyTermHitMetaData.class })
 	public static class Config
 	{
 		@Bean

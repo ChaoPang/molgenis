@@ -9,7 +9,8 @@ import org.molgenis.data.index.meta.IndexActionGroupMetaData;
 import org.molgenis.data.index.meta.IndexActionMetaData;
 import org.molgenis.data.jobs.Job;
 import org.molgenis.data.jobs.Progress;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.molgenis.data.support.QueryImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ import static java.util.stream.Collectors.toList;
 import static org.molgenis.data.QueryRule.Operator.EQUALS;
 import static org.molgenis.data.index.meta.IndexActionGroupMetaData.INDEX_ACTION_GROUP;
 import static org.molgenis.data.index.meta.IndexActionMetaData.*;
+import static org.molgenis.util.EntityUtils.getTypedValue;
 
 /**
  * {@link Job} that executes a bunch of {@link IndexActionMetaData} stored in a {@link IndexActionGroupMetaData}.
@@ -33,14 +35,16 @@ class IndexJob extends Job
 	private final String transactionId;
 	private final DataService dataService;
 	private final SearchService searchService;
+	private final EntityTypeFactory entityTypeFactory;
 
 	IndexJob(Progress progress, Authentication authentication, String transactionId, DataService dataService,
-			SearchService searchService)
+			SearchService searchService, EntityTypeFactory entityTypeFactory)
 	{
 		super(progress, null, authentication);
 		this.transactionId = requireNonNull(transactionId);
 		this.dataService = requireNonNull(dataService);
 		this.searchService = requireNonNull(searchService);
+		this.entityTypeFactory = requireNonNull(entityTypeFactory);
 	}
 
 	@Override
@@ -91,14 +95,14 @@ class IndexJob extends Job
 		}
 		catch (Exception ex)
 		{
-			LOG.error("Error performing indexActions", ex);
+			LOG.error("Error performing index actions", ex);
 			throw ex;
 		}
 		finally
 		{
-			progress.status("refreshIndex...");
+			progress.status("Refresh index start");
 			searchService.refreshIndex();
-			progress.status("refreshIndex done.");
+			progress.status("Refresh index done");
 		}
 	}
 
@@ -113,33 +117,39 @@ class IndexJob extends Job
 	private boolean performAction(Progress progress, int progressCount, IndexAction indexAction)
 	{
 		requireNonNull(indexAction);
+		String entityTypeId = indexAction.getEntityTypeId();
 		updateIndexActionStatus(indexAction, IndexActionMetaData.IndexStatus.STARTED);
-
+		EntityType entityType = dataService.getEntityType(entityTypeId);
 		try
 		{
-			if (indexAction.getEntityId() != null)
+			if (entityType != null)
 			{
-				progress.progress(progressCount,
-						format("Indexing {0}.{1}", indexAction.getEntityFullName(), indexAction.getEntityId()));
-				rebuildIndexOneEntity(indexAction.getEntityFullName(), indexAction.getEntityId());
-			}
-			else
-			{
-				final String entityFullName = indexAction.getEntityFullName();
-				final boolean actualEntityExists = dataService.hasRepository(entityFullName);
-
-				if (!actualEntityExists)
+				if (indexAction.getEntityId() != null)
 				{
 					progress.progress(progressCount,
-							format("Dropping index of repository {0}.", indexAction.getEntityFullName()));
-					searchService.delete(indexAction.getEntityFullName());
+							format("Indexing {0}.{1}", entityType.getId(), indexAction.getEntityId()));
+					rebuildIndexOneEntity(entityTypeId, indexAction.getEntityId());
 				}
 				else
 				{
-					progress.progress(progressCount,
-							format("Indexing repository {0}", indexAction.getEntityFullName()));
-					final Repository<Entity> repository = dataService.getRepository(entityFullName);
+					progress.progress(progressCount, format("Indexing {0}", entityType.getId()));
+					final Repository<Entity> repository = dataService.getRepository(entityType.getId());
 					searchService.rebuildIndex(repository);
+				}
+			}
+			else
+			{
+				entityType = getEntityType(indexAction);
+				if (searchService.hasMapping(entityType))
+				{
+					progress.progress(progressCount, format("Dropping entityType with id: {0}", entityType.getId()));
+					searchService.delete(entityType);
+				}
+				else
+				{
+					// Index Job is finished, here we concluded that we don't have enough info to continue the index job
+					progress.progress(progressCount, format("Skip index entity {0}.{1}", entityType.getId(),
+									indexAction.getEntityId()));
 				}
 			}
 			updateIndexActionStatus(indexAction, IndexActionMetaData.IndexStatus.FINISHED);
@@ -168,45 +178,57 @@ class IndexJob extends Job
 	/**
 	 * Indexes one single entity instance.
 	 *
-	 * @param entityFullName the fully qualified name of the entity's repository
-	 * @param entityId       the identifier of the entity to update
+	 * @param entityTypeId the id of the entity's repository
+	 * @param untypedEntityId the identifier of the entity to update
 	 */
-	private void rebuildIndexOneEntity(String entityFullName, String entityId)
+	private void rebuildIndexOneEntity(String entityTypeId, String untypedEntityId)
 	{
-		LOG.trace("Indexing [{}].[{}]... ", entityFullName, entityId);
-		Entity actualEntity = dataService.findOneById(entityFullName, entityId);
+		LOG.trace("Indexing [{}].[{}]... ", entityTypeId, untypedEntityId);
 
-		if (null == actualEntity)
+		// convert entity id string to typed entity id
+		EntityType entityType = dataService.getEntityType(entityTypeId);
+		if (null != entityType)
 		{
-			// Delete
-			LOG.debug("Index delete [{}].[{}].", entityFullName, entityId);
-			searchService.deleteById(entityId, dataService.getMeta().getEntityMetaData(entityFullName));
-			return;
-		}
+			Object entityId = getTypedValue(untypedEntityId, entityType.getIdAttribute());
+			String entityFullName = entityType.getId();
 
-		EntityMetaData entityMeta = actualEntity.getEntityMetaData();
-		boolean indexEntityExists = searchService.hasMapping(entityMeta);
-		if (!indexEntityExists)
-		{
-			LOG.debug("Create mapping of repository [{}] because it was not exist yet", entityFullName);
-			searchService.createMappings(entityMeta);
-		}
+			Entity actualEntity = dataService.findOneById(entityFullName, entityId);
 
-		Query<Entity> q = new QueryImpl<>();
-		q.eq(entityMeta.getIdAttribute().getName(), entityId);
-		Entity indexEntity = searchService.findOne(q, entityMeta);
+			if (null == actualEntity)
+			{
+				// Delete
+				LOG.debug("Index delete [{}].[{}].", entityFullName, entityId);
+				searchService.deleteById(entityId.toString(), entityType);
+				return;
+			}
 
-		if (null != indexEntity)
-		{
-			// update
-			LOG.debug("Index update [{}].[{}].", entityFullName, entityId);
-			searchService.index(actualEntity, actualEntity.getEntityMetaData(), IndexingMode.UPDATE);
+			boolean indexEntityExists = searchService.hasMapping(entityType);
+			if (!indexEntityExists)
+			{
+				LOG.debug("Create mapping of repository [{}] because it was not exist yet", entityTypeId);
+				searchService.createMappings(entityType);
+			}
+
+			Query<Entity> q = new QueryImpl<>();
+			q.eq(entityType.getIdAttribute().getName(), entityId);
+			Entity indexEntity = searchService.findOne(q, entityType);
+
+			if (null != indexEntity)
+			{
+				// update
+				LOG.debug("Index update [{}].[{}].", entityTypeId, entityId);
+				searchService.index(actualEntity, actualEntity.getEntityType(), IndexingMode.UPDATE);
+			}
+			else
+			{
+				// Add
+				LOG.debug("Index add [{}].[{}].", entityTypeId, entityId);
+				searchService.index(actualEntity, actualEntity.getEntityType(), IndexingMode.ADD);
+			}
 		}
 		else
 		{
-			// Add
-			LOG.debug("Index add [{}].[{}].", entityFullName, entityId);
-			searchService.index(actualEntity, actualEntity.getEntityMetaData(), IndexingMode.ADD);
+			throw new MolgenisDataException("Unknown EntityType for entityTypeId: " + entityTypeId);
 		}
 	}
 
@@ -219,5 +241,10 @@ class IndexJob extends Job
 		QueryImpl<IndexAction> q = new QueryImpl<>(rule);
 		q.setSort(new Sort(ACTION_ORDER));
 		return q;
+	}
+
+	private EntityType getEntityType(IndexAction indexAction)
+	{
+		return entityTypeFactory.create(indexAction.getEntityTypeId());
 	}
 }

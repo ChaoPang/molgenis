@@ -3,21 +3,22 @@ package org.molgenis.data.annotation.core.entity.impl.snpeff;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.annotation.core.AbstractRepositoryAnnotator;
-import org.molgenis.data.annotation.core.RefEntityAnnotator;
+import org.molgenis.data.annotation.core.EffectCreatingAnnotator;
 import org.molgenis.data.annotation.core.effects.EffectsMetaData;
 import org.molgenis.data.annotation.core.entity.AnnotatorInfo;
 import org.molgenis.data.annotation.core.resources.CmdLineAnnotatorSettingsConfigurer;
 import org.molgenis.data.annotation.web.settings.SingleFileLocationCmdLineAnnotatorSettingsConfigurer;
 import org.molgenis.data.annotation.web.settings.SnpEffAnnotatorSettings;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.vcf.model.VcfAttributes;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public class SnpEffRepositoryAnnotator extends AbstractRepositoryAnnotator implements RefEntityAnnotator
+public class SnpEffRepositoryAnnotator extends AbstractRepositoryAnnotator implements EffectCreatingAnnotator
 {
 	private final String name;
 	private VcfAttributes vcfAttributes;
@@ -64,9 +65,9 @@ public class SnpEffRepositoryAnnotator extends AbstractRepositoryAnnotator imple
 	}
 
 	@Override
-	public String canAnnotate(EntityMetaData repoMetaData)
+	public String canAnnotate(EntityType repoMetaData)
 	{
-		if (dataService.hasRepository(repoMetaData.getName() + SnpEffRunner.ENTITY_NAME_SUFFIX))
+		if (dataService.hasRepository(repoMetaData.getId() + SnpEffRunner.ENTITY_NAME_SUFFIX))
 		{
 			return "already annotated with SnpEff";
 		}
@@ -77,9 +78,9 @@ public class SnpEffRepositoryAnnotator extends AbstractRepositoryAnnotator imple
 	}
 
 	@Override
-	public List<AttributeMetaData> getRequiredAttributes()
+	public List<Attribute> getRequiredAttributes()
 	{
-		List<AttributeMetaData> attributes = new ArrayList<>();
+		List<Attribute> attributes = new ArrayList<>();
 		attributes.add(vcfAttributes.getChromAttribute());
 		attributes.add(vcfAttributes.getPosAttribute());
 		attributes.add(vcfAttributes.getRefAttribute());
@@ -108,13 +109,19 @@ public class SnpEffRepositoryAnnotator extends AbstractRepositoryAnnotator imple
 	}
 
 	@Override
-	public EntityMetaData getTargetEntityMetaData(EntityMetaData sourceEMD)
+	public EntityType getTargetEntityType(EntityType sourceEntityType)
 	{
-		return snpEffRunner.getTargetEntityMetaData(sourceEMD);
+		return snpEffRunner.getTargetEntityType(sourceEntityType);
 	}
 
 	@Override
-	public List<AttributeMetaData> getOutputAttributes()
+	public List<Attribute> getOutputAttributes()
+	{
+		return effectsMetaData.getOrderedAttributes();
+	}
+
+	@Override
+	public List<Attribute> createAnnotatorAttributes(AttributeFactory attributeFactory)
 	{
 		return effectsMetaData.getOrderedAttributes();
 	}

@@ -1,11 +1,11 @@
 package org.molgenis.data.discovery.job;
 
-import org.molgenis.MolgenisFieldTypes.AttributeType;
 import org.molgenis.data.discovery.meta.BiobankUniversePackage;
 import org.molgenis.data.discovery.meta.biobank.BiobankSampleCollectionMetaData;
 import org.molgenis.data.discovery.meta.biobank.BiobankUniverseMetaData;
 import org.molgenis.data.jobs.model.JobExecutionMetaData;
-import org.molgenis.data.meta.SystemEntityMetaData;
+import org.molgenis.data.meta.AttributeType;
+import org.molgenis.data.meta.SystemEntityType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -14,7 +14,7 @@ import static org.molgenis.data.discovery.meta.BiobankUniversePackage.PACKAGE_UN
 import static org.molgenis.data.meta.model.Package.PACKAGE_SEPARATOR;
 
 @Component
-public class BiobankUniverseJobExecutionMetaData extends SystemEntityMetaData
+public class BiobankUniverseJobExecutionMetaData extends SystemEntityType
 {
 	public final static String SIMPLE_NAME = "BiobankUniverseJobExecution";
 	public final static String BIOBANK_UNIVERSE_JOB_EXECUTION = PACKAGE_UNIVERSE + PACKAGE_SEPARATOR + SIMPLE_NAME;

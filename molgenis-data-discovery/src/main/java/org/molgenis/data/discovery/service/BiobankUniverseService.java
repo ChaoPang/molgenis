@@ -1,7 +1,7 @@
 package org.molgenis.data.discovery.service;
 
 import com.google.common.collect.Table;
-import org.molgenis.auth.MolgenisUser;
+import org.molgenis.auth.User;
 import org.molgenis.data.Entity;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
@@ -31,7 +31,7 @@ public interface BiobankUniverseService
 	 * @param semanticTypeGroups
 	 * @param owner
 	 */
-	BiobankUniverse addBiobankUniverse(String universeName, List<String> semanticTypeGroups, MolgenisUser owner);
+	BiobankUniverse addBiobankUniverse(String universeName, List<String> semanticTypeGroups, User owner);
 
 	/**
 	 * Delete a {@link BiobankUniverse} by Id
@@ -162,7 +162,7 @@ public interface BiobankUniverseService
 	 */
 	Table<BiobankSampleAttribute, BiobankSampleCollection, AttributeMatchStatus> getAttributeMatchStatus(
 			BiobankUniverse biobankUniverse, BiobankSampleCollection targetBiobankSampleCollection,
-			AttributeMappingTablePager pager, MolgenisUser owner);
+			AttributeMappingTablePager pager, User owner);
 
 	/**
 	 * Get a {@link List} of {@link AttributeMappingCandidate}s from the given {@link BiobankUniverse} for the given {@link BiobankSampleCollection} as the target
@@ -175,7 +175,7 @@ public interface BiobankUniverseService
 	 */
 	Table<BiobankSampleAttribute, BiobankSampleCollection, List<AttributeMappingCandidate>> getCuratedAttributeMatchCandidates(
 			BiobankUniverse biobankUniverse, BiobankSampleCollection targetBiobankSampleCollection,
-			AttributeMappingTablePager pager, MolgenisUser owner);
+			AttributeMappingTablePager pager, User owner);
 
 	/**
 	 * Get a {@link List} of {@link AttributeMappingCandidate}s from the given {@link BiobankUniverse} for the target {@link BiobankSampleAttribute} and the source {@link BiobankSampleCollection}
@@ -235,5 +235,5 @@ public interface BiobankUniverseService
 	 */
 	void curateAttributeMappingCandidates(BiobankUniverse biobankUniverse, BiobankSampleAttribute targetAttrinute,
 			List<BiobankSampleAttribute> sourceAttributes, BiobankSampleCollection sourceSampleCollection,
-			MolgenisUser currentUser);
+			User currentUser);
 }

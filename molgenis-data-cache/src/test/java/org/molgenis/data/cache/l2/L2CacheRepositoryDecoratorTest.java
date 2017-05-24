@@ -5,16 +5,12 @@ import com.google.common.collect.Sets;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.molgenis.data.Entity;
-import org.molgenis.data.EntityKey;
-import org.molgenis.data.Fetch;
-import org.molgenis.data.Repository;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.*;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.transaction.TransactionInformation;
-import org.molgenis.test.data.AbstractMolgenisSpringTest;
-import org.molgenis.test.data.EntityTestHarness;
 import org.molgenis.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -28,13 +24,12 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.of;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.initMocks;
 import static org.molgenis.data.RepositoryCapability.CACHEABLE;
 import static org.molgenis.data.RepositoryCapability.WRITABLE;
 import static org.testng.Assert.*;
 
+@ContextConfiguration(classes = TestHarnessConfig.class)
 public class L2CacheRepositoryDecoratorTest extends AbstractMolgenisSpringTest
 {
 	public static final int NUMBER_OF_ENTITIES = 2500;
@@ -52,32 +47,29 @@ public class L2CacheRepositoryDecoratorTest extends AbstractMolgenisSpringTest
 	private ArgumentCaptor<Iterable<Object>> cacheIdCaptor;
 	@Captor
 	private ArgumentCaptor<Stream<Object>> repoIdCaptor;
-	private EntityMetaData emd;
+	private EntityType emd;
 
 	@BeforeClass
 	public void beforeClass()
 	{
-		initMocks(this);
-
-		emd = entityTestHarness.createDynamicRefEntityMetaData();
+		emd = entityTestHarness.createDynamicRefEntityType();
 		entities = entityTestHarness.createTestRefEntities(emd, 4);
-		when(decoratedRepository.getCapabilities()).thenReturn(Sets.newHashSet(CACHEABLE, WRITABLE));
-		l2CacheRepositoryDecorator = new L2CacheRepositoryDecorator(decoratedRepository, l2Cache,
-				transactionInformation);
 	}
 
 	@BeforeMethod
 	public void beforeMethod()
 	{
-		reset(l2Cache, transactionInformation, decoratedRepository);
-		when(decoratedRepository.getEntityMetaData()).thenReturn(emd);
-		when(decoratedRepository.getName()).thenReturn(emd.getName());
+		when(decoratedRepository.getCapabilities()).thenReturn(Sets.newHashSet(CACHEABLE, WRITABLE));
+		l2CacheRepositoryDecorator = new L2CacheRepositoryDecorator(decoratedRepository, l2Cache,
+				transactionInformation);
+		when(decoratedRepository.getEntityType()).thenReturn(emd);
+		when(decoratedRepository.getName()).thenReturn(emd.getId());
 	}
 
 	@Test
 	public void testFindOneByIdNotDirtyCacheableAndPresent()
 	{
-		when(transactionInformation.isEntireRepositoryDirty(emd.getName())).thenReturn(false);
+		when(transactionInformation.isEntireRepositoryDirty(emd)).thenReturn(false);
 		when(transactionInformation.isEntityDirty(EntityKey.create(emd, "0"))).thenReturn(false);
 		when(l2Cache.get(decoratedRepository, "0")).thenReturn(entities.get(0));
 		assertEquals(l2CacheRepositoryDecorator.findOneById("0", new Fetch().field("id")), entities.get(0));
@@ -86,7 +78,7 @@ public class L2CacheRepositoryDecoratorTest extends AbstractMolgenisSpringTest
 	@Test
 	public void testFindOneByIdNotDirtyCacheableNotPresent()
 	{
-		when(transactionInformation.isEntireRepositoryDirty(emd.getName())).thenReturn(false);
+		when(transactionInformation.isEntireRepositoryDirty(emd)).thenReturn(false);
 		when(transactionInformation.isEntityDirty(EntityKey.create(emd, "0"))).thenReturn(false);
 		when(l2Cache.get(decoratedRepository, "abcde")).thenReturn(null);
 		assertNull(l2CacheRepositoryDecorator.findOneById("abcde"));
@@ -95,7 +87,7 @@ public class L2CacheRepositoryDecoratorTest extends AbstractMolgenisSpringTest
 	@Test
 	public void testFindOneByIdDirty()
 	{
-		when(transactionInformation.isEntireRepositoryDirty(emd.getName())).thenReturn(false);
+		when(transactionInformation.isEntireRepositoryDirty(emd)).thenReturn(false);
 		when(transactionInformation.isEntityDirty(EntityKey.create(emd, "0"))).thenReturn(true);
 		when(decoratedRepository.findOneById("0")).thenReturn(entities.get(0));
 		assertEquals(l2CacheRepositoryDecorator.findOneById("0"), entities.get(0));
@@ -104,7 +96,7 @@ public class L2CacheRepositoryDecoratorTest extends AbstractMolgenisSpringTest
 	@Test
 	public void testFindOneByIdEntireRepositoryDirty()
 	{
-		when(transactionInformation.isEntireRepositoryDirty(emd.getName())).thenReturn(true);
+		when(transactionInformation.isEntireRepositoryDirty(emd)).thenReturn(true);
 		when(decoratedRepository.findOneById("0")).thenReturn(entities.get(0));
 		assertEquals(l2CacheRepositoryDecorator.findOneById("0"), entities.get(0));
 	}
@@ -119,15 +111,14 @@ public class L2CacheRepositoryDecoratorTest extends AbstractMolgenisSpringTest
 		// 2: Not dirty, present in cache
 		// 3: Not dirty, absence stored in cache
 
-		when(transactionInformation.isEntireRepositoryDirty(emd.getName())).thenReturn(false);
+		when(transactionInformation.isEntireRepositoryDirty(emd)).thenReturn(false);
 		when(transactionInformation.isEntityDirty(EntityKey.create(emd, "0"))).thenReturn(true);
 		when(transactionInformation.isEntityDirty(EntityKey.create(emd, "1"))).thenReturn(true);
 		when(transactionInformation.isEntityDirty(EntityKey.create(emd, "2"))).thenReturn(false);
 		when(transactionInformation.isEntityDirty(EntityKey.create(emd, "3"))).thenReturn(false);
 
 		Stream<Object> ids = Lists.<Object>newArrayList("0", "1", "2", "3").stream();
-		when(l2Cache.getBatch(eq(decoratedRepository), cacheIdCaptor.capture()))
-				.thenReturn(newArrayList(entities.get(3)));
+		when(l2Cache.getBatch(eq(decoratedRepository), cacheIdCaptor.capture())).thenReturn(newArrayList(entities.get(3)));
 		when(decoratedRepository.findAll(repoIdCaptor.capture())).thenReturn(of(entities.get(1)));
 
 		List<Entity> retrievedEntities = l2CacheRepositoryDecorator.findAll(ids).collect(toList());
@@ -142,16 +133,16 @@ public class L2CacheRepositoryDecoratorTest extends AbstractMolgenisSpringTest
 		assertTrue(EntityUtils.equals(retrievedEntities.get(1), entities.get(3)));
 	}
 
+	@SuppressWarnings("unchecked")
 	@Test
 	public void testFindAllQueriesInBatches()
 	{
 		// repository is clean
-		when(transactionInformation.isEntireRepositoryDirty(emd.getName())).thenReturn(false);
+		when(transactionInformation.isEntireRepositoryDirty(emd)).thenReturn(false);
 
 		// 2500 IDs make for 3 batches.
 		// one third is dirty and needs to be queried from the decorated repository
-		when(transactionInformation.isEntityDirty(any(EntityKey.class))).thenAnswer(
-				invocation -> Integer.parseInt(((EntityKey) invocation.getArguments()[0]).getId().toString()) % 3 == 0);
+		when(transactionInformation.isEntityDirty(any(EntityKey.class))).thenAnswer(invocation -> Integer.parseInt(((EntityKey) invocation.getArguments()[0]).getId().toString()) % 3 == 0);
 
 		List<Entity> lotsOfEntities = entityTestHarness.createTestRefEntities(emd, NUMBER_OF_ENTITIES);
 

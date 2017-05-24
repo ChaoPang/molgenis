@@ -2,11 +2,13 @@ package org.molgenis.data.postgresql;
 
 import org.molgenis.data.DataService;
 import org.molgenis.data.RepositoryCollection;
+import org.molgenis.data.meta.util.AttributeCopier;
+import org.molgenis.data.meta.util.EntityTypeCopier;
+import org.molgenis.data.postgresql.identifier.EntityTypeRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 
@@ -23,20 +25,30 @@ public class PostgreSqlConfiguration
 	private DataService dataService;
 
 	@Autowired
-	private PlatformTransactionManager transactionManager;
+	private PostgreSqlExceptionTranslator postgreSqlExceptionTranslator;
+
+	@Autowired
+	private EntityTypeRegistry entityTypeRegistry;
+
+	@Autowired
+	private EntityTypeCopier entityTypeCopier;
+
+	@Autowired
+	private AttributeCopier attributeCopier;
 
 	@Bean
 	public JdbcTemplate jdbcTemplate()
 	{
 		JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
-		jdbcTemplate.setExceptionTranslator(new PostgreSqlExceptionTranslator(dataSource));
+		jdbcTemplate.setExceptionTranslator(postgreSqlExceptionTranslator);
 		return jdbcTemplate;
 	}
 
 	@Bean
 	public RepositoryCollection postgreSqlRepositoryCollection()
 	{
-		return new PostgreSqlRepositoryCollection(postgreSqlEntityFactory, dataSource, jdbcTemplate(), dataService,
-				transactionManager);
+		return new PostgreSqlRepositoryCollectionDecorator(
+				new PostgreSqlRepositoryCollection(postgreSqlEntityFactory, dataSource, jdbcTemplate(), dataService),
+				entityTypeRegistry, entityTypeCopier, attributeCopier);
 	}
 }

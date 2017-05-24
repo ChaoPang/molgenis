@@ -2,12 +2,11 @@ package org.molgenis.data.annotation.core.entity.impl.hpo;
 
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
-import org.molgenis.data.Repository;
 import org.molgenis.data.annotation.core.RepositoryAnnotator;
 import org.molgenis.data.annotation.core.entity.AnnotatorConfig;
 import org.molgenis.data.annotation.core.entity.AnnotatorInfo;
 import org.molgenis.data.annotation.core.entity.EntityAnnotator;
-import org.molgenis.data.annotation.core.entity.impl.framework.AnnotatorImpl;
+import org.molgenis.data.annotation.core.entity.impl.framework.AbstractAnnotator;
 import org.molgenis.data.annotation.core.entity.impl.framework.RepositoryAnnotatorImpl;
 import org.molgenis.data.annotation.core.query.GeneNameQueryCreator;
 import org.molgenis.data.annotation.core.resources.Resource;
@@ -16,20 +15,18 @@ import org.molgenis.data.annotation.core.resources.impl.RepositoryFactory;
 import org.molgenis.data.annotation.core.resources.impl.ResourceImpl;
 import org.molgenis.data.annotation.core.resources.impl.SingleResourceConfig;
 import org.molgenis.data.annotation.web.settings.SingleFileLocationCmdLineAnnotatorSettingsConfigurer;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.AttributeMetaDataFactory;
-import org.molgenis.data.meta.model.EntityMetaDataFactory;
+import org.molgenis.data.meta.model.Attribute;
+import org.molgenis.data.meta.model.AttributeFactory;
+import org.molgenis.data.meta.model.EntityTypeFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.molgenis.MolgenisFieldTypes.AttributeType.TEXT;
 import static org.molgenis.data.annotation.web.settings.HPOAnnotatorSettings.Meta.HPO_LOCATION;
+import static org.molgenis.data.meta.AttributeType.TEXT;
 
 /**
  * Typical HPO terms for a gene dataType (already present via SnpEff) Source:
@@ -58,13 +55,13 @@ public class HPOAnnotator implements AnnotatorConfig
 	private Resources resources;
 
 	@Autowired
-	private EntityMetaDataFactory entityMetaDataFactory;
+	private EntityTypeFactory entityTypeFactory;
 
 	@Autowired
 	GeneNameQueryCreator geneNameQueryCreator;
 
 	@Autowired
-	private AttributeMetaDataFactory attributeMetaDataFactory;
+	private AttributeFactory attributeFactory;
 	private RepositoryAnnotatorImpl annotator;
 
 	@Bean
@@ -74,22 +71,20 @@ public class HPOAnnotator implements AnnotatorConfig
 		return annotator;
 	}
 
-	public AttributeMetaData getIdsAttr()
+	public Attribute getIdsAttr()
 	{
-		return attributeMetaDataFactory.create().setName(HPO_IDS).setDataType(TEXT).setDescription("HPO identifiers");
+		return attributeFactory.create().setName(HPO_IDS).setDataType(TEXT).setDescription("HPO identifiers");
 	}
 
-	public AttributeMetaData getTermsAttr()
+	public Attribute getTermsAttr()
 	{
-		return attributeMetaDataFactory.create().setName(HPO_TERMS).setDataType(TEXT).setDescription("HPO terms");
+		return attributeFactory.create().setName(HPO_TERMS).setDataType(TEXT).setDescription("HPO terms");
 	}
 
 	@Override
 	public void init()
 	{
-		List<AttributeMetaData> attributes = new ArrayList<>();
-		attributes.add(getIdsAttr());
-		attributes.add(getTermsAttr());
+		List<Attribute> attributes = createHpoOutputAttributes();
 
 		AnnotatorInfo info = AnnotatorInfo
 				.create(AnnotatorInfo.Status.READY, AnnotatorInfo.Type.PHENOTYPE_ASSOCIATION, NAME,
@@ -98,11 +93,26 @@ public class HPOAnnotator implements AnnotatorConfig
 								+ "Please note that if SnpEff was used to annotate in order to add the gene symbols to the variants, than this annotator should be used on the result entity rather than the variant entity itself.",
 						attributes);
 
-		EntityAnnotator entityAnnotator = new AnnotatorImpl(HPO_RESOURCE, info, geneNameQueryCreator,
-				new HpoResultFilter(entityMetaDataFactory, attributeMetaDataFactory, this), dataService, resources,
-				new SingleFileLocationCmdLineAnnotatorSettingsConfigurer(HPO_LOCATION, HPOAnnotatorSettings));
+		EntityAnnotator entityAnnotator = new AbstractAnnotator(HPO_RESOURCE, info, geneNameQueryCreator,
+				new HpoResultFilter(entityTypeFactory, attributeFactory, this), dataService, resources,
+				new SingleFileLocationCmdLineAnnotatorSettingsConfigurer(HPO_LOCATION, HPOAnnotatorSettings))
+		{
+			@Override
+			public List<Attribute> createAnnotatorAttributes(AttributeFactory attributeFactory)
+			{
+				return createHpoOutputAttributes();
+			}
+		};
 
 		annotator.init(entityAnnotator);
+	}
+
+	private List<Attribute> createHpoOutputAttributes()
+	{
+		List<Attribute> attributes = new ArrayList<>();
+		attributes.add(getIdsAttr());
+		attributes.add(getTermsAttr());
+		return attributes;
 	}
 
 	@Bean
@@ -113,14 +123,7 @@ public class HPOAnnotator implements AnnotatorConfig
 			@Override
 			public RepositoryFactory getRepositoryFactory()
 			{
-				return new RepositoryFactory()
-				{
-					@Override
-					public Repository<Entity> createRepository(File file) throws IOException
-					{
-						return new HPORepository(file, entityMetaDataFactory, attributeMetaDataFactory);
-					}
-				};
+				return file -> new HPORepository(file, entityTypeFactory, attributeFactory);
 			}
 		};
 	}

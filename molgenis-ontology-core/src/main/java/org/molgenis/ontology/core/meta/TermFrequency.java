@@ -1,7 +1,7 @@
 package org.molgenis.ontology.core.meta;
 
 import org.molgenis.data.Entity;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.support.StaticEntity;
 
 public class TermFrequency extends StaticEntity
@@ -11,14 +11,14 @@ public class TermFrequency extends StaticEntity
 		super(entity);
 	}
 
-	public TermFrequency(EntityMetaData entityMeta)
+	public TermFrequency(EntityType entityType)
 	{
-		super(entityMeta);
+		super(entityType);
 	}
 
-	public TermFrequency(String id, EntityMetaData entityMeta)
+	public TermFrequency(String id, EntityType entityType)
 	{
-		super(entityMeta);
+		super(entityType);
 		setId(id);
 	}
 

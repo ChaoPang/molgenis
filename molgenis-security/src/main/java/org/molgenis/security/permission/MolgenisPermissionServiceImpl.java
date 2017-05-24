@@ -6,11 +6,13 @@ import org.molgenis.security.core.runas.SystemSecurityToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 
 import static org.molgenis.security.core.utils.SecurityUtils.*;
 
+@Component
 public class MolgenisPermissionServiceImpl implements MolgenisPermissionService
 {
 	@Override
@@ -20,9 +22,9 @@ public class MolgenisPermissionServiceImpl implements MolgenisPermissionService
 	}
 
 	@Override
-	public boolean hasPermissionOnEntity(String entityName, Permission permission)
+	public boolean hasPermissionOnEntity(String entityTypeId, Permission permission)
 	{
-		return hasPermission(entityName, permission, AUTHORITY_ENTITY_PREFIX);
+		return hasPermission(entityTypeId, permission, AUTHORITY_ENTITY_PREFIX);
 	}
 
 	private boolean hasPermission(String authorityId, Permission permission, String authorityPrefix)
@@ -30,7 +32,7 @@ public class MolgenisPermissionServiceImpl implements MolgenisPermissionService
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		if (authentication == null) return false;
 
-		String pluginAuthority = authorityPrefix + permission.toString() + '_' + authorityId.toUpperCase();
+		String pluginAuthority = authorityPrefix + permission.toString() + '_' + authorityId;
 		Collection<? extends GrantedAuthority> grantedAuthorities = authentication.getAuthorities();
 		if (grantedAuthorities != null)
 		{

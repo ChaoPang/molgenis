@@ -3,7 +3,7 @@ package org.molgenis.ontology.core.service.impl;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import org.elasticsearch.common.collect.Lists;
+import com.google.common.collect.Lists;
 import org.molgenis.ontology.core.model.Ontology;
 import org.molgenis.ontology.core.model.OntologyTerm;
 import org.molgenis.ontology.core.model.OntologyTermChildrenCacheKey;

@@ -1,10 +1,10 @@
 package org.molgenis.data.discovery.repo;
 
-import org.molgenis.auth.MolgenisUser;
-import org.molgenis.data.AggregateResult;
+import org.molgenis.auth.User;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.Query;
+import org.molgenis.data.aggregation.AggregateResult;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleAttribute;
 import org.molgenis.data.discovery.model.biobank.BiobankSampleCollection;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
@@ -204,7 +204,7 @@ public interface BiobankUniverseRepository
 	 * @return
 	 */
 	Iterable<AttributeMappingCandidate> getCuratedAttributeMatches(BiobankUniverse biobankUniverse,
-			List<BiobankSampleAttribute> targetAttributes, MolgenisUser owner);
+			List<BiobankSampleAttribute> targetAttributes, User owner);
 
 	/**
 	 * Get an {@link Iterable} (iterated over one time) of the {@link AttributeMappingCandidate}s from the current {@link BiobankUniverse} for target {@link BiobankSampleAttribute}s
@@ -231,10 +231,10 @@ public interface BiobankUniverseRepository
 	 * Update the {@link AttributeMappingDecision}s in the {@link AttributeMappingCandidate}s in the database for the given {@link MolgenisUser}
 	 *
 	 * @param attributeMappingCandidatesToUpdate
-	 * @param molgenisUser                       the user who makes the curation decisions
+	 * @param user                               the user who makes the curation decisions
 	 */
 	void updateAttributeMappingCandidateDecisions(List<AttributeMappingCandidate> attributeMappingCandidatesToUpdate,
-			MolgenisUser molgenisUser);
+			User user);
 
 	/**
 	 * Cascading delete the given list of {@link Entity}s and their related entities including

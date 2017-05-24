@@ -1,13 +1,12 @@
 package org.molgenis.data.importer;
 
-import com.google.common.collect.*;
-import org.molgenis.data.i18n.model.I18nString;
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableMap;
+import org.molgenis.data.i18n.model.L10nString;
 import org.molgenis.data.i18n.model.Language;
-import org.molgenis.data.meta.model.AttributeMetaData;
-import org.molgenis.data.meta.model.EntityMetaData;
+import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.meta.model.Package;
-import org.molgenis.data.semantic.LabeledResource;
-import org.molgenis.data.semantic.SemanticTag;
+import org.molgenis.data.meta.model.Tag;
 
 import java.util.List;
 import java.util.Map;
@@ -17,27 +16,25 @@ import java.util.Map;
  */
 public final class ParsedMetaData
 {
-	private final ImmutableMap<String, EntityMetaData> entities;
+	private final ImmutableMap<String, EntityType> entities;
 	private final ImmutableMap<String, Package> packages;
-	private final ImmutableSetMultimap<EntityMetaData, SemanticTag<AttributeMetaData, LabeledResource, LabeledResource>> attributeTags;
-	private final ImmutableList<SemanticTag<EntityMetaData, LabeledResource, LabeledResource>> entityTags;
+	private final ImmutableMap<String, Tag> tags;
 	private final ImmutableMap<String, Language> languages;
-	private final ImmutableMap<String, I18nString> i18nStrings;
+	private final ImmutableMap<String, L10nString> l10nStrings;
 
-	public ParsedMetaData(List<? extends EntityMetaData> entities, Map<String, ? extends Package> packages,
-			SetMultimap<String, SemanticTag<AttributeMetaData, LabeledResource, LabeledResource>> attributeTags,
-			List<SemanticTag<EntityMetaData, LabeledResource, LabeledResource>> entityTags,
-			Map<String, Language> languages, ImmutableMap<String, I18nString> i18nStrings)
+	public ParsedMetaData(List<? extends EntityType> entities, Map<String, ? extends Package> packages,
+			ImmutableMap<String, Tag> tags, Map<String, Language> languages,
+			ImmutableMap<String, L10nString> l10nStrings)
 	{
 		if (entities == null)
 		{
 			throw new NullPointerException("Null entities");
 		}
 
-		ImmutableMap.Builder<String, EntityMetaData> builder = ImmutableMap.builder();
-		for (EntityMetaData emd : entities)
+		ImmutableMap.Builder<String, EntityType> builder = ImmutableMap.builder();
+		for (EntityType emd : entities)
 		{
-			builder.put(emd.getName(), emd);
+			builder.put(emd.getId(), emd);
 		}
 		this.entities = builder.build();
 		if (packages == null)
@@ -45,33 +42,17 @@ public final class ParsedMetaData
 			throw new NullPointerException("Null packages");
 		}
 		this.packages = ImmutableMap.copyOf(packages);
-		ImmutableSetMultimap.Builder<EntityMetaData, SemanticTag<AttributeMetaData, LabeledResource, LabeledResource>> attrTagBuilder = ImmutableSetMultimap
-				.builder();
-		for (String simpleEntityName : attributeTags.keys())
-		{
-			EntityMetaData emd = this.entities.get(simpleEntityName);
-			if (emd == null)
-			{
-				throw new NullPointerException("Unknown entity [" + simpleEntityName + "]");
-			}
-			for (SemanticTag<AttributeMetaData, LabeledResource, LabeledResource> tag : attributeTags
-					.get(simpleEntityName))
-			{
-				attrTagBuilder.put(emd, tag);
-			}
-		}
-		this.attributeTags = attrTagBuilder.build();
-		this.entityTags = ImmutableList.copyOf(entityTags);
+		this.tags = ImmutableMap.copyOf(tags);
 		this.languages = ImmutableMap.copyOf(languages);
-		this.i18nStrings = ImmutableMap.copyOf(i18nStrings);
+		this.l10nStrings = ImmutableMap.copyOf(l10nStrings);
 	}
 
-	public ImmutableCollection<EntityMetaData> getEntities()
+	public ImmutableCollection<EntityType> getEntities()
 	{
 		return entities.values();
 	}
 
-	public ImmutableMap<String, EntityMetaData> getEntityMap()
+	public ImmutableMap<String, EntityType> getEntityMap()
 	{
 		return entities;
 	}
@@ -81,14 +62,9 @@ public final class ParsedMetaData
 		return packages;
 	}
 
-	public SetMultimap<EntityMetaData, SemanticTag<AttributeMetaData, LabeledResource, LabeledResource>> getAttributeTags()
+	public ImmutableMap<String, Tag> getTags()
 	{
-		return attributeTags;
-	}
-
-	public ImmutableList<SemanticTag<EntityMetaData, LabeledResource, LabeledResource>> getEntityTags()
-	{
-		return entityTags;
+		return tags;
 	}
 
 	public ImmutableMap<String, Language> getLanguages()
@@ -96,16 +72,16 @@ public final class ParsedMetaData
 		return languages;
 	}
 
-	public ImmutableMap<String, I18nString> getI18nStrings()
+	public ImmutableMap<String, L10nString> getL10nStrings()
 	{
-		return i18nStrings;
+		return l10nStrings;
 	}
 
 	@Override
 	public String toString()
 	{
-		return "ParsedMetaData [entities=" + entities + ", packages=" + packages + ", attributeTags=" + attributeTags
-				+ ", entityTags=" + entityTags + ", languages=" + languages + ", i18nStrings=" + i18nStrings + "]";
+		return "ParsedMetaData [entities=" + entities + ", packages=" + packages + ", tags=" + tags + ", languages="
+				+ languages + ", l10nStrings=" + l10nStrings + ']';
 	}
 
 	@Override
@@ -113,10 +89,9 @@ public final class ParsedMetaData
 	{
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((attributeTags == null) ? 0 : attributeTags.hashCode());
+		result = prime * result + ((tags == null) ? 0 : tags.hashCode());
 		result = prime * result + ((entities == null) ? 0 : entities.hashCode());
-		result = prime * result + ((entityTags == null) ? 0 : entityTags.hashCode());
-		result = prime * result + ((i18nStrings == null) ? 0 : i18nStrings.hashCode());
+		result = prime * result + ((l10nStrings == null) ? 0 : l10nStrings.hashCode());
 		result = prime * result + ((languages == null) ? 0 : languages.hashCode());
 		result = prime * result + ((packages == null) ? 0 : packages.hashCode());
 		return result;
@@ -129,26 +104,21 @@ public final class ParsedMetaData
 		if (obj == null) return false;
 		if (getClass() != obj.getClass()) return false;
 		ParsedMetaData other = (ParsedMetaData) obj;
-		if (attributeTags == null)
-		{
-			if (other.attributeTags != null) return false;
-		}
-		else if (!attributeTags.equals(other.attributeTags)) return false;
 		if (entities == null)
 		{
 			if (other.entities != null) return false;
 		}
 		else if (!entities.equals(other.entities)) return false;
-		if (entityTags == null)
+		if (tags == null)
 		{
-			if (other.entityTags != null) return false;
+			if (other.tags != null) return false;
 		}
-		else if (!entityTags.equals(other.entityTags)) return false;
-		if (i18nStrings == null)
+		else if (!tags.equals(other.tags)) return false;
+		if (l10nStrings == null)
 		{
-			if (other.i18nStrings != null) return false;
+			if (other.l10nStrings != null) return false;
 		}
-		else if (!i18nStrings.equals(other.i18nStrings)) return false;
+		else if (!l10nStrings.equals(other.l10nStrings)) return false;
 		if (languages == null)
 		{
 			if (other.languages != null) return false;
@@ -160,16 +130,5 @@ public final class ParsedMetaData
 		}
 		else if (!packages.equals(other.packages)) return false;
 		return true;
-	}
-
-	/**
-	 * Gets a specific package
-	 *
-	 * @param name the name of the package
-	 * @return
-	 */
-	public Package getPackage(String name)
-	{
-		return getPackages().get(name);
 	}
 }

@@ -1,12 +1,12 @@
 package org.molgenis.questionnaires;
 
 import org.molgenis.data.DataService;
-import org.molgenis.data.Entity;
-import org.molgenis.data.meta.model.EntityMetaDataMetaData;
+import org.molgenis.data.meta.model.EntityType;
+import org.molgenis.data.meta.model.EntityTypeMetadata;
 
 import java.util.stream.Stream;
 
-import static org.molgenis.data.meta.model.EntityMetaDataMetaData.ENTITY_META_DATA;
+import static org.molgenis.data.meta.model.EntityTypeMetadata.ENTITY_TYPE_META_DATA;
 import static org.molgenis.questionnaires.QuestionnaireMetaData.QUESTIONNAIRE;
 
 public class QuestionnaireUtils
@@ -17,8 +17,9 @@ public class QuestionnaireUtils
 	 * @param dataService
 	 * @return
 	 */
-	public static Stream<Entity> findQuestionnairesMetaData(DataService dataService)
+	public static Stream<EntityType> findQuestionnairesMetaData(DataService dataService)
 	{
-		return dataService.query(ENTITY_META_DATA).eq(EntityMetaDataMetaData.EXTENDS, QUESTIONNAIRE).findAll();
+		return dataService.query(ENTITY_TYPE_META_DATA, EntityType.class).eq(EntityTypeMetadata.EXTENDS, QUESTIONNAIRE)
+				.findAll();
 	}
 }
