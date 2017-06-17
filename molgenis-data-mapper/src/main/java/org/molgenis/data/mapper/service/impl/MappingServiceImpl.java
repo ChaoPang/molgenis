@@ -76,8 +76,13 @@ public class MappingServiceImpl implements MappingService
 		this.entityMappingRepository = requireNonNull(entityMappingRepository);
 		this.attributeMappingRepository = requireNonNull(attributeMappingRepository);
 		this.permissionSystemService = requireNonNull(permissionSystemService);
+<<<<<<< HEAD
 		this.attributeFactory = requireNonNull(attributeFactory);
 		this.defaultPackage = defaultPackage;
+=======
+		this.attrMetaFactory = requireNonNull(attrMetaFactory);
+		this.defaultPackage = requireNonNull(defaultPackage);
+>>>>>>> 3371a645e62b882f169591b31cbda269280a8630
 	}
 
 	@Override
@@ -194,9 +199,13 @@ public class MappingServiceImpl implements MappingService
 
 	@Override
 	@Transactional
-	public long applyMappings(MappingTarget mappingTarget, String entityTypeId, Boolean addSourceAttribute,
+	public long applyMappings(String mappingProjectId, String entityTypeId, Boolean addSourceAttribute,
 			String packageId, String label, Progress progress)
 	{
+		MappingProject mappingProject = getMappingProject(mappingProjectId);
+		MappingTarget mappingTarget = mappingProject.getMappingTargets().get(0);
+		progress.setProgressMax(calculateMaxProgress(mappingTarget));
+
 		progress.progress(0, format("Checking target repository [%s]...", entityTypeId));
 		EntityType targetMetadata = createTargetMetadata(mappingTarget, entityTypeId, packageId, label,
 				addSourceAttribute);
@@ -415,6 +424,7 @@ public class MappingServiceImpl implements MappingService
 		target.set(targetAttributeName, typedValue);
 	}
 
+<<<<<<< HEAD
 	@Override
 	public String generateId(AttributeType dataType, Long count)
 	{
@@ -437,5 +447,30 @@ public class MappingServiceImpl implements MappingService
 		mappingTarget.removeSource(entityMapping.getName());
 		mappingTargetRepository.upsert(Arrays.asList(mappingTarget));
 		entityMappingRepository.delete(Arrays.asList(entityMapping));
+=======
+	int calculateMaxProgress(MappingTarget mappingTarget)
+	{
+		int batches = mappingTarget.getEntityMappings().stream().mapToInt(this::countBatches).sum();
+		if (mappingTarget.hasSelfReferences())
+		{
+			batches *= 2;
+		}
+		return batches;
+	}
+
+	private int countBatches(EntityMapping entityMapping)
+	{
+		long sourceRows = dataService.count(entityMapping.getSourceEntityType().getId());
+
+		long batches = sourceRows / MAPPING_BATCH_SIZE;
+		long remainder = sourceRows % MAPPING_BATCH_SIZE;
+
+		if (remainder > 0)
+		{
+			batches++;
+		}
+
+		return (int) batches;
+>>>>>>> 3371a645e62b882f169591b31cbda269280a8630
 	}
 }

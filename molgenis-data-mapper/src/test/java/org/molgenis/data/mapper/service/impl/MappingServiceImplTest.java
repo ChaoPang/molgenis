@@ -110,7 +110,7 @@ public class MappingServiceImplTest extends AbstractMolgenisSpringTest
 	private Progress progress;
 
 	@Captor
-	ArgumentCaptor<List<Entity>> batchCaptor;
+	private ArgumentCaptor<List<Entity>> batchCaptor;
 
 	private MetaDataService metaDataService;
 
@@ -361,16 +361,14 @@ public class MappingServiceImplTest extends AbstractMolgenisSpringTest
 		MappingProject project = createMappingProjectWithMappings();
 
 		// apply mapping again
-		assertEquals(mappingService
-				.applyMappings(project.getMappingTarget(hopMetaData.getId()), entityTypeId, true, "packageId", "label",
-						progress), 4);
+		assertEquals(mappingService.applyMappings("TestRun", entityTypeId, true, "packageId", "label", progress), 4);
 
 		verify(geneRepo).forEachBatched(any(Consumer.class), any(Integer.class));
 
-		EntityType entityType = when(mock(EntityType.class).getId()).thenReturn(entityTypeId).getMock();
 		ArgumentCaptor<EntityType> entityTypeCaptor = ArgumentCaptor.forClass(EntityType.class);
 		verify(permissionSystemService).giveUserWriteMetaPermissions(entityTypeCaptor.capture());
 		assertEquals(entityTypeCaptor.getValue().getId(), entityTypeId);
+		verify(progress).setProgressMax(anyInt());
 		verify(progress).progress(0, "Checking target repository [addEntity]...");
 		verify(progress).status("Applying mappings to repository [HopEntity]");
 		verify(progress).status("Mapping source [Genes]...");
@@ -429,10 +427,9 @@ public class MappingServiceImplTest extends AbstractMolgenisSpringTest
 		MappingProject project = createMappingProjectWithMappings();
 
 		// apply mapping again
-		assertEquals(mappingService
-				.applyMappings(project.getMappingTarget(TARGET_HOP_ENTITY), entityTypeId, false, "packageId", "label",
-						progress), 4);
+		assertEquals(mappingService.applyMappings("TestRun", entityTypeId, false, "packageId", "label", progress), 4);
 
+		//noinspection unchecked
 		verify(geneRepo).forEachBatched(any(Consumer.class), any(Integer.class));
 
 		verify(updateEntityRepo).upsertBatch(batchCaptor.capture());
@@ -554,8 +551,10 @@ public class MappingServiceImplTest extends AbstractMolgenisSpringTest
 		mappingTargetMetaData.setPackage(package_);
 
 		MappingTarget mappingTarget = new MappingTarget(mappingTargetMetaData);
-
-		mappingService.applyMappings(mappingTarget, targetRepositoryName, false, "packageId", "label", progress);
+		MappingProject mappingProject = mock(MappingProject.class);
+		when(mappingProject.getMappingTargets()).thenReturn(newArrayList(mappingTarget));
+		when(mappingProjectRepo.getMappingProject("TestRun")).thenReturn(mappingProject);
+		mappingService.applyMappings("TestRun", targetRepositoryName, false, "packageId", "label", progress);
 	}
 
 	@Test(expectedExceptions = MolgenisDataException.class, expectedExceptionsMessageRegExp =
@@ -582,8 +581,10 @@ public class MappingServiceImplTest extends AbstractMolgenisSpringTest
 		mappingTargetMetaData.setPackage(package_);
 
 		MappingTarget mappingTarget = new MappingTarget(mappingTargetMetaData);
-
-		mappingService.applyMappings(mappingTarget, targetRepositoryName, false, "packageId", "label", progress);
+		MappingProject mappingProject = mock(MappingProject.class);
+		when(mappingProject.getMappingTargets()).thenReturn(newArrayList(mappingTarget));
+		when(mappingProjectRepo.getMappingProject("TestRun")).thenReturn(mappingProject);
+		mappingService.applyMappings("TestRun", targetRepositoryName, false, "packageId", "label", progress);
 	}
 
 	@Test(expectedExceptions = MolgenisDataException.class, expectedExceptionsMessageRegExp =
@@ -622,7 +623,10 @@ public class MappingServiceImplTest extends AbstractMolgenisSpringTest
 
 		MappingTarget mappingTarget = new MappingTarget(mappingTargetMetaData);
 
-		mappingService.applyMappings(mappingTarget, targetRepositoryName, false, "packageId", "label", progress);
+		MappingProject mappingProject = mock(MappingProject.class);
+		when(mappingProject.getMappingTargets()).thenReturn(newArrayList(mappingTarget));
+		when(mappingProjectRepo.getMappingProject("TestRun")).thenReturn(mappingProject);
+		mappingService.applyMappings("TestRun", targetRepositoryName, false, "packageId", "label", progress);
 	}
 
 	@Test
@@ -631,6 +635,75 @@ public class MappingServiceImplTest extends AbstractMolgenisSpringTest
 		when(metaDataService.getEntityTypes()).thenReturn(Stream.of(hopMetaData, geneMetaData));
 		Set<Entity> compatibleEntityTypes = mappingService.getCompatibleEntityTypes(hopMetaData).collect(toSet());
 		assertEquals(compatibleEntityTypes, newHashSet(hopMetaData));
+	}
+
+	@Test
+	public void testMaxProgressOneSourceOneBatch()
+	{
+		MappingTarget mappingTarget = mock(MappingTarget.class);
+		EntityMapping entityMapping = getMockEntityMapping("a", MAPPING_BATCH_SIZE - 1);
+		List<EntityMapping> mappings = singletonList(entityMapping);
+		when(mappingTarget.getEntityMappings()).thenReturn(mappings);
+
+		assertEquals(mappingService.calculateMaxProgress(mappingTarget), 1);
+	}
+
+	@Test
+	public void testMaxProgressOneSourceMultipleBatches()
+	{
+		MappingTarget mappingTarget = mock(MappingTarget.class);
+		EntityMapping entityMapping = getMockEntityMapping("a", (3 * MAPPING_BATCH_SIZE) + 1);
+		List<EntityMapping> mappings = singletonList(entityMapping);
+		when(mappingTarget.getEntityMappings()).thenReturn(mappings);
+
+		assertEquals(mappingService.calculateMaxProgress(mappingTarget), 4);
+	}
+
+	@Test
+	public void testMaxProgressOneSourceMultipleBatchesSelfReferencing()
+	{
+		MappingTarget mappingTarget = mock(MappingTarget.class);
+		EntityMapping entityMapping = getMockEntityMapping("a", (3 * MAPPING_BATCH_SIZE) + 1);
+		when(mappingTarget.hasSelfReferences()).thenReturn(true);
+		List<EntityMapping> mappings = singletonList(entityMapping);
+		when(mappingTarget.getEntityMappings()).thenReturn(mappings);
+
+		assertEquals(mappingService.calculateMaxProgress(mappingTarget), 8);
+	}
+
+	@Test
+	public void testMaxProgressMultipleSourcesSelfReferencing()
+	{
+		MappingTarget mappingTarget = mock(MappingTarget.class);
+		EntityMapping mapping1 = getMockEntityMapping("a", MAPPING_BATCH_SIZE);
+		EntityMapping mapping2 = getMockEntityMapping("b", MAPPING_BATCH_SIZE + 1);
+		List<EntityMapping> mappings = newArrayList(mapping1, mapping2);
+		when(mappingTarget.hasSelfReferences()).thenReturn(true);
+		when(mappingTarget.getEntityMappings()).thenReturn(mappings);
+
+		assertEquals(mappingService.calculateMaxProgress(mappingTarget), 6);
+	}
+
+	@Test
+	public void testMaxProgressMultipleSources()
+	{
+		MappingTarget mappingTarget = mock(MappingTarget.class);
+		EntityMapping mapping1 = getMockEntityMapping("a", MAPPING_BATCH_SIZE);
+		EntityMapping mapping2 = getMockEntityMapping("b", MAPPING_BATCH_SIZE + 1);
+		List<EntityMapping> mappings = newArrayList(mapping1, mapping2);
+		when(mappingTarget.getEntityMappings()).thenReturn(mappings);
+
+		assertEquals(mappingService.calculateMaxProgress(mappingTarget), 3);
+	}
+
+	private EntityMapping getMockEntityMapping(String id, long sourceRows)
+	{
+		EntityMapping entityMapping = mock(EntityMapping.class);
+		EntityType sourceEntityType = mock(EntityType.class);
+		when(entityMapping.getSourceEntityType()).thenReturn(sourceEntityType);
+		when(sourceEntityType.getId()).thenReturn(id);
+		when(dataService.count(id)).thenReturn(sourceRows);
+		return entityMapping;
 	}
 
 	private void createEntities(EntityType targetMeta, List<Entity> sourceGeneEntities, List<Entity> expectedEntities)
@@ -675,6 +748,8 @@ public class MappingServiceImplTest extends AbstractMolgenisSpringTest
 		MappingProject mappingProject = mappingService.addMappingProject("TestRun", user, hopMetaData.getId());
 		MappingTarget target = mappingProject.getMappingTarget(hopMetaData.getId());
 
+		when(mappingProjectRepo.getMappingProject("TestRun")).thenReturn(mappingProject);
+
 		EntityMapping mapping = target.addSource(geneMetaData);
 
 		AttributeMapping idMapping = mapping.addAttributeMapping("identifier");
@@ -699,6 +774,7 @@ public class MappingServiceImplTest extends AbstractMolgenisSpringTest
 	@Import(UserTestConfig.class)
 	static class Config
 	{
+<<<<<<< HEAD
 		@Autowired
 		private DataService dataService;
 
@@ -710,6 +786,8 @@ public class MappingServiceImplTest extends AbstractMolgenisSpringTest
 		{
 			return mock(IdGenerator.class);
 		}
+=======
+>>>>>>> 3371a645e62b882f169591b31cbda269280a8630
 
 		@Bean
 		public AlgorithmService algorithmService()
@@ -735,6 +813,7 @@ public class MappingServiceImplTest extends AbstractMolgenisSpringTest
 			return mock(PermissionSystemService.class);
 		}
 
+<<<<<<< HEAD
 		@Bean
 		public MappingTargetRepository mappingTargetRepository()
 		{
@@ -766,5 +845,7 @@ public class MappingServiceImplTest extends AbstractMolgenisSpringTest
 					mappingTargetRepository(), entityMappingProject(), attributeMappingRepository(),
 					permissionSystemService(), attributeMetaDataFactory(), defaultPackage);
 		}
+=======
+>>>>>>> 3371a645e62b882f169591b31cbda269280a8630
 	}
 }

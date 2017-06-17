@@ -49,7 +49,7 @@ public interface MappingService
 	/**
 	 * Applies all mappings in a {@link MappingTarget}
 	 *
-	 * @param mappingTarget      the MappingTarget whose mappings are applied
+	 * @param mappingProjectId   the id of the MappingProject whose mappings are applied
 	 * @param entityTypeId       the name of the entity to map to
 	 * @param addSourceAttribute boolean indicating if the 'source' attribute should be added to the target repository
 	 * @param mappingTarget      the MappingTarget whose mappings are applied
@@ -60,7 +60,7 @@ public interface MappingService
 	 * @param progress           progress of the mapping
 	 * @return the total amount of entities mapped
 	 */
-	long applyMappings(MappingTarget mappingTarget, String entityTypeId, Boolean addSourceAttribute, String packageId,
+	long applyMappings(String mappingProjectId, String entityTypeId, Boolean addSourceAttribute, String packageId,
 			String label, Progress progress);
 
 	/**
