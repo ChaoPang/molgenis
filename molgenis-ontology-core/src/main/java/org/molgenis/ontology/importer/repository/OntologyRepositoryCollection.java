@@ -12,7 +12,6 @@ import org.molgenis.data.mem.InMemoryRepository;
 import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.populate.IdGenerator;
 import org.molgenis.data.support.FileRepositoryCollection;
-import org.molgenis.data.support.GenericImporterExtensions;
 import org.molgenis.ontology.core.meta.*;
 import org.molgenis.ontology.utils.OWLClassContainer;
 import org.molgenis.ontology.utils.OntologyLoader;
@@ -87,19 +86,19 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 	 */
 	public OntologyRepositoryCollection(File file)
 	{
-		super(GenericImporterExtensions.getOntology());
+		super(OntologyFileExtensions.getOntology());
 		this.file = requireNonNull(file);
 
 		String name = file.getName();
-		if (name.endsWith(GenericImporterExtensions.OBO_ZIP.toString()))
+		if (name.endsWith(OntologyFileExtensions.OBO_ZIP.toString()))
 		{
-			name = name.substring(0, name.lastIndexOf('.' + GenericImporterExtensions.OBO_ZIP.toString()))
-					.replace('.', '_');
+			name = name.substring(0, name.lastIndexOf('.' + OntologyFileExtensions.OBO_ZIP.toString()))
+					   .replace('.', '_');
 		}
-		else if (name.endsWith(GenericImporterExtensions.OWL_ZIP.toString()))
+		else if (name.endsWith(OntologyFileExtensions.OWL_ZIP.toString()))
 		{
-			name = name.substring(0, name.lastIndexOf('.' + GenericImporterExtensions.OWL_ZIP.toString()))
-					.replace('.', '_');
+			name = name.substring(0, name.lastIndexOf('.' + OntologyFileExtensions.OWL_ZIP.toString()))
+					   .replace('.', '_');
 		}
 		else
 		{
@@ -116,10 +115,9 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 		ontologyTermRepository = new InMemoryRepository(ontologyTermFactory.getEntityType());
 		annotationRepository = new InMemoryRepository(ontologyTermDynamicAnnotationFactory.getEntityType());
 		synonymRepository = new InMemoryRepository(ontologyTermSynonymFactory.getEntityType());
-		repositories = ImmutableMap
-				.of(ONTOLOGY_TERM_DYNAMIC_ANNOTATION, annotationRepository, ONTOLOGY_TERM_SYNONYM, synonymRepository,
-						ONTOLOGY_TERM_NODE_PATH, nodePathRepository, ONTOLOGY, ontologyRepository, ONTOLOGY_TERM,
-						ontologyTermRepository);
+		repositories = ImmutableMap.of(ONTOLOGY_TERM_DYNAMIC_ANNOTATION, annotationRepository, ONTOLOGY_TERM_SYNONYM,
+				synonymRepository, ONTOLOGY_TERM_NODE_PATH, nodePathRepository, ONTOLOGY, ontologyRepository,
+				ONTOLOGY_TERM, ontologyTermRepository);
 
 		List<File> uploadedFiles = ZipFileUtil.unzip(file);
 		try
@@ -172,12 +170,9 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 
 		OWLClass pseudoRootClass = loader.createClass(PSEUDO_ROOT_CLASS_LABEL, loader.getRootClasses());
 
-		Iterator<OWLClassContainer> iterator = traverser
-				.preOrderTraversal(new OWLClassContainer(pseudoRootClass, PSEUDO_ROOT_CLASS_NODEPATH, true)).iterator();
-
-		while (iterator.hasNext())
+		for (OWLClassContainer container : traverser.preOrderTraversal(
+				new OWLClassContainer(pseudoRootClass, PSEUDO_ROOT_CLASS_NODEPATH, true)))
 		{
-			OWLClassContainer container = iterator.next();
 			OWLClass ontologyTerm = container.getOwlClass();
 			String ontologyTermNodePath = container.getNodePath();
 			String ontologyTermIRI = ontologyTerm.getIRI().toString();
@@ -283,8 +278,10 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 	{
 		StringBuilder nodePathStringBuilder = new StringBuilder();
 		if (!StringUtils.isEmpty(parentNodePath)) nodePathStringBuilder.append(parentNodePath).append('.');
-		nodePathStringBuilder.append(currentPosition).append('[')
-				.append(nodePathStringBuilder.toString().split("\\.").length - 1).append(']');
+		nodePathStringBuilder.append(currentPosition)
+							 .append('[')
+							 .append(nodePathStringBuilder.toString().split("\\.").length - 1)
+							 .append(']');
 		return nodePathStringBuilder.toString();
 	}
 
@@ -337,10 +334,9 @@ public class OntologyRepositoryCollection extends FileRepositoryCollection
 	public boolean hasRepository(String name)
 	{
 		if (null == name) return false;
-		Iterator<String> it = getEntityTypeIds().iterator();
-		while (it.hasNext())
+		for (String s : getEntityTypeIds())
 		{
-			if (it.next().equals(name)) return true;
+			if (s.equals(name)) return true;
 		}
 		return false;
 	}

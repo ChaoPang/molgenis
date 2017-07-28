@@ -1,6 +1,5 @@
 package org.molgenis.ui.admin.usermanager;
 
-import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -102,8 +101,7 @@ public class UserManagerServiceImpl implements UserManagerService
 		}
 
 		final List<GroupMember> groupMembers = dataService.findAll(GROUP_MEMBER,
-				new QueryImpl<GroupMember>().eq(GroupMemberMetaData.USER, user),
-				GroupMember.class).collect(toList());
+				new QueryImpl<GroupMember>().eq(GroupMemberMetaData.USER, user), GroupMember.class).collect(toList());
 
 		return this.getAllMolgenisGroupsFromGroupMembers(groupMembers);
 	}
@@ -118,8 +116,7 @@ public class UserManagerServiceImpl implements UserManagerService
 		}
 
 		final List<GroupMember> groupMembers = dataService.findAll(GROUP_MEMBER,
-				new QueryImpl<GroupMember>().eq(GroupMemberMetaData.GROUP, group),
-				GroupMember.class).collect(toList());
+				new QueryImpl<GroupMember>().eq(GroupMemberMetaData.GROUP, group), GroupMember.class).collect(toList());
 
 		return this.getAllMolgenisUsersFromGroupMembers(groupMembers);
 	}
@@ -137,15 +134,14 @@ public class UserManagerServiceImpl implements UserManagerService
 		}
 
 		final List<GroupMember> groupMembers = dataService.findAll(GROUP_MEMBER,
-				new QueryImpl<GroupMember>().eq(GroupMemberMetaData.USER, user),
-				GroupMember.class).collect(toList());
+				new QueryImpl<GroupMember>().eq(GroupMemberMetaData.USER, user), GroupMember.class).collect(toList());
 
 		final List<Group> groupsWhereUserIsMember = this.getAllMolgenisGroupsFromGroupMembers(groupMembers);
 
 		Predicate<Group> predicate = new PredicateNotInMolgenisGroupList(groupsWhereUserIsMember);
 		List<Group> groups = this.getAllGroups();
 
-		return Lists.<Group>newArrayList(Iterables.filter(groups, predicate));
+		return Lists.newArrayList(Iterables.filter(groups, predicate));
 	}
 
 	@Override
@@ -174,20 +170,19 @@ public class UserManagerServiceImpl implements UserManagerService
 			throw new RuntimeException("unknown user id [" + molgenisUserId + "]");
 		}
 
-		final Group group = dataService
-				.findOneById(GROUP, molgenisGroupId, Group.class);
+		final Group group = dataService.findOneById(GROUP, molgenisGroupId, Group.class);
 
 		if (group == null)
 		{
 			throw new RuntimeException("unknown user id [" + molgenisGroupId + "]");
 		}
 
-		Query<GroupMember> q = new QueryImpl<GroupMember>()
-				.eq(GroupMemberMetaData.USER, user).and()
-				.eq(GroupMemberMetaData.GROUP, group);
+		Query<GroupMember> q = new QueryImpl<GroupMember>().eq(GroupMemberMetaData.USER, user)
+														   .and()
+														   .eq(GroupMemberMetaData.GROUP, group);
 
-		final List<GroupMember> groupMembers = dataService
-				.findAll(GROUP_MEMBER, q, GroupMember.class).collect(toList());
+		final List<GroupMember> groupMembers = dataService.findAll(GROUP_MEMBER, q, GroupMember.class)
+														  .collect(toList());
 
 		if (null == groupMembers || groupMembers.isEmpty())
 		{
@@ -211,18 +206,11 @@ public class UserManagerServiceImpl implements UserManagerService
 	 */
 	private List<Group> getAllMolgenisGroupsFromGroupMembers(final List<GroupMember> groupMembers)
 	{
-		List<Group> groups = new ArrayList<Group>();
+		List<Group> groups = new ArrayList<>();
 
 		if (groupMembers != null && !groupMembers.isEmpty())
 		{
-			groups = Lists.transform(groupMembers, new Function<GroupMember, Group>()
-			{
-				@Override
-				public Group apply(GroupMember groupMember)
-				{
-					return groupMember.getGroup();
-				}
-			});
+			groups = Lists.transform(groupMembers, GroupMember::getGroup);
 		}
 
 		return groups;
@@ -236,18 +224,11 @@ public class UserManagerServiceImpl implements UserManagerService
 	 */
 	private List<User> getAllMolgenisUsersFromGroupMembers(final List<GroupMember> groupMembers)
 	{
-		List<User> user = new ArrayList<User>();
+		List<User> user = new ArrayList<>();
 
 		if (groupMembers != null && !groupMembers.isEmpty())
 		{
-			user = Lists.transform(groupMembers, new Function<GroupMember, User>()
-			{
-				@Override
-				public User apply(GroupMember groupMember)
-				{
-					return groupMember.getUser();
-				}
-			});
+			user = Lists.transform(groupMembers, GroupMember::getUser);
 		}
 
 		return user;

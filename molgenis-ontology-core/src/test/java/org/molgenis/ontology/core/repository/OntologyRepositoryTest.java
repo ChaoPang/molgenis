@@ -4,7 +4,6 @@ import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.meta.OntologyEntity;
-import org.molgenis.ontology.core.meta.OntologyMetaData;
 import org.molgenis.ontology.core.model.Ontology;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -28,13 +27,10 @@ import static org.testng.Assert.assertEquals;
 public class OntologyRepositoryTest extends AbstractTestNGSpringContextTests
 {
 	@Autowired
-	DataService dataService;
+	private DataService dataService;
 
 	@Autowired
-	OntologyRepository ontologyRepository;
-
-	@Autowired
-	OntologyMetaData ontologyMetaData;
+	private OntologyRepository ontologyRepository;
 
 	private OntologyEntity ontologyEntity;
 
@@ -60,7 +56,6 @@ public class OntologyRepositoryTest extends AbstractTestNGSpringContextTests
 	@Test
 	public void testGetOntology()
 	{
-
 		when(dataService
 				.findOne(ONTOLOGY, new QueryImpl<OntologyEntity>().eq(ONTOLOGY_IRI, "http://www.ontology.com/test"),
 						OntologyEntity.class)).thenReturn(ontologyEntity);
@@ -81,12 +76,6 @@ public class OntologyRepositoryTest extends AbstractTestNGSpringContextTests
 		public OntologyRepository ontologyRepository()
 		{
 			return new OntologyRepository();
-		}
-
-		@Bean
-		public OntologyMetaData ontologyMetaData()
-		{
-			return mock(OntologyMetaData.class);
 		}
 	}
 }

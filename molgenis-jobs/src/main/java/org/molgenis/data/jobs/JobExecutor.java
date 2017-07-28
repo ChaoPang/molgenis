@@ -7,6 +7,8 @@ import org.molgenis.data.EntityManager;
 import org.molgenis.data.jobs.model.JobExecution;
 import org.molgenis.data.jobs.model.ScheduledJob;
 import org.molgenis.security.core.runas.RunAsSystem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.beans.PropertyAccessorFactory;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.lang.reflect.Type;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
 import static java.util.Objects.requireNonNull;
@@ -33,31 +36,31 @@ public class JobExecutor
 	private static final Type MAP_TOKEN = new TypeToken<Map<String, Object>>()
 	{
 	}.getType();
+	private static final Logger LOG = LoggerFactory.getLogger(JobExecutor.class);
 
 	private final DataService dataService;
 	private final EntityManager entityManager;
-	private final Gson gson;
 	private final JobExecutionTemplate jobExecutionTemplate = new JobExecutionTemplate();
 	private final JobExecutionUpdater jobExecutionUpdater;
 	private final MailSender mailSender;
 	private final UserDetailsService userDetailsService;
 	private final ExecutorService executorService;
 	private final JobFactoryRegistry jobFactoryRegistry;
+	private final Gson gson;
 
 	@Autowired
-	public JobExecutor(DataService dataService, EntityManager entityManager, Gson gson,
-			UserDetailsService userDetailsService,
+	public JobExecutor(DataService dataService, EntityManager entityManager, UserDetailsService userDetailsService,
 			JobExecutionUpdater jobExecutionUpdater, MailSender mailSender, ExecutorService executorService,
 			JobFactoryRegistry jobFactoryRegistry)
 	{
 		this.dataService = requireNonNull(dataService);
 		this.entityManager = requireNonNull(entityManager);
-		this.gson = requireNonNull(gson);
 		this.userDetailsService = requireNonNull(userDetailsService);
 		this.jobExecutionUpdater = requireNonNull(jobExecutionUpdater);
 		this.mailSender = requireNonNull(mailSender);
 		this.executorService = requireNonNull(executorService);
 		this.jobFactoryRegistry = jobFactoryRegistry;
+		this.gson = new Gson();
 	}
 
 	/**
@@ -76,8 +79,8 @@ public class JobExecutor
 
 	private JobExecution createJobExecution(ScheduledJob scheduledJob)
 	{
-		JobExecution jobExecution = (JobExecution) entityManager
-				.create(scheduledJob.getType().getJobExecutionType(), POPULATE);
+		JobExecution jobExecution = (JobExecution) entityManager.create(scheduledJob.getType().getJobExecutionType(),
+				POPULATE);
 		writePropertyValues(jobExecution, getPropertyValues(scheduledJob.getParameters()));
 		jobExecution.setFailureEmail(scheduledJob.getFailureEmail());
 		jobExecution.setSuccessEmail(scheduledJob.getSuccessEmail());
@@ -92,18 +95,41 @@ public class JobExecutor
 	 * @param jobExecution the {@link JobExecution} to save and submit.
 	 */
 	@RunAsSystem
-	public void submit(JobExecution jobExecution)
+	public CompletableFuture<Void> submit(JobExecution jobExecution)
+	{
+		return submit(jobExecution, executorService);
+	}
+
+	/**
+	 * Saves execution in the current thread, then creates a Job and submits that for asynchronous execution to a
+	 * specific ExecutorService.
+	 *
+	 * @param jobExecution    the {@link JobExecution} to save and submit.
+	 * @param executorService the ExecutorService to run the submitted job on
+	 */
+	@RunAsSystem
+	public CompletableFuture<Void> submit(JobExecution jobExecution, ExecutorService executorService)
 	{
 		Job molgenisJob = saveExecutionAndCreateJob(jobExecution);
-		executorService.submit(() -> runJob(jobExecution, molgenisJob));
+		return CompletableFuture.runAsync(() -> runJob(jobExecution, molgenisJob), executorService);
 	}
 
 	private Job saveExecutionAndCreateJob(JobExecution jobExecution)
 	{
 		String entityTypeId = jobExecution.getEntityType().getId();
 		dataService.add(entityTypeId, jobExecution);
-		JobFactory jobFactory = jobFactoryRegistry.getJobFactory(jobExecution);
-		return jobFactory.createJob(jobExecution);
+		try
+		{
+			JobFactory jobFactory = jobFactoryRegistry.getJobFactory(jobExecution);
+			return jobFactory.createJob(jobExecution);
+		}
+		catch (RuntimeException ex)
+		{
+			LOG.error("Error creating job for JobExecution.", ex);
+			jobExecution.setStatus(JobExecution.Status.FAILED);
+			dataService.update(entityTypeId, jobExecution);
+			throw ex;
+		}
 	}
 
 	private void runJob(JobExecution jobExecution, Job<?> molgenisJob)

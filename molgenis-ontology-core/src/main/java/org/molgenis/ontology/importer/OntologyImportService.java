@@ -7,9 +7,9 @@ import org.molgenis.data.importer.EntitiesValidationReportImpl;
 import org.molgenis.data.importer.EntityImportReport;
 import org.molgenis.data.importer.ImportService;
 import org.molgenis.data.meta.MetaDataService;
-import org.molgenis.data.support.GenericImporterExtensions;
 import org.molgenis.data.support.QueryImpl;
 import org.molgenis.ontology.core.meta.OntologyMetaData;
+import org.molgenis.ontology.importer.repository.OntologyFileExtensions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -17,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
@@ -40,8 +39,7 @@ public class OntologyImportService implements ImportService
 
 	@Override
 	@Transactional
-	public EntityImportReport doImport(RepositoryCollection source, DatabaseAction databaseAction,
-			String packageId)
+	public EntityImportReport doImport(RepositoryCollection source, DatabaseAction databaseAction, String packageId)
 	{
 		if (databaseAction != DatabaseAction.ADD)
 		{
@@ -82,17 +80,16 @@ public class OntologyImportService implements ImportService
 			String ontologyName = ontologyEntity.getString(OntologyMetaData.ONTOLOGY_NAME);
 
 			Entity ontologyQueryEntity = dataService.findOne(ONTOLOGY,
-					new QueryImpl<Entity>().eq(OntologyMetaData.ONTOLOGY_IRI, ontologyIRI).or()
-							.eq(OntologyMetaData.ONTOLOGY_NAME, ontologyName));
+					new QueryImpl<>().eq(OntologyMetaData.ONTOLOGY_IRI, ontologyIRI)
+									 .or()
+									 .eq(OntologyMetaData.ONTOLOGY_NAME, ontologyName));
 			ontologyExists = ontologyQueryEntity != null;
 		}
 
 		if (ontologyExists) throw new MolgenisDataException("The ontology you are trying to import already exists");
 
-		Iterator<String> it = source.getEntityTypeIds().iterator();
-		while (it.hasNext())
+		for (String entityTypeId : source.getEntityTypeIds())
 		{
-			String entityTypeId = it.next();
 			report.getSheetsImportable().put(entityTypeId, !ontologyExists);
 		}
 		return report;
@@ -101,7 +98,7 @@ public class OntologyImportService implements ImportService
 	@Override
 	public boolean canImport(File file, RepositoryCollection source)
 	{
-		for (String extension : GenericImporterExtensions.getOntology())
+		for (String extension : OntologyFileExtensions.getOntology())
 		{
 			if (file.getName().toLowerCase().endsWith(extension))
 			{
@@ -133,7 +130,7 @@ public class OntologyImportService implements ImportService
 	@Override
 	public Set<String> getSupportedFileExtensions()
 	{
-		return GenericImporterExtensions.getOntology();
+		return OntologyFileExtensions.getOntology();
 	}
 
 	@Override

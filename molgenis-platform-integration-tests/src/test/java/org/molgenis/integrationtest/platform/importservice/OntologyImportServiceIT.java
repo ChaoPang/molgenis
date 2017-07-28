@@ -71,7 +71,7 @@ public class OntologyImportServiceIT extends ImportServiceIT
 				emptySet());
 
 		// Verify the import as system as we need write permissions on sys tables to carry out the verification
-		RunAsSystemProxy.runAsSystem(() -> verifyOboAsSystem());
+		RunAsSystemProxy.runAsSystem(this::verifyOboAsSystem);
 	}
 
 	private void verifyOboAsSystem()
@@ -127,15 +127,15 @@ public class OntologyImportServiceIT extends ImportServiceIT
 				emptySet());
 
 		// Verify the import as system as we need write permissions on sys tables to carry out the verification
-		RunAsSystemProxy.runAsSystem(() -> verifyOwlAsSystem());
+		RunAsSystemProxy.runAsSystem(this::verifyOwlAsSystem);
 	}
 
 	private void verifyOwlAsSystem()
 	{
 		// Verify two imported rows (organization and team, as these are interesting examples)
 		List<Entity> entities = dataService.findAll("sys_ont_OntologyTerm").collect(Collectors.toList());
-		Optional<Entity> organizationOpt = entities.stream()
-				.filter(e -> e.getString("ontologyTermName").equals("organization")).findFirst();
+		Optional<Entity> organizationOpt = entities.stream().
+				filter(e -> e.getString("ontologyTermName").equals("organization")).findFirst();
 		assertTrue(organizationOpt.isPresent());
 		Entity organization = organizationOpt.get();
 
@@ -170,6 +170,7 @@ public class OntologyImportServiceIT extends ImportServiceIT
 		List<Entity> dynamicAnnotations = new ArrayList<>();
 		dynamicAnnotationItr.forEach(dynamicAnnotations::add);
 		assertEquals(dynamicAnnotations.size(), 2);
+
 		Entity annotationOne = dataService
 				.findOneById("sys_ont_OntologyTermDynamicAnnotation", dynamicAnnotations.get(0).getIdValue());
 		assertEquals(annotationOne.getString("label"), "friday:2412423");

@@ -1,5 +1,6 @@
 package org.molgenis.data.excel;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.util.LocaleUtil;
 import org.molgenis.data.MolgenisDataException;
@@ -123,7 +124,7 @@ public class ExcelUtils
 		try (FileInputStream fis = new FileInputStream(file); Workbook workbook = WorkbookFactory.create(fis))
 		{
 			workbook.setSheetName(index, newSheetname);
-				workbook.write(new FileOutputStream(file));
+			workbook.write(new FileOutputStream(file));
 
 		}
 		catch (Exception e)
@@ -135,6 +136,7 @@ public class ExcelUtils
 
 	public static int getNumberOfSheets(File file)
 	{
+		if (!isExcelFile(file.getName())) return -1;
 		try (FileInputStream fis = new FileInputStream(file); Workbook workbook = WorkbookFactory.create(fis))
 		{
 			return workbook.getNumberOfSheets();
@@ -144,6 +146,17 @@ public class ExcelUtils
 			throw new MolgenisDataException(e);
 		}
 	}
+
+	public static boolean isExcelFile(String filename)
+	{
+		String extension = FilenameUtils.getExtension(filename);
+		if (ExcelFileExtensions.getExcel().contains(extension))
+		{
+			return true;
+		}
+		return false;
+	}
+
 	/**
 	 * Formats parsed Date as LocalDateTime string at zone UTC to express that we don't know the timezone.
 	 *

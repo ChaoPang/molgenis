@@ -6,12 +6,11 @@ import org.molgenis.data.AbstractMolgenisSpringTest;
 import org.molgenis.data.DataService;
 import org.molgenis.data.UnknownEntityException;
 import org.molgenis.data.jobs.config.JobTestConfig;
-import org.molgenis.data.jobs.model.ScheduledJobType;
 import org.molgenis.data.jobs.model.ScheduledJob;
 import org.molgenis.data.jobs.model.ScheduledJobFactory;
 import org.molgenis.data.jobs.model.ScheduledJobMetadata;
+import org.molgenis.data.jobs.model.ScheduledJobType;
 import org.molgenis.data.validation.MolgenisValidationException;
-import org.molgenis.util.GsonConfig;
 import org.quartz.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -21,7 +20,6 @@ import org.springframework.test.context.ContextConfiguration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.*;
 import static org.mockito.MockitoAnnotations.initMocks;
 import static org.molgenis.data.jobs.model.ScheduledJobMetadata.SCHEDULED_JOB;
@@ -167,7 +165,7 @@ public class JobSchedulerTest extends AbstractMolgenisSpringTest
 	}
 
 	@Configuration
-	@Import({ SecurityPackage.class, JobTestConfig.class, GsonConfig.class })
+	@Import({ SecurityPackage.class, JobTestConfig.class })
 	public static class Config
 	{
 		@Autowired

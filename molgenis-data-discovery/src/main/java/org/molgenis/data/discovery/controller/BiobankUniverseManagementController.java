@@ -21,8 +21,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
-import javax.servlet.http.Part;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -81,8 +81,8 @@ public class BiobankUniverseManagementController extends MolgenisPluginControlle
 
 	@RequestMapping(value = "/importSample", method = RequestMethod.POST, headers = "Content-Type=multipart/form-data")
 	public String importSample(@RequestParam("sampleName") String sampleName,
-			@RequestParam(value = "file", required = true) Part file, @RequestParam("separator") Character separator,
-			Model model) throws IOException
+			@RequestParam(value = "file", required = true) MultipartFile file,
+			@RequestParam("separator") Character separator, Model model) throws IOException
 	{
 		if (StringUtils.isNotEmpty(sampleName) && file != null)
 		{

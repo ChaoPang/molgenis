@@ -11,7 +11,7 @@ import org.molgenis.data.meta.MetaDataService;
 import org.molgenis.data.meta.model.Attribute;
 import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.meta.model.Package;
-import org.molgenis.data.support.GenericImporterExtensions;
+import org.molgenis.data.vcf.VcfFileExtensions;
 import org.molgenis.data.vcf.model.VcfAttributes;
 import org.molgenis.security.permission.PermissionSystemService;
 import org.slf4j.Logger;
@@ -126,7 +126,7 @@ public class VcfImporterService implements ImportService
 	@Override
 	public boolean canImport(File file, RepositoryCollection source)
 	{
-		for (String extension : GenericImporterExtensions.getVCF())
+		for (String extension : getSupportedFileExtensions())
 		{
 			if (file.getName().toLowerCase().endsWith(extension))
 			{
@@ -189,10 +189,9 @@ public class VcfImporterService implements ImportService
 					Iterable<Entity> samples = entity.getEntities(VcfAttributes.SAMPLES);
 					if (samples != null)
 					{
-						Iterator<Entity> sampleIterator = samples.iterator();
-						while (sampleIterator.hasNext())
+						for (Entity sample : samples)
 						{
-							sampleEntities.add(sampleIterator.next());
+							sampleEntities.add(sample);
 
 							if (sampleEntities.size() == BATCH_SIZE)
 							{
@@ -256,7 +255,7 @@ public class VcfImporterService implements ImportService
 	@Override
 	public Set<String> getSupportedFileExtensions()
 	{
-		return GenericImporterExtensions.getVCF();
+		return VcfFileExtensions.getVCF();
 	}
 
 	@Override

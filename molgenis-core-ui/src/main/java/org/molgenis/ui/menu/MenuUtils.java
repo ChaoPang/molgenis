@@ -1,6 +1,6 @@
 package org.molgenis.ui.menu;
 
-import org.elasticsearch.common.collect.Lists;
+import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Stack;
@@ -39,7 +39,7 @@ public class MenuUtils
 	 */
 	public static String findMenuItemPath(String id, Menu menu)
 	{
-		Stack<MenuItem> path = new Stack<MenuItem>();
+		Stack<MenuItem> path = new Stack<>();
 		MenuItem menuItem = findMenuItemPathRec(id, menu, path);
 		if (menuItem != null)
 		{

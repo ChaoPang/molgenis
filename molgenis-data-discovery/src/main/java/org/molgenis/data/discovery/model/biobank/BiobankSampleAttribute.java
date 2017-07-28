@@ -1,11 +1,11 @@
 package org.molgenis.data.discovery.model.biobank;
 
 import com.google.auto.value.AutoValue;
-import edu.umd.cs.findbugs.annotations.Nullable;
 import org.molgenis.data.discovery.meta.biobank.BiobankSampleAttributeMetaData.BiobankAttributeDataType;
 import org.molgenis.data.discovery.model.matching.IdentifiableTagGroup;
 import org.molgenis.gson.AutoGson;
 
+import javax.annotation.Nullable;
 import java.util.List;
 
 @AutoValue

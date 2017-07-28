@@ -83,7 +83,7 @@ public class OntologyTermFrequencyServiceImpl implements TermFrequencyService
 		// Remove all the existing term frequency records
 		dataService.deleteAll(TermFrequencyMetaData.TERM_FREQUENCY);
 
-		List<Entity> entitiesToAdd = new ArrayList<Entity>();
+		List<Entity> entitiesToAdd = new ArrayList<>();
 		// Create new term frequency records
 		dataService.findAll(OntologyTermSynonymMetaData.ONTOLOGY_TERM_SYNONYM).forEach(entity ->
 		{

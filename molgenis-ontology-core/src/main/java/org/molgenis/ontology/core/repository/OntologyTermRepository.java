@@ -136,7 +136,7 @@ public class OntologyTermRepository
 	 */
 	public List<OntologyTerm> findOntologyTerms(List<String> ontologyIds, Set<String> terms, int pageSize)
 	{
-		List<QueryRule> rules = new ArrayList<QueryRule>();
+		List<QueryRule> rules = new ArrayList<>();
 		for (String term : terms)
 		{
 			if (rules.size() > 0)

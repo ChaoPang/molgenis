@@ -53,7 +53,7 @@ public class AppRepositoryDecoratorTest extends AbstractMockitoTest
 	@Test
 	public void testAddInactiveNoResourceZip()
 	{
-		App app = getMockApp("id",false);
+		App app = getMockApp("id", false);
 		appRepositoryDecorator.add(app);
 		verify(appRepository).add(app);
 	}
@@ -61,7 +61,7 @@ public class AppRepositoryDecoratorTest extends AbstractMockitoTest
 	@Test
 	public void testAddActiveNoResourceZip()
 	{
-		App app = getMockApp("id",true);
+		App app = getMockApp("id", true);
 		appRepositoryDecorator.add(app);
 		verify(appRepository).add(app);
 	}
@@ -104,7 +104,8 @@ public class AppRepositoryDecoratorTest extends AbstractMockitoTest
 		App app4 = getMockApp("id4", false);
 		appRepositoryDecorator.add(Stream.of(app0, app1, app2, app3, app4));
 
-		ArgumentCaptor<Stream<App>> captor = ArgumentCaptor.forClass((Class) Stream.class);
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<Stream<App>> captor = ArgumentCaptor.forClass(Stream.class);
 		verify(appRepository).add(captor.capture());
 		assertEquals(captor.getValue().collect(toList()), asList(app0, app1, app2, app3, app4));
 
@@ -162,7 +163,8 @@ public class AppRepositoryDecoratorTest extends AbstractMockitoTest
 		App app = getMockApp("id", true, "app-valid-update.zip");
 		when(appRepository.findOneById("id")).thenReturn(existingApp);
 		appRepositoryDecorator.update(Stream.of(app));
-		ArgumentCaptor<Stream<App>> captor = ArgumentCaptor.forClass((Class) Stream.class);
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<Stream<App>> captor = ArgumentCaptor.forClass(Stream.class);
 		verify(appRepository).update(captor.capture());
 		assertEquals(captor.getValue().collect(toList()), singletonList(app));
 		verify(fileStore).deleteDirectory(anyString());
@@ -194,7 +196,8 @@ public class AppRepositoryDecoratorTest extends AbstractMockitoTest
 		App app2 = getMockApp("id2", true, "app-valid-update.zip");
 		appRepositoryDecorator.delete(Stream.of(app0, app1, app2));
 
-		ArgumentCaptor<Stream<App>> captor = ArgumentCaptor.forClass((Class) Stream.class);
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<Stream<App>> captor = ArgumentCaptor.forClass(Stream.class);
 		verify(appRepository).delete(captor.capture());
 		assertEquals(captor.getValue().collect(toList()), asList(app0, app1, app2));
 
@@ -221,6 +224,7 @@ public class AppRepositoryDecoratorTest extends AbstractMockitoTest
 		when(app.getId()).thenReturn(id);
 		when(app.getName()).thenReturn(APP_NAME);
 		when(app.isActive()).thenReturn(isActive);
+		when(app.getUseFreemarkerTemplate()).thenReturn(true);
 		if (resourceFilename != null)
 		{
 			FileMeta fileMeta = mock(FileMeta.class);
@@ -228,6 +232,7 @@ public class AppRepositoryDecoratorTest extends AbstractMockitoTest
 			when(fileMeta.getFilename()).thenReturn(resourceFilename);
 			when(app.getSourceFiles()).thenReturn(fileMeta);
 			when(fileStore.getFile(resourceFilename)).thenReturn(getFile(getClass(), '/' + resourceFilename));
+			when(fileStore.getStorageDir()).thenReturn("target/generated-test-resources");
 		}
 		return app;
 	}

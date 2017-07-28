@@ -35,7 +35,7 @@ public class TabixRepository extends AbstractRepository
 	/**
 	 * Creates a new {@link TabixRepository}
 	 *
-	 * @param file           the Tabix file
+	 * @param file       the Tabix file
 	 * @param entityType {@link EntityType} for the tabix file. Attributes should be in the order of the file's columns
 	 * @throws IOException if something goes wrong creating the {@link TabixReader} for the file
 	 */
@@ -83,14 +83,14 @@ public class TabixRepository extends AbstractRepository
 	{
 		Object posValue = getFirstEqualsValueFor(positionAttributeName, q);
 		Object chromValue = getFirstEqualsValueFor(chromosomeAttributeName, q);
-		List<Entity> result = new ArrayList<Entity>();
+		List<Entity> result = new ArrayList<>();
 
 		// if one of both required attributes is null, skip the query and return an empty list
 		if (posValue != null && chromValue != null)
 		{
 			int posIntValue = Integer.parseInt(posValue.toString());
 			String chromStringValue = chromValue.toString();
-			result = query(chromStringValue, Integer.valueOf(posIntValue));
+			result = query(chromStringValue, posIntValue);
 		}
 		return result.stream();
 	}
@@ -106,11 +106,11 @@ public class TabixRepository extends AbstractRepository
 	{
 		String queryString = String.format("%s:%s-%2$s", chrom, pos);
 		LOG.debug("query({})", queryString);
-		Builder<Entity> builder = ImmutableList.<Entity>builder();
+		Builder<Entity> builder = ImmutableList.builder();
 		try
 		{
-			org.molgenis.data.annotation.core.resources.impl.tabix.TabixReader.Iterator iterator = reader
-					.query(queryString);
+			org.molgenis.data.annotation.core.resources.impl.tabix.TabixReader.Iterator iterator = reader.query(
+					queryString);
 			if (iterator != null)
 			{
 				String line = iterator.next();

@@ -92,6 +92,7 @@ public class SortaServiceImpl implements SortaService
 		List<QueryRule> rulesForOntologyTermFieldsNGram = new ArrayList<>();
 
 		for (String attributeName : sortaInput.getLexicalMatchAttributes())
+
 		{
 			String attributeValue = sortaInput.getValue(attributeName);
 			if (isNotBlank(attributeValue))
@@ -105,6 +106,7 @@ public class SortaServiceImpl implements SortaService
 		}
 
 		for (String attributeName : sortaInput.getAnnotationMatchAttributes())
+
 		{
 			String attributeValue = sortaInput.getValue(attributeName);
 			if (isNotBlank(attributeValue))
@@ -226,6 +228,7 @@ public class SortaServiceImpl implements SortaService
 	 * @param ontologyTerm
 	 * @return
 	 */
+
 	private SortaHit calculateNGromOTAnnotations(SortaInput sortaInput, OntologyTerm ontologyTerm)
 	{
 		for (String attributeName : sortaInput.getAnnotationMatchAttributes())

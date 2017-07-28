@@ -7,13 +7,11 @@ import org.molgenis.data.AbstractMolgenisSpringTest;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityManager;
-import org.molgenis.data.config.UserTestConfig;
 import org.molgenis.data.jobs.config.JobTestConfig;
 import org.molgenis.data.jobs.model.JobExecution;
 import org.molgenis.data.jobs.model.ScheduledJob;
 import org.molgenis.data.jobs.model.ScheduledJobType;
 import org.molgenis.data.meta.model.EntityType;
-import org.molgenis.util.GsonConfig;
 import org.quartz.JobExecutionContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -35,6 +33,7 @@ import java.util.concurrent.ExecutorService;
 
 import static org.mockito.Mockito.*;
 import static org.mockito.MockitoAnnotations.initMocks;
+import static org.molgenis.data.jobs.model.JobExecution.Status.FAILED;
 import static org.molgenis.data.jobs.model.ScheduledJobMetadata.SCHEDULED_JOB;
 
 @ContextConfiguration(classes = { JobExecutorTest.Config.class, JobExecutor.class, JobTestConfig.class })
@@ -117,8 +116,8 @@ public class JobExecutorTest extends AbstractMolgenisSpringTest
 	@Test
 	public void executeScheduledJob() throws Exception
 	{
-		when(dataService.findOneById(SCHEDULED_JOB, "aaaacw67ejuwq7wron3yjriaae", ScheduledJob.class))
-				.thenReturn(scheduledJob);
+		when(dataService.findOneById(SCHEDULED_JOB, "aaaacw67ejuwq7wron3yjriaae", ScheduledJob.class)).thenReturn(
+				scheduledJob);
 		when(entityManager.create(jobExecutionType, EntityManager.CreationMode.POPULATE)).thenReturn(jobExecution);
 
 		when(jobFactory.createJob(jobExecution)).thenReturn(job);
@@ -165,10 +164,32 @@ public class JobExecutorTest extends AbstractMolgenisSpringTest
 		jobExecutor.submit(jobExecution);
 
 		verify(dataService).add("sys_FileIngestJobExecution", jobExecution);
-		verify(executorService).submit(jobCaptor.capture());
+		verify(executorService).execute(jobCaptor.capture());
 
 		jobCaptor.getValue().run();
 		verify(job).call(any(Progress.class));
+	}
+
+	@Test
+	public void submitJobExecutionJobFactoryThrowsException() throws Exception
+	{
+		when(jobExecution.getEntityType()).thenReturn(jobExecutionType);
+		when(jobExecutionType.getId()).thenReturn("sys_FileIngestJobExecution");
+		when(jobExecution.getUser()).thenReturn("fjant");
+
+		when(jobFactory.createJob(jobExecution)).thenThrow(new NullPointerException());
+
+		try
+		{
+			jobExecutor.submit(jobExecution);
+		}
+		catch (NullPointerException expected)
+		{
+		}
+
+		verify(dataService).add("sys_FileIngestJobExecution", jobExecution);
+		verify(jobExecution).setStatus(FAILED);
+		verify(dataService).update("sys_FileIngestJobExecution", jobExecution);
 	}
 
 	public static class TestJobExecution extends JobExecution
@@ -203,7 +224,7 @@ public class JobExecutorTest extends AbstractMolgenisSpringTest
 	}
 
 	@Configuration
-	@Import({ UserTestConfig.class, JobTestConfig.class, GsonConfig.class })
+	@Import({ JobTestConfig.class })
 	public static class Config
 	{
 		public Config()

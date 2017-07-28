@@ -12,10 +12,11 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.Mockito.*;
-import static org.molgenis.security.core.runas.SystemSecurityToken.USER_SYSTEM;
+import static org.molgenis.security.core.runas.SystemSecurityToken.ROLE_SYSTEM;
 import static org.molgenis.security.core.utils.SecurityUtils.*;
 import static org.testng.Assert.*;
 
@@ -40,17 +41,17 @@ public class SecurityUtilsTest
 		reset(authentication);
 
 		GrantedAuthority authority1 = when(mock(GrantedAuthority.class).getAuthority()).thenReturn("authority1")
-				.getMock();
+																					   .getMock();
 		GrantedAuthority authority2 = when(mock(GrantedAuthority.class).getAuthority()).thenReturn("authority2")
-				.getMock();
+																					   .getMock();
 		userDetails = mock(UserDetails.class);
 		when(userDetails.getUsername()).thenReturn("username");
 		when(userDetails.getPassword()).thenReturn("encoded-password");
-		when((Collection<GrantedAuthority>) userDetails.getAuthorities())
-				.thenReturn(Arrays.<GrantedAuthority>asList(authority1, authority2));
+		when((Collection<GrantedAuthority>) userDetails.getAuthorities()).thenReturn(
+				Arrays.asList(authority1, authority2));
 		when(authentication.getPrincipal()).thenReturn(userDetails);
-		when((Collection<GrantedAuthority>) authentication.getAuthorities())
-				.thenReturn(Arrays.<GrantedAuthority>asList(authority1, authority2));
+		when((Collection<GrantedAuthority>) authentication.getAuthorities()).thenReturn(
+				Arrays.asList(authority1, authority2));
 	}
 
 	@AfterClass
@@ -73,11 +74,15 @@ public class SecurityUtilsTest
 		assertFalse(SecurityUtils.currentUserIsAuthenticated());
 	}
 
+	@SuppressWarnings("unchecked")
 	@Test
 	public void currentUserIsAuthenticated_falseAnonymous()
 	{
-		when(userDetails.getUsername()).thenReturn(ANONYMOUS_USERNAME);
 		when(authentication.isAuthenticated()).thenReturn(true);
+		GrantedAuthority authoritySu = when(mock(GrantedAuthority.class).getAuthority()).thenReturn(AUTHORITY_ANONYMOUS)
+																						.getMock();
+		when((Collection<GrantedAuthority>) authentication.getAuthorities()).thenReturn(
+				Collections.singletonList(authoritySu));
 		assertFalse(SecurityUtils.currentUserIsAuthenticated());
 	}
 
@@ -93,18 +98,22 @@ public class SecurityUtilsTest
 	public void currentUserIsSu_true()
 	{
 		GrantedAuthority authoritySu = when(mock(GrantedAuthority.class).getAuthority()).thenReturn(AUTHORITY_SU)
-				.getMock();
-		when((Collection<GrantedAuthority>) authentication.getAuthorities())
-				.thenReturn(Arrays.<GrantedAuthority>asList(authoritySu));
+																						.getMock();
+		when((Collection<GrantedAuthority>) authentication.getAuthorities()).thenReturn(
+				Collections.singletonList(authoritySu));
 		assertTrue(SecurityUtils.currentUserIsSu());
 		assertTrue(SecurityUtils.currentUserIsSuOrSystem());
 	}
 
+	@SuppressWarnings("unchecked")
 	@Test
 	public void currentUserIsSystemTrue() throws Exception
 	{
-		when(userDetails.getUsername()).thenReturn(USER_SYSTEM);
-		assertTrue(SecurityUtils.currentUserisSystem());
+		GrantedAuthority authoritySystem = when(mock(GrantedAuthority.class).getAuthority()).thenReturn(ROLE_SYSTEM)
+																							.getMock();
+		when((Collection<GrantedAuthority>) authentication.getAuthorities()).thenReturn(
+				Collections.singletonList(authoritySystem));
+		assertTrue(SecurityUtils.currentUserIsSystem());
 		assertTrue(SecurityUtils.currentUserIsSuOrSystem());
 	}
 
@@ -112,7 +121,7 @@ public class SecurityUtilsTest
 	public void currentUserIsSystemFalse() throws Exception
 	{
 		when(userDetails.getUsername()).thenReturn("user");
-		assertFalse(SecurityUtils.currentUserisSystem());
+		assertFalse(SecurityUtils.currentUserIsSystem());
 		assertFalse(SecurityUtils.currentUserIsSuOrSystem());
 	}
 
@@ -145,9 +154,8 @@ public class SecurityUtilsTest
 	public void getEntityAuthorities()
 	{
 		List<String> authorities = SecurityUtils.getEntityAuthorities("test");
-		List<String> expected = Arrays
-				.asList("ROLE_ENTITY_READ_test", "ROLE_ENTITY_WRITE_test", "ROLE_ENTITY_COUNT_test",
-						"ROLE_ENTITY_NONE_test", "ROLE_ENTITY_WRITEMETA_test");
+		List<String> expected = Arrays.asList("ROLE_ENTITY_READ_test", "ROLE_ENTITY_WRITE_test",
+				"ROLE_ENTITY_COUNT_test", "ROLE_ENTITY_NONE_test", "ROLE_ENTITY_WRITEMETA_test");
 
 		Assert.assertEqualsNoOrder(authorities.toArray(), expected.toArray());
 	}

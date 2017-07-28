@@ -61,7 +61,8 @@ public class MolgenisAnonymousAuthenticationFilter extends GenericFilterBean imp
 	@Override
 	public void afterPropertiesSet()
 	{
-		Assert.hasLength(key);
+		Assert.hasLength(key,
+				"[Assertion failed] - this String argument must have length; it must not be null or empty");
 		Assert.notNull(principal, "Anonymous authentication principal must be set");
 		Assert.notNull(userDetailsService, "User details service must be set");
 	}
@@ -77,7 +78,8 @@ public class MolgenisAnonymousAuthenticationFilter extends GenericFilterBean imp
 			if (LOG.isDebugEnabled())
 			{
 				LOG.debug("Populated SecurityContextHolder with anonymous token: '" + SecurityContextHolder.getContext()
-						.getAuthentication() + "'");
+																										   .getAuthentication()
+						+ "'");
 			}
 		}
 		else

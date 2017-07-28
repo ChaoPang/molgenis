@@ -1,9 +1,11 @@
 package org.molgenis.ui.admin.permission;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import org.molgenis.auth.*;
+import org.molgenis.auth.GroupAuthority;
+import org.molgenis.auth.GroupAuthorityFactory;
+import org.molgenis.auth.UserAuthority;
+import org.molgenis.auth.UserAuthorityFactory;
 import org.molgenis.framework.ui.MolgenisPlugin;
 import org.molgenis.security.core.Permission;
 import org.molgenis.security.core.utils.SecurityUtils;
@@ -52,15 +54,11 @@ public class PermissionManagerController extends MolgenisPluginController
 	@RequestMapping(method = RequestMethod.GET)
 	public String init(Model model)
 	{
-		model.addAttribute("users", Lists.newArrayList(
-				Iterables.filter(pluginPermissionManagerService.getUsers(), new Predicate<User>()
+		model.addAttribute("users",
+				Lists.newArrayList(Iterables.filter(pluginPermissionManagerService.getUsers(), user ->
 				{
-					@Override
-					public boolean apply(User user)
-					{
-						Boolean superuser = user.isSuperuser();
-						return superuser == null || !superuser;
-					}
+					Boolean superuser = user.isSuperuser();
+					return superuser == null || !superuser;
 				})));
 		model.addAttribute("groups", pluginPermissionManagerService.getGroups());
 		return "view-permissionmanager";
@@ -98,16 +96,15 @@ public class PermissionManagerController extends MolgenisPluginController
 	@ResponseStatus(HttpStatus.OK)
 	public void updateGroupPluginPermissions(@RequestParam String groupId, WebRequest webRequest)
 	{
-		List<GroupAuthority> authorities = new ArrayList<GroupAuthority>();
+		List<GroupAuthority> authorities = new ArrayList<>();
 		for (MolgenisPlugin plugin : pluginPermissionManagerService.getPlugins())
 		{
 			String param = "radio-" + plugin.getId();
 			String value = webRequest.getParameter(param);
 
-			if (value.equalsIgnoreCase(Permission.READ.toString()) || value
-					.equalsIgnoreCase(Permission.COUNT.toString()) || value
-					.equalsIgnoreCase(Permission.WRITE.toString()) || value
-					.equalsIgnoreCase(Permission.WRITEMETA.toString()))
+			if (value.equalsIgnoreCase(Permission.READ.toString()) || value.equalsIgnoreCase(
+					Permission.COUNT.toString()) || value.equalsIgnoreCase(Permission.WRITE.toString())
+					|| value.equalsIgnoreCase(Permission.WRITEMETA.toString()))
 			{
 				GroupAuthority authority = groupAuthorityFactory.create();
 				authority.setRole(SecurityUtils.AUTHORITY_PLUGIN_PREFIX + value.toUpperCase() + "_" + plugin.getId());
@@ -121,15 +118,14 @@ public class PermissionManagerController extends MolgenisPluginController
 	@ResponseStatus(HttpStatus.OK)
 	public void updateGroupEntityClassPermissions(@RequestParam String groupId, WebRequest webRequest)
 	{
-		List<GroupAuthority> authorities = new ArrayList<GroupAuthority>();
+		List<GroupAuthority> authorities = new ArrayList<>();
 		for (Object entityClassId : pluginPermissionManagerService.getEntityClassIds())
 		{
 			String param = "radio-" + entityClassId;
 			String value = webRequest.getParameter(param);
-			if (value.equalsIgnoreCase(Permission.READ.toString()) || value
-					.equalsIgnoreCase(Permission.COUNT.toString()) || value
-					.equalsIgnoreCase(Permission.WRITE.toString()) || value
-					.equalsIgnoreCase(Permission.WRITEMETA.toString()))
+			if (value.equalsIgnoreCase(Permission.READ.toString()) || value.equalsIgnoreCase(
+					Permission.COUNT.toString()) || value.equalsIgnoreCase(Permission.WRITE.toString())
+					|| value.equalsIgnoreCase(Permission.WRITEMETA.toString()))
 			{
 				GroupAuthority authority = groupAuthorityFactory.create();
 				authority.setRole(SecurityUtils.AUTHORITY_ENTITY_PREFIX + value.toUpperCase() + "_" + entityClassId);
@@ -143,15 +139,14 @@ public class PermissionManagerController extends MolgenisPluginController
 	@ResponseStatus(HttpStatus.OK)
 	public void updateUserPluginPermissions(@RequestParam String userId, WebRequest webRequest)
 	{
-		List<UserAuthority> authorities = new ArrayList<UserAuthority>();
+		List<UserAuthority> authorities = new ArrayList<>();
 		for (MolgenisPlugin plugin : pluginPermissionManagerService.getPlugins())
 		{
 			String param = "radio-" + plugin.getId();
 			String value = webRequest.getParameter(param);
-			if (value.equalsIgnoreCase(Permission.READ.toString()) || value
-					.equalsIgnoreCase(Permission.COUNT.toString()) || value
-					.equalsIgnoreCase(Permission.WRITE.toString()) || value
-					.equalsIgnoreCase(Permission.WRITEMETA.toString()))
+			if (value.equalsIgnoreCase(Permission.READ.toString()) || value.equalsIgnoreCase(
+					Permission.COUNT.toString()) || value.equalsIgnoreCase(Permission.WRITE.toString())
+					|| value.equalsIgnoreCase(Permission.WRITEMETA.toString()))
 			{
 				UserAuthority authority = userAuthorityFactory.create();
 				authority.setRole(SecurityUtils.AUTHORITY_PLUGIN_PREFIX + value.toUpperCase() + "_" + plugin.getId());
@@ -165,15 +160,14 @@ public class PermissionManagerController extends MolgenisPluginController
 	@ResponseStatus(HttpStatus.OK)
 	public void updateUserEntityClassPermissions(@RequestParam String userId, WebRequest webRequest)
 	{
-		List<UserAuthority> authorities = new ArrayList<UserAuthority>();
+		List<UserAuthority> authorities = new ArrayList<>();
 		for (Object entityClassId : pluginPermissionManagerService.getEntityClassIds())
 		{
 			String param = "radio-" + entityClassId;
 			String value = webRequest.getParameter(param);
-			if (value.equalsIgnoreCase(Permission.READ.toString()) || value
-					.equalsIgnoreCase(Permission.COUNT.toString()) || value
-					.equalsIgnoreCase(Permission.WRITE.toString()) || value
-					.equalsIgnoreCase(Permission.WRITEMETA.toString()))
+			if (value.equalsIgnoreCase(Permission.READ.toString()) || value.equalsIgnoreCase(
+					Permission.COUNT.toString()) || value.equalsIgnoreCase(Permission.WRITE.toString())
+					|| value.equalsIgnoreCase(Permission.WRITEMETA.toString()))
 			{
 				UserAuthority authority = userAuthorityFactory.create();
 				authority.setRole(SecurityUtils.AUTHORITY_ENTITY_PREFIX + value.toUpperCase() + "_" + entityClassId);

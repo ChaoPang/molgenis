@@ -1,10 +1,11 @@
 package org.molgenis.data.discovery.model.matching;
 
 import com.google.auto.value.AutoValue;
-import edu.umd.cs.findbugs.annotations.Nullable;
 import org.molgenis.data.discovery.meta.matching.AttributeMappingDecisionMetaData.DecisionOptions;
 import org.molgenis.data.discovery.model.biobank.BiobankUniverse;
 import org.molgenis.gson.AutoGson;
+
+import javax.annotation.Nullable;
 
 @AutoValue
 @AutoGson(autoValueClass = AutoValue_AttributeMappingDecision.class)

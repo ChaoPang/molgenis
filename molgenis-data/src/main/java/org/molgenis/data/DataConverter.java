@@ -1,5 +1,6 @@
 package org.molgenis.data;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.convert.StringToDateConverter;
 import org.molgenis.data.convert.StringToDateTimeConverter;
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
 
 import static java.util.stream.StreamSupport.stream;
 
-@edu.umd.cs.findbugs.annotations.SuppressWarnings(value = "NP_BOOLEAN_RETURN_NULL", justification = "We want to return Boolean.TRUE, Boolean.FALSE or null")
+@SuppressFBWarnings(value = "NP_BOOLEAN_RETURN_NULL", justification = "We want to return Boolean.TRUE, Boolean.FALSE or null")
 public class DataConverter
 {
 	private static ConversionService conversionService;
@@ -223,12 +224,11 @@ public class DataConverter
 		else if (source instanceof List) return (List<Object>) source;
 		else if (source instanceof String)
 		{
-			List<Object> result = new ArrayList<Object>();
-			for (String str : ((String) source).split(","))
-				result.add(str);
+			List<Object> result = new ArrayList<>();
+			result.addAll(Arrays.asList(((String) source).split(",")));
 			return result;
 		}
-		else return Arrays.asList(new Object[] { source });
+		else return Arrays.asList(source);
 	}
 
 	public static List<Integer> toIntList(Object source)
@@ -237,7 +237,7 @@ public class DataConverter
 		else if (source instanceof String)
 		{
 			List<String> stringList = ListEscapeUtils.toList((String) source);
-			List<Integer> intList = new ArrayList<Integer>();
+			List<Integer> intList = new ArrayList<>();
 			for (String s : stringList)
 			{
 				if (!StringUtils.isNumeric(s))
@@ -251,7 +251,7 @@ public class DataConverter
 		}
 		else if (source instanceof Iterable<?>)
 		{
-			ArrayList<Integer> intList = new ArrayList<Integer>();
+			ArrayList<Integer> intList = new ArrayList<>();
 			for (Object o : (Iterable<?>) source)
 			{
 				if (o instanceof Entity)
@@ -262,7 +262,7 @@ public class DataConverter
 			}
 			return intList;
 		}
-		else if (source instanceof Integer) return new ArrayList<Integer>(Arrays.asList((Integer) source));
+		else if (source instanceof Integer) return new ArrayList<>(Arrays.asList((Integer) source));
 		else return null;
 	}
 

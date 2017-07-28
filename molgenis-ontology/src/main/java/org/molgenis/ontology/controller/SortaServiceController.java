@@ -173,7 +173,7 @@ public class SortaServiceController extends MolgenisPluginController
 	}
 
 	@RequestMapping(method = POST, value = "/threshold/{sortaJobExecutionId}")
-	public String updateThreshold(@RequestParam(value = "threshold", required = true) String threshold,
+	public String updateThreshold(@RequestParam(value = "threshold") String threshold,
 			@PathVariable String sortaJobExecutionId, Model model)
 	{
 		if (!StringUtils.isEmpty(threshold))
@@ -245,10 +245,8 @@ public class SortaServiceController extends MolgenisPluginController
 			User currentUser = userAccountService.getCurrentUser();
 			if (currentUser.isSuperuser() || sortaJobExecution.getUser().equals(currentUser.getUsername()))
 			{
-				RunAsSystemProxy.runAsSystem(() ->
-				{
-					dataService.deleteById(SORTA_JOB_EXECUTION, sortaJobExecution.getIdentifier());
-				});
+				RunAsSystemProxy.runAsSystem(
+						() -> dataService.deleteById(SORTA_JOB_EXECUTION, sortaJobExecution.getIdentifier()));
 				tryDeleteRepository(sortaJobExecution.getResultEntityName());
 				tryDeleteRepository(sortaJobExecution.getSourceEntityName());
 			}
@@ -287,7 +285,7 @@ public class SortaServiceController extends MolgenisPluginController
 	public EntityCollectionResponse retrieveSortaJobResults(@RequestBody SortaServiceRequest sortaServiceRequest,
 			HttpServletRequest httpServletRequest)
 	{
-		List<Map<String, Object>> entityMaps = new ArrayList<Map<String, Object>>();
+		List<Map<String, Object>> entityMaps = new ArrayList<>();
 		String sortaJobExecutionId = sortaServiceRequest.getSortaJobExecutionId();
 		String filterQuery = sortaServiceRequest.getFilterQuery();
 		EntityPager entityPager = sortaServiceRequest.getEntityPager();
@@ -307,7 +305,7 @@ public class SortaServiceController extends MolgenisPluginController
 		if (isNotEmpty(filterQuery))
 		{
 			Iterable<String> filteredInputTermIds = dataService
-					.findAll(sortaJobExecution.getSourceEntityName(), new QueryImpl<Entity>().search(filterQuery))
+					.findAll(sortaJobExecution.getSourceEntityName(), new QueryImpl<>().search(filterQuery))
 					.map(inputEntity -> inputEntity.getString(SortaServiceImpl.DEFAULT_MATCHING_IDENTIFIER))
 					.collect(Collectors.toList());
 			QueryRule previousQueryRule = new QueryRule(queryRuleInputEntitiesInOneMatchingTask);
@@ -326,7 +324,7 @@ public class SortaServiceController extends MolgenisPluginController
 				query.offset(start).pageSize(num).sort(new Sort().on(VALIDATED, DESC).on(SCORE, DESC)));
 		findAll.forEach(mappingEntity ->
 		{
-			Map<String, Object> outputEntity = new HashMap<String, Object>();
+			Map<String, Object> outputEntity = new HashMap<>();
 			outputEntity.put("inputTerm", getEntityAsMap(mappingEntity.getEntity(INPUT_TERM)));
 			outputEntity.put("matchedTerm", getEntityAsMap(mappingEntity));
 			String matchedOntologyTermIri = mappingEntity.getString(MATCHED_TERM);
@@ -343,10 +341,10 @@ public class SortaServiceController extends MolgenisPluginController
 	}
 
 	@RequestMapping(method = POST, value = "/match")
-	public String match(@RequestParam(value = "taskName", required = true) String jobName,
-			@RequestParam(value = "selectOntologies", required = true) String ontologyIri,
-			@RequestParam(value = "inputTerms", required = true) String inputTerms, Model model,
-			HttpServletRequest httpServletRequest) throws Exception
+	public String match(@RequestParam(value = "taskName") String jobName,
+			@RequestParam(value = "selectOntologies") String ontologyIri,
+			@RequestParam(value = "inputTerms") String inputTerms, Model model, HttpServletRequest httpServletRequest)
+			throws Exception
 	{
 		if (isEmpty(ontologyIri) || isEmpty(inputTerms)) return init(model);
 		ByteArrayInputStream inputStream = new ByteArrayInputStream(inputTerms.getBytes("UTF8"));
@@ -354,10 +352,9 @@ public class SortaServiceController extends MolgenisPluginController
 	}
 
 	@RequestMapping(method = POST, value = "/match/upload", headers = "Content-Type=multipart/form-data")
-	public String upload(@RequestParam(value = "taskName", required = true) String jobName,
-			@RequestParam(value = "selectOntologies", required = true) String ontologyIri,
-			@RequestParam(value = "file", required = true) Part file, Model model,
-			HttpServletRequest httpServletRequest) throws Exception
+	public String upload(@RequestParam(value = "taskName") String jobName,
+			@RequestParam(value = "selectOntologies") String ontologyIri, @RequestParam(value = "file") Part file,
+			Model model, HttpServletRequest httpServletRequest) throws Exception
 	{
 		if (isEmpty(ontologyIri) || file == null) return init(model);
 		InputStream inputStream = file.getInputStream();
@@ -444,7 +441,7 @@ public class SortaServiceController extends MolgenisPluginController
 
 			response.setContentType("text/csv");
 			response.addHeader("Content-Disposition", "attachment; filename=" + generateCsvFileName("match-result"));
-			List<String> columnHeaders = new ArrayList<String>();
+			List<String> columnHeaders = new ArrayList<>();
 
 			EntityType sourceMetaData = dataService.getEntityType(sortaJobExecution.getSourceEntityName());
 			for (Attribute attribute : sourceMetaData.getAttributes())
@@ -507,15 +504,12 @@ public class SortaServiceController extends MolgenisPluginController
 		User currentUser = userAccountService.getCurrentUser();
 		Query<Entity> query = QueryImpl.EQ(JobExecutionMetaData.USER, currentUser.getUsername());
 		query.sort().on(JobExecutionMetaData.START_DATE, DESC);
-		RunAsSystemProxy.runAsSystem(() ->
+		RunAsSystemProxy.runAsSystem(() -> dataService.findAll(SORTA_JOB_EXECUTION, query).forEach(job ->
 		{
-			dataService.findAll(SORTA_JOB_EXECUTION, query).forEach(job ->
-			{
-				// TODO: fetch the user as well
-				job.set(JobExecutionMetaData.USER, currentUser.getUsername());
-				jobs.add(job);
-			});
-		});
+			// TODO: fetch the user as well
+			job.set(JobExecutionMetaData.USER, currentUser.getUsername());
+			jobs.add(job);
+		}));
 		return jobs;
 	}
 

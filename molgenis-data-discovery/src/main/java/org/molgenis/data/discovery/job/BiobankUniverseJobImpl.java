@@ -1,13 +1,13 @@
 package org.molgenis.data.discovery.job;
 
-import org.molgenis.data.jobs.Job;
 import org.molgenis.data.jobs.Progress;
+import org.molgenis.data.jobs.TransactionalJob;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import static java.util.Objects.requireNonNull;
 
-public class BiobankUniverseJobImpl extends Job<Void>
+public class BiobankUniverseJobImpl extends TransactionalJob<Void>
 {
 	private final BiobankUniverseJobProcessor biobankUniverseJobProcessor;
 

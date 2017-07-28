@@ -1,6 +1,5 @@
 package org.molgenis.data.rest;
 
-import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.molgenis.data.DataService;
@@ -131,27 +130,22 @@ public class AttributeResponse
 		if (attributesSet == null || attributesSet.contains("attributes".toLowerCase()))
 		{
 			Iterable<Attribute> attributeParts = attr.getChildren();
-			this.attributes = attributeParts != null ? Lists
-					.newArrayList(Iterables.transform(attributeParts, new Function<Attribute, Object>()
+			this.attributes = attributeParts != null ? Lists.newArrayList(
+					Iterables.transform(attributeParts, attribute ->
 					{
-
-						@Override
-						public Object apply(Attribute attribute)
+						if (attributeExpandsSet != null && attributeExpandsSet.containsKey(
+								"attributes".toLowerCase()))
 						{
-							if (attributeExpandsSet != null && attributeExpandsSet
-									.containsKey("attributes".toLowerCase()))
-							{
-								Set<String> subAttributesSet = attributeExpandsSet.get("attributes".toLowerCase());
-								return new AttributeResponse(entityParentName, entityType, attribute, subAttributesSet,
-										Collections.singletonMap("refEntity".toLowerCase(), null), permissionService,
-										dataService, languageService);
-							}
-							else
-							{
-								return Collections.<String, Object>singletonMap("href",
-										Href.concatMetaAttributeHref(RestController.BASE_URI, entityParentName,
-												attribute.getName()));
-							}
+							Set<String> subAttributesSet = attributeExpandsSet.get("attributes".toLowerCase());
+							return new AttributeResponse(entityParentName, entityType, attribute, subAttributesSet,
+									Collections.singletonMap("refEntity".toLowerCase(), null), permissionService,
+									dataService, languageService);
+						}
+						else
+						{
+							return Collections.<String, Object>singletonMap("href",
+									Href.concatMetaAttributeHref(RestController.BASE_URI, entityParentName,
+											attribute.getName()));
 						}
 					})) : null;
 		}

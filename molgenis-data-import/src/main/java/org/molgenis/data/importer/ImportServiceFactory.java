@@ -9,9 +9,11 @@ import org.springframework.core.OrderComparator;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
+import static java.util.stream.Collectors.toSet;
 
 @Component
 public class ImportServiceFactory
@@ -21,7 +23,7 @@ public class ImportServiceFactory
 	void addImportService(ImportService importService)
 	{
 		importServices.add(importService);
-		Collections.sort(importServices, OrderComparator.INSTANCE);
+		importServices.sort(OrderComparator.INSTANCE);
 	}
 
 	/**
@@ -43,8 +45,8 @@ public class ImportServiceFactory
 			}
 		});
 
-		String extension = FileExtensionUtils
-				.findExtensionFromPossibilities(file.getName(), importServicesMappedToExtensions.keySet());
+		String extension = FileExtensionUtils.findExtensionFromPossibilities(file.getName(),
+				importServicesMappedToExtensions.keySet());
 
 		final ImportService importService = importServicesMappedToExtensions.get(extension);
 
@@ -64,13 +66,20 @@ public class ImportServiceFactory
 			}
 		}
 
-		String extension = FileExtensionUtils
-				.findExtensionFromPossibilities(fileName, importServicesMappedToExtensions.keySet());
+		String extension = FileExtensionUtils.findExtensionFromPossibilities(fileName,
+				importServicesMappedToExtensions.keySet());
 
 		final ImportService importService = importServicesMappedToExtensions.get(extension);
 
 		if (importService == null) throw new MolgenisDataException("Can not import file. No suitable importer found");
 
 		return importService;
+	}
+
+	public Set<String> getSupportedFileExtensions()
+	{
+		return importServices.stream()
+							 .flatMap(importService -> importService.getSupportedFileExtensions().stream())
+							 .collect(toSet());
 	}
 }

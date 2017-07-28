@@ -56,12 +56,13 @@ public class EntityTypeValidator
 	public void validate(EntityType entityType)
 	{
 		validateEntityName(entityType);
+		validateEntityLabel(entityType);
 		validatePackage(entityType);
 		validateExtends(entityType);
 		validateOwnAttributes(entityType);
 
-		Map<String, Attribute> ownAllAttrMap = stream(entityType.getOwnAllAttributes().spliterator(), false)
-				.collect(toMap(Attribute::getIdentifier, Function.identity(), (u, v) ->
+		Map<String, Attribute> ownAllAttrMap = stream(entityType.getOwnAllAttributes().spliterator(), false).collect(
+				toMap(Attribute::getIdentifier, Function.identity(), (u, v) ->
 				{
 					throw new IllegalStateException(String.format("Duplicate key %s", u));
 				}, LinkedHashMap::new));
@@ -210,8 +211,8 @@ public class EntityTypeValidator
 		}
 
 		// Validate that entity does not contain multiple attributes with the same name
-		Multimap<String, Attribute> attrMultiMap = asStream(entityType.getAllAttributes())
-				.collect(MultimapCollectors.toArrayListMultimap(Attribute::getName, Function.identity()));
+		Multimap<String, Attribute> attrMultiMap = asStream(entityType.getAllAttributes()).collect(
+				MultimapCollectors.toArrayListMultimap(Attribute::getName, Function.identity()));
 		attrMultiMap.keySet().forEach(attrName ->
 		{
 			if (attrMultiMap.get(attrName).size() > 1)
@@ -290,6 +291,32 @@ public class EntityTypeValidator
 	}
 
 	/**
+	 * Validates the entity label:
+	 * - Validates that the label is not an empty string
+	 * - Validates that the label does not only consist of white space
+	 *
+	 * @param entityType entity meta data
+	 * @throws MolgenisValidationException if the entity label is invalid
+	 */
+	private static void validateEntityLabel(EntityType entityType)
+	{
+		String label = entityType.getLabel();
+		if (label != null)
+		{
+			if (label.isEmpty())
+			{
+				throw new MolgenisValidationException(
+						new ConstraintViolation(format("Label of EntityType [%s] is empty", entityType.getId())));
+			}
+			else if (label.trim().equals(""))
+			{
+				throw new MolgenisValidationException(new ConstraintViolation(
+						format("Label of EntityType [%s] contains only white space", entityType.getId())));
+			}
+		}
+	}
+
+	/**
 	 * Validate that non-system entities are not assigned to a system package
 	 *
 	 * @param entityType entity type
@@ -299,8 +326,8 @@ public class EntityTypeValidator
 		Package package_ = entityType.getPackage();
 		if (package_ != null)
 		{
-			if (MetaUtils.isSystemPackage(package_) && !systemEntityTypeRegistry
-					.hasSystemEntityType(entityType.getId()))
+			if (MetaUtils.isSystemPackage(package_) && !systemEntityTypeRegistry.hasSystemEntityType(
+					entityType.getId()))
 			{
 				throw new MolgenisValidationException(new ConstraintViolation(
 						format("Adding entity [%s] to system package [%s] is not allowed", entityType.getId(),

@@ -1,7 +1,7 @@
 package org.molgenis.security.captcha;
 
+import com.google.gson.Gson;
 import org.molgenis.security.captcha.CaptchaControllerTest.Config;
-import org.molgenis.util.GsonConfig;
 import org.molgenis.util.GsonHttpMessageConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -27,14 +27,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebAppConfiguration
-@ContextConfiguration(classes = { Config.class, GsonConfig.class })
+@ContextConfiguration(classes = { Config.class })
 public class CaptchaControllerTest extends AbstractTestNGSpringContextTests
 {
 	@Autowired
 	private CaptchaController captchaController;
-
-	@Autowired
-	private GsonHttpMessageConverter gsonHttpMessageConverter;
 
 	private MockMvc mockMvc;
 
@@ -42,15 +39,17 @@ public class CaptchaControllerTest extends AbstractTestNGSpringContextTests
 	public void setUp()
 	{
 		mockMvc = MockMvcBuilders.standaloneSetup(captchaController)
-				.setMessageConverters(new BufferedImageHttpMessageConverter(), gsonHttpMessageConverter,
-						new FormHttpMessageConverter()).build();
+								 .setMessageConverters(new BufferedImageHttpMessageConverter(),
+										 new FormHttpMessageConverter(), new GsonHttpMessageConverter(new Gson()))
+								 .build();
 	}
 
 	@Test
 	public void getCaptcha() throws Exception
 	{
-		this.mockMvc.perform(get("/captcha").accept(MediaType.IMAGE_JPEG)).andExpect(status().isOk())
-				.andExpect(content().contentType(MediaType.IMAGE_JPEG));
+		this.mockMvc.perform(get("/captcha").accept(MediaType.IMAGE_JPEG))
+					.andExpect(status().isOk())
+					.andExpect(content().contentType(MediaType.IMAGE_JPEG));
 	}
 
 	@Test
@@ -58,7 +57,8 @@ public class CaptchaControllerTest extends AbstractTestNGSpringContextTests
 	{
 		this.mockMvc.perform(
 				post("/captcha").content("{\"captcha\":\"captcha_answer\"}").contentType(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk()).andExpect(content().string("true"));
+					.andExpect(status().isOk())
+					.andExpect(content().string("true"));
 	}
 
 	@Test
@@ -66,7 +66,8 @@ public class CaptchaControllerTest extends AbstractTestNGSpringContextTests
 	{
 		this.mockMvc.perform(
 				post("/captcha").content("{\"captcha\":\"invalid_answer\"}").contentType(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk()).andExpect(content().string("false"));
+					.andExpect(status().isOk())
+					.andExpect(content().string("false"));
 	}
 
 	@Test
@@ -74,7 +75,8 @@ public class CaptchaControllerTest extends AbstractTestNGSpringContextTests
 	{
 		this.mockMvc.perform(
 				post("/captcha").param("captcha", "captcha_answer").contentType(MediaType.APPLICATION_FORM_URLENCODED))
-				.andExpect(status().isOk()).andExpect(content().string("true"));
+					.andExpect(status().isOk())
+					.andExpect(content().string("true"));
 	}
 
 	@Test
@@ -82,7 +84,8 @@ public class CaptchaControllerTest extends AbstractTestNGSpringContextTests
 	{
 		this.mockMvc.perform(
 				post("/captcha").param("captcha", "invalid_answer").contentType(MediaType.APPLICATION_FORM_URLENCODED))
-				.andExpect(status().isOk()).andExpect(content().string("false"));
+					.andExpect(status().isOk())
+					.andExpect(content().string("false"));
 	}
 
 	@Configuration
@@ -98,8 +101,8 @@ public class CaptchaControllerTest extends AbstractTestNGSpringContextTests
 		public CaptchaService captchaService() throws CaptchaException
 		{
 			CaptchaService captchaService = mock(CaptchaService.class);
-			when(captchaService.createCaptcha(220, 50))
-					.thenReturn(new BufferedImage(220, 50, BufferedImage.TYPE_INT_RGB));
+			when(captchaService.createCaptcha(220, 50)).thenReturn(
+					new BufferedImage(220, 50, BufferedImage.TYPE_INT_RGB));
 			when(captchaService.validateCaptcha("captcha_answer")).thenReturn(true);
 			return captchaService;
 		}

@@ -14,7 +14,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static java.util.Collections.singletonList;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
 import static org.molgenis.auth.TokenMetaData.TOKEN;
 import static org.molgenis.auth.TokenMetaData.TOKEN_ATTR;
@@ -55,7 +54,8 @@ public class DataServiceTokenServiceTest
 		when(q.findOne()).thenReturn(token);
 		when(dataService.query(TOKEN, Token.class)).thenReturn(q);
 
-		UserDetails userDetails = new org.springframework.security.core.userdetails.User("admin", "admin", singletonList(new SimpleGrantedAuthority("admin")));
+		UserDetails userDetails = new org.springframework.security.core.userdetails.User("admin", "admin",
+				singletonList(new SimpleGrantedAuthority("admin")));
 		when(userDetailsService.loadUserByUsername("admin")).thenReturn(userDetails);
 
 		assertEquals(tokenService.findUserByToken("token"), userDetails);

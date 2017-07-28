@@ -86,6 +86,13 @@ import static org.springframework.web.bind.annotation.RequestMethod.POST;
 @RequestMapping(URI)
 public class BiobankUniverseController extends MolgenisPluginController
 {
+	public static final String DEFAULT_ONTOLOGY_URI = "UMLS";
+	public static final String VIEW_BIOBANK_UNIVERSES = "view-biobank-universes";
+	public static final String VIEW_SINGLE_BIOBANK_UNIVERSE = "view-single-biobank-universe";
+	public static final String VIEW_BIOBANK_UNIVERSE_NETWORK = "view-biobank-universe-network";
+	public static final String VIEW_BIOBANK_UNIVERSE_CURATE = "view-biobank-universe-curate";
+	public static final String ID = "biobankuniverse";
+	public static final String URI = MolgenisPluginController.PLUGIN_URI_PREFIX + ID;
 	private final TagGroupGenerator tagGroupGenerator;
 	private final DataService dataService;
 	private final BiobankUniverseJobFactory biobankUniverseJobFactory;
@@ -102,14 +109,6 @@ public class BiobankUniverseController extends MolgenisPluginController
 	private final BiobankUniverseMetaData biobankUniverseMetaData;
 	private final BiobankSampleCollectionMetaData biobankSampleCollectionMetaData;
 	private final MenuReaderService menuReaderService;
-
-	public static final String DEFAULT_ONTOLOGY_URI = "UMLS";
-	public static final String VIEW_BIOBANK_UNIVERSES = "view-biobank-universes";
-	public static final String VIEW_SINGLE_BIOBANK_UNIVERSE = "view-single-biobank-universe";
-	public static final String VIEW_BIOBANK_UNIVERSE_NETWORK = "view-biobank-universe-network";
-	public static final String VIEW_BIOBANK_UNIVERSE_CURATE = "view-biobank-universe-curate";
-	public static final String ID = "biobankuniverse";
-	public static final String URI = MolgenisPluginController.PLUGIN_URI_PREFIX + ID;
 
 	@Autowired
 	public BiobankUniverseController(TagGroupGenerator tagGroupGenerator,

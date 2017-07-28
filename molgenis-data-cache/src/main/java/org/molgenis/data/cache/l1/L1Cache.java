@@ -3,13 +3,14 @@ package org.molgenis.data.cache.l1;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.guava.CaffeinatedGuava;
 import com.google.common.cache.Cache;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityKey;
 import org.molgenis.data.cache.utils.CombinedEntityCache;
 import org.molgenis.data.cache.utils.EntityHydration;
 import org.molgenis.data.meta.model.EntityType;
 import org.molgenis.data.transaction.DefaultMolgenisTransactionListener;
-import org.molgenis.data.transaction.MolgenisTransactionManager;
+import org.molgenis.data.transaction.TransactionManager;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -34,11 +35,11 @@ public class L1Cache extends DefaultMolgenisTransactionListener
 	private final EntityHydration entityHydration;
 
 	@Autowired
-	public L1Cache(MolgenisTransactionManager molgenisTransactionManager, EntityHydration entityHydration)
+	public L1Cache(TransactionManager transactionManager, EntityHydration entityHydration)
 	{
 		caches = new ThreadLocal<>();
 		this.entityHydration = requireNonNull(entityHydration);
-		requireNonNull(molgenisTransactionManager).addTransactionListener(this);
+		requireNonNull(transactionManager).addTransactionListener(this);
 	}
 
 	@Override
@@ -50,8 +51,8 @@ public class L1Cache extends DefaultMolgenisTransactionListener
 
 	private CombinedEntityCache createCache()
 	{
-		Cache<EntityKey, Optional<Map<String, Object>>> cache = CaffeinatedGuava
-				.build(Caffeine.newBuilder().maximumSize(MAX_CACHE_SIZE).recordStats());
+		Cache<EntityKey, Optional<Map<String, Object>>> cache = CaffeinatedGuava.build(
+				Caffeine.newBuilder().maximumSize(MAX_CACHE_SIZE).recordStats());
 		return new CombinedEntityCache(entityHydration, cache);
 	}
 
@@ -104,7 +105,7 @@ public class L1Cache extends DefaultMolgenisTransactionListener
 	 * @return the retrieved {@link Entity} or Optional.empty() if deletion of this entity is stored in the cache or
 	 * null if no information available about this entity in the cache
 	 */
-	@edu.umd.cs.findbugs.annotations.SuppressWarnings(value = "NP_OPTIONAL_RETURN_NULL", justification = "Intentional behavior")
+	@SuppressFBWarnings(value = "NP_OPTIONAL_RETURN_NULL", justification = "Intentional behavior")
 	public Optional<Entity> get(String entityTypeId, Object id, EntityType entityType)
 	{
 		CombinedEntityCache cache = caches.get();

@@ -16,7 +16,6 @@ import org.molgenis.data.processor.CellProcessor;
 import org.molgenis.data.processor.TrimProcessor;
 import org.molgenis.data.support.AbstractWritable.AttributeWriteMode;
 import org.molgenis.data.support.FileRepositoryCollection;
-import org.molgenis.data.support.GenericImporterExtensions;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.*;
@@ -53,7 +52,7 @@ public class ExcelRepositoryCollection extends FileRepositoryCollection
 	public ExcelRepositoryCollection(String name, InputStream in, CellProcessor... cellProcessors)
 			throws IOException, MolgenisInvalidFormatException
 	{
-		super(GenericImporterExtensions.getExcel(), cellProcessors);
+		super(ExcelFileExtensions.getExcel(), cellProcessors);
 		this.name = name;
 		try
 		{
@@ -127,7 +126,7 @@ public class ExcelRepositoryCollection extends FileRepositoryCollection
 
 	public ExcelSheetWriter createWritable(String entityTypeId, List<String> attributeNames)
 	{
-		List<Attribute> attributes = attributeNames != null ? attributeNames.stream().<Attribute>map(
+		List<Attribute> attributes = attributeNames != null ? attributeNames.stream().map(
 				attrName -> attributeFactory.create().setName(attrName)).collect(Collectors.toList()) : null;
 
 		return createWritable(entityTypeId, attributes, AttributeWriteMode.ATTRIBUTE_NAMES);
@@ -170,10 +169,9 @@ public class ExcelRepositoryCollection extends FileRepositoryCollection
 	public boolean hasRepository(String name)
 	{
 		if (null == name) return false;
-		Iterator<String> entityTypeIds = getEntityTypeIds().iterator();
-		while (entityTypeIds.hasNext())
+		for (String s : getEntityTypeIds())
 		{
-			if (entityTypeIds.next().equals(name)) return true;
+			if (s.equals(name)) return true;
 		}
 		return false;
 	}

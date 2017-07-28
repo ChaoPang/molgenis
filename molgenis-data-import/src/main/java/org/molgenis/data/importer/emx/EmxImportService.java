@@ -7,7 +7,6 @@ import org.molgenis.data.RepositoryCollection;
 import org.molgenis.data.importer.*;
 import org.molgenis.data.meta.MetaDataService;
 import org.molgenis.data.meta.model.EntityType;
-import org.molgenis.data.support.GenericImporterExtensions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +45,7 @@ public class EmxImportService implements ImportService
 	public boolean canImport(File file, RepositoryCollection source)
 	{
 		String fileNameExtension = StringUtils.getFilenameExtension(file.getName());
-		if (GenericImporterExtensions.getEMX().contains(fileNameExtension.toLowerCase()))
+		if (getSupportedFileExtensions().contains(fileNameExtension.toLowerCase()))
 		{
 			for (String entityTypeId : source.getEntityTypeIds())
 			{
@@ -116,7 +115,7 @@ public class EmxImportService implements ImportService
 	@Override
 	public Set<String> getSupportedFileExtensions()
 	{
-		return GenericImporterExtensions.getEMX();
+		return EmxFileExtensions.getEmx();
 	}
 
 	@Override
@@ -126,13 +125,13 @@ public class EmxImportService implements ImportService
 		List<String> skipEntities = newArrayList(EmxMetaDataParser.EMX_ATTRIBUTES, EmxMetaDataParser.EMX_PACKAGES,
 				EmxMetaDataParser.EMX_ENTITIES, EmxMetaDataParser.EMX_TAGS);
 		ImmutableMap<String, EntityType> EntityTypeMap = parser.parse(repositoryCollection, selectedPackage)
-				.getEntityMap();
+															   .getEntityMap();
 
 		LinkedHashMap<String, Boolean> importableEntitiesMap = newLinkedHashMap();
 		stream(EntityTypeMap.keySet().spliterator(), false).forEach(entityTypeId ->
 		{
-			boolean importable = skipEntities.contains(entityTypeId) || metaDataService
-					.isEntityTypeCompatible(EntityTypeMap.get(entityTypeId));
+			boolean importable = skipEntities.contains(entityTypeId) || metaDataService.isEntityTypeCompatible(
+					EntityTypeMap.get(entityTypeId));
 
 			importableEntitiesMap.put(entityTypeId, importable);
 		});

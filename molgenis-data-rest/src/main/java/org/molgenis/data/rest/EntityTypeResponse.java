@@ -1,10 +1,9 @@
 package org.molgenis.data.rest;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import org.elasticsearch.common.collect.Lists;
 import org.molgenis.data.DataService;
 import org.molgenis.data.RepositoryCapability;
 import org.molgenis.data.i18n.LanguageService;
@@ -77,7 +76,7 @@ public class EntityTypeResponse
 
 		if (attributesSet == null || attributesSet.contains("attributes".toLowerCase()))
 		{
-			this.attributes = new LinkedHashMap<String, Object>();
+			this.attributes = new LinkedHashMap<>();
 			//the newArraylist is a fix for concurrency trouble
 			//FIXME properly fix this by making metadata immutable
 			for (Attribute attr : Lists.newArrayList(meta.getAttributes()))
@@ -118,15 +117,8 @@ public class EntityTypeResponse
 		if (attributesSet == null || attributesSet.contains("lookupAttributes".toLowerCase()))
 		{
 			Iterable<Attribute> lookupAttributes = meta.getLookupAttributes();
-			this.lookupAttributes = lookupAttributes != null ? Lists
-					.newArrayList(Iterables.transform(lookupAttributes, new Function<Attribute, String>()
-					{
-						@Override
-						public String apply(Attribute attribute)
-						{
-							return attribute.getName();
-						}
-					})) : null;
+			this.lookupAttributes = lookupAttributes != null ? Lists.newArrayList(
+					Iterables.transform(lookupAttributes, Attribute::getName)) : null;
 		}
 		else this.lookupAttributes = null;
 
@@ -138,7 +130,8 @@ public class EntityTypeResponse
 
 		this.writable =
 				permissionService.hasPermissionOnEntity(name, Permission.WRITE) && dataService.getCapabilities(name)
-						.contains(RepositoryCapability.WRITABLE);
+																							  .contains(
+																									  RepositoryCapability.WRITABLE);
 	}
 
 	public String getHref()

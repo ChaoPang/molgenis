@@ -67,13 +67,6 @@ public class ProgressImpl implements Progress
 	}
 
 	@Override
-	public void appendLog(String log)
-	{
-		jobExecution.appendLog(log);
-		update();
-	}
-
-	@Override
 	public void success()
 	{
 		jobExecution.setEndDate(Instant.now());
@@ -81,9 +74,17 @@ public class ProgressImpl implements Progress
 		jobExecution.setProgressInt(jobExecution.getProgressMax());
 		Duration yourDuration = Duration.millis(timeRunning());
 		Period period = yourDuration.toPeriod();
-		PeriodFormatter periodFormatter = new PeriodFormatterBuilder().appendDays().appendSuffix("d ").appendHours()
-				.appendSuffix("h ").appendMinutes().appendSuffix("m ").appendSeconds().appendSuffix("s ").appendMillis()
-				.appendSuffix("ms ").toFormatter();
+		PeriodFormatter periodFormatter = new PeriodFormatterBuilder().appendDays()
+																	  .appendSuffix("d ")
+																	  .appendHours()
+																	  .appendSuffix("h ")
+																	  .appendMinutes()
+																	  .appendSuffix("m ")
+																	  .appendSeconds()
+																	  .appendSuffix("s ")
+																	  .appendMillis()
+																	  .appendSuffix("ms ")
+																	  .toFormatter();
 		String timeSpent = periodFormatter.print(period);
 		JOB_EXECUTION_LOG.info("Execution successful. Time spent: {}", timeSpent);
 		sendEmail(jobExecution.getSuccessEmail(), jobExecution.getType() + " job succeeded.", jobExecution.getLog());

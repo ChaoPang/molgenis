@@ -198,11 +198,7 @@ public class OntologyTermRepositoryTest extends AbstractMolgenisSpringTest
 						"\"0[0].1[1]\"")).and().eq(ONTOLOGY, ontologyEntity)))
 				.thenReturn(Stream.of(ontologyTerm_2, ontologyTerm_3));
 
-		// assertEquals(childOntologyTermsByNodePath.size(), 2);
-		// assertEquals(childOntologyTermsByNodePath.get(0),
-		// OntologyTermEntity.create("iri 2", "name 2", null, singletonList("name 2")));
-		// assertEquals(childOntologyTermsByNodePath.get(1),
-		// OntologyTermEntity.create("iri 3", "name 3", null, singletonList("name 3")));
+		//TODO: complete this test
 	}
 
 	@Test

@@ -1,5 +1,6 @@
 package org.molgenis.das;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.das.impl.MolgenisDasTarget;
 import uk.ac.ebi.mydas.datasource.RangeHandlingAnnotationDataSource;
@@ -13,7 +14,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
 
-@edu.umd.cs.findbugs.annotations.SuppressWarnings(value = "DMI_COLLECTION_OF_URLS", justification = "Third party class requires a map of URLs")
+@SuppressFBWarnings(value = "DMI_COLLECTION_OF_URLS", justification = "Third party class requires a map of URLs")
 public abstract class RangeHandlingDataSource implements RangeHandlingAnnotationDataSource
 {
 	protected DasFeature createDasFeature(Integer start, Integer stop, String identifier, String name,
@@ -39,7 +40,7 @@ public abstract class RangeHandlingDataSource implements RangeHandlingAnnotation
 			notes.add("patient:" + patient);
 		}
 
-		Map<URL, String> linkout = new HashMap<URL, String>();
+		Map<URL, String> linkout = new HashMap<>();
 		try
 		{
 			linkout.put(new URL(link), "Link");
@@ -48,11 +49,11 @@ public abstract class RangeHandlingDataSource implements RangeHandlingAnnotation
 		{
 		}
 
-		List<DasTarget> dasTargets = new ArrayList<DasTarget>();
+		List<DasTarget> dasTargets = new ArrayList<>();
 		dasTargets.add(new MolgenisDasTarget(identifier, start, stop, featureDescription));
 
-		List<String> parents = new ArrayList<String>();
-		DasFeature feature = new DasFeature(identifier, featureDescription, type, method, start, stop, new Double(0),
+		List<String> parents = new ArrayList<>();
+		DasFeature feature = new DasFeature(identifier, featureDescription, type, method, start, stop, 0d,
 				DasFeatureOrientation.ORIENTATION_NOT_APPLICABLE, DasPhase.PHASE_NOT_APPLICABLE, notes, linkout,
 				dasTargets, parents, null);
 		return feature;

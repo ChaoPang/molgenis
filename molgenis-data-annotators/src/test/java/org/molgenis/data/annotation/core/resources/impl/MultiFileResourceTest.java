@@ -1,7 +1,7 @@
 package org.molgenis.data.annotation.core.resources.impl;
 
 import com.google.common.collect.ImmutableMap;
-import org.elasticsearch.common.collect.Lists;
+import com.google.common.collect.Lists;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.molgenis.data.Entity;
@@ -118,7 +118,7 @@ public class MultiFileResourceTest extends AbstractMockitoTest
 	public void whenConfigsChangeThenIsAvailableUpdates() throws IOException
 	{
 		SingleResourceConfig chrom5Config = Mockito.mock(SingleResourceConfig.class);
-		when(config.getConfigs()).thenReturn(ImmutableMap.<String, ResourceConfig>of("5", chrom5Config));
+		when(config.getConfigs()).thenReturn(ImmutableMap.of("5", chrom5Config));
 
 		File chrom5File = new File("Bogus");
 		when(chrom5Config.getFile()).thenReturn(chrom5File);
