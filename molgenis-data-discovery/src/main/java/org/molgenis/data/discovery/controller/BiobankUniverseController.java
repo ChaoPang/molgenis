@@ -32,6 +32,7 @@ import org.molgenis.data.discovery.repo.BiobankUniverseRepository;
 import org.molgenis.data.discovery.service.BiobankUniverseService;
 import org.molgenis.data.discovery.service.BiobankUniverseService.AttributeMatchStatus;
 import org.molgenis.data.i18n.LanguageService;
+import org.molgenis.data.jobs.model.JobExecution;
 import org.molgenis.data.meta.model.Attribute;
 import org.molgenis.data.meta.model.AttributeFactory;
 import org.molgenis.data.meta.model.EntityType;
@@ -65,6 +66,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.Sets.newLinkedHashSet;
+import static java.time.Instant.now;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.reverse;
 import static java.util.Objects.*;
@@ -510,6 +512,8 @@ public class BiobankUniverseController extends MolgenisPluginController
 		jobExecution.setUniverse(biobankUniverse);
 		jobExecution.setMembers(newMembers);
 		jobExecution.setUser(userAccountService.getCurrentUser());
+		jobExecution.setStatus(JobExecution.Status.RUNNING);
+		jobExecution.setSubmissionDate(now());
 
 		RunAsSystemProxy.runAsSystem(() ->
 		{

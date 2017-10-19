@@ -139,7 +139,7 @@ public class BiobankUniverseManagementController extends MolgenisPluginControlle
 				separator);
 
 		List<String> attributeNames = stream(csvRepository.getEntityType().getAtomicAttributes().spliterator(), false)
-				.map(Attribute::getIdentifier).collect(toList());
+				.map(Attribute::getName).collect(toList());
 
 		if (attributeNames.containsAll(SAMPLE_ATTRIBUTE_HEADERS))
 		{
